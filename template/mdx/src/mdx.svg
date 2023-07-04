@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 138 57">
+  <title>MDX</title>
+  <style>
+    rect { fill: #1b1f24 }
+    g { stroke: #fff }
+    @media (prefers-color-scheme: dark) {
+      rect { fill: #fcb32c }
+      g { stroke: #1b1f24 }
+    }
+  </style>
+  <rect
+    width="136.5"
+    height="55.5"
+    x=".75"
+    y=".75"
+    rx="4.5"
+  />
+  <g fill="none" stroke-width="6">
+    <path d="M16.5 44V19L30.25 32.75l14-14v25" />
+    <path d="M70.5 40V10.75" />
+    <path d="M57 27.25L70.5 40.75l13.5-13.5" />
+    <path d="M122.5 41.24L93.25 12M93.5 41.25L122.75 12" />
+  </g>
+</svg>
+<!--
+Downloaded from https://raw.githubusercontent.com/mdx-js/mdx/main/docs/_static/icon.svg
+
+The MIT License (MIT)
+
+Copyright (c) 2017 Compositor and Vercel, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->

@@ -1,0 +1,62 @@
+on:
+  push:
+    branches:
+      - main
+      - latest
+  pull_request:
+    branches:
+      - main
+      - latest
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prettier --plugin=prettier-plugin-svelte -c .
+      - run: pnpm tsc
+      - run: pnpm eslint .
+      - run: pnpm stylelint .
+      - run: pnpm vitest run
+      - run: pnpm build
+      - run: pnpm --recursive --sequential run build
+  release:
+    needs: check
+    if: github.ref == 'refs/heads/latest'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: git fetch . ${{ github.ref }}:main
+      - run: git push origin main

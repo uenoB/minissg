@@ -1,0 +1,24 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  version="1.1"
+  role="img"
+  aria-hidden="true"
+  class="iconify iconify--logos"
+  viewBox="0 0 32 32">
+  <!-- #f98753 === hsl(19deg 93% 65%) -->
+  <path
+     fill="none"
+     stroke="#f98753"
+     stroke-width="2"
+     d="
+       M 1,28 h 9 m 3,0 h 6 m 3,0
+       h 3 c 1,0 2,-1 2,-2 v -3
+       m 0,-3 v -6 m 0,-3
+       v -0.001 l -6.999,-6.999 h -0.001 v 5 c 0,1 1,2 2,2 z
+       m 0,-10 v 3 h 4 m -14,0
+       h -5 m -3,0
+       h -2 c -1,0 -2,1 -2,2 v 2
+       m 0,3 v 8 m 0,3 v 9
+     "
+  />
+</svg>

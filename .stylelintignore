@@ -1,0 +1,6 @@
+*
+!*/
+!*.css
+!*.svelte
+!*.vue
+dist/

@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "markdown-it": "^13.0.1",
+    "tiged": "^2.12.5",
+    "vite": "^4.4.9",
+    "vite-plugin-minissg": "^0.1.0"
+  }
+}

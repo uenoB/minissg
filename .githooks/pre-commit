@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+trap '[ "$?" -eq 0 ] || echo "${0##*/} hook failed with status $?" 1>&2' EXIT
+npm run "git-${0##*/}"

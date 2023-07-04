@@ -1,0 +1,31 @@
+---
+title: Vite + Minissg + MDX
+---
+
+import Count from './Count'
+import ViteLogo from './vite.svg'
+import MinissgLogo from './minissg.svg'
+import MdxLogo from './mdx.svg'
+import { app, logo, counter } from './App.module.css'
+export default ({ children }) => <div class={app}>{children}</div>
+
+<div>
+  [<img src={ViteLogo} class={logo} alt="Vite" />
+  ][Vite] [<img src={MinissgLogo} class={logo} alt="Minissg" />
+  ][Minissg] [<img src={MdxLogo} class={logo} alt="MDX" />
+  ][MDX]
+</div>
+
+# Vite + Minissg + MDX
+
+<div>
+  <Count class={counter} />
+</div>
+
+Edit `src/*.{jsx,md,mdx}` and save to reload.
+
+[Learn Vite][Vite] | [Learn Minissg][Minissg] | [Learn MDX][MDX]
+
+[Vite]: https://vitejs.dev
+[Minissg]: #
+[MDX]: https://mdxjs.com
