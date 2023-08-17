@@ -58,5 +58,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GIT_AUTHOR_EMAIL: ''
+          GIT_COMMITTER_EMAIL: ''
       - run: git fetch . ${{ github.ref }}:main
       - run: git push origin main
