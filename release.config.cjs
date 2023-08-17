@@ -27,7 +27,11 @@ module.exports = {
     [
       '@semantic-release/git',
       {
-        assets: ['package.json', 'pnpm-lock.yaml', 'template/*/package.json']
+        assets: [
+          'package.json',
+          'example/*/package.json',
+          'template/*/package.json'
+        ]
       }
     ],
     '@semantic-release/github'
