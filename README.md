@@ -343,7 +343,7 @@ type Module =
   | { get: (arg: GetArg) => Module | PromiseLike<Module> }
   | { default: Content | PromiseLike<Content> }
   | Record<string, Module | PromiseLike<Module>>
-  | Map<string, Module | PromiseLike<Module>>;
+  | Iterable<[string, Module | PromiseLike<Module>]>;
 
 export type Content =
   | string
@@ -375,11 +375,14 @@ Intuitively:
    The `null` or `undefined` content means "not found."
    If a module have both `get` and `default`, `get` has precedence
    and `default` is ignored.
-3. A module may also be an object or Map that represents multiple
+3. A module may also be an Iterable object that enumerates multiple
    routing.
-   In this case, Each key must be a string of a relative path that
-   will be joined with the name of currently requested file.
-   See Static Routing section below for details.
+   In this case, each item in the Iterable object must be a pair
+   (array with two elements) of a string and module, where the string
+   is a relative path that will be joined with the name of currently
+   requested file.
+   See Static Routing section below for the details of name
+   concatination.
 
 Empty module is regarded as `{ default: null }`.
 
@@ -485,11 +488,9 @@ generate `*/index.html` files from them.
 const mdFiles = import.meta.glob("./**/*.md", { query: { render: "" } });
 
 // transform filenames *.md to */ and import functions to get functions
-const modules = new Map(
-  Object.entries(mdFiles).map(([filename, get]) => {
-    return [filename.replace(/\.md$/, "/"), { get }]
-  })
-);
+const modules = Object.entries(mdFiles).map(([filename, get]) => {
+  return [filename.replace(/\.md$/, "/"), { get }]
+});
 
 export const get = () => modules;
 ```
@@ -914,18 +915,16 @@ const Layout = ({ children }) => {
 };
 
 const pages = import.meta.glob("./**/*.mdx");
-const modules = new Map(
-  Object.entries(pages).map(([filename, load]) => {
-    const get = async () => {
-	  // load an MDX file and compose it with Layout.
-	  const Component = await load();
-	  const Page = () => <Layout><Component /></Layout>;
-	  // serialize the composed component.
-	  return render(Page);
-	};
-    return [filename.replace(/mdx$/, "html"), { get }]
-  })
-);
+const modules = Object.entries(pages).map(([filename, load]) => {
+  const get = async () => {
+    // load an MDX file and compose it with Layout.
+    const Component = await load();
+    const Page = () => <Layout><Component /></Layout>;
+    // serialize the composed component.
+    return render(Page);
+  };
+  return [filename.replace(/mdx$/, "html"), { get }]
+});
 
 export const get = () => modules;
 ```

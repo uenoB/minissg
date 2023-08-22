@@ -10,11 +10,9 @@ const compile = ({ default: code }) => {
 
 const sources = import.meta.glob('./posts/**/*.md', { query: { raw: '' } })
 
-const posts = new Map(
-  Object.entries(sources).map(([filename, load]) => {
-    const get = async () => compile(await load())
-    return [filename.replace(/\.md$/, '/'), { get }]
-  })
-)
+const posts = Object.entries(sources).map(([filename, load]) => {
+  const get = async () => compile(await load())
+  return [filename.replace(/\.md$/, '/'), { get }]
+})
 
 export const get = () => posts

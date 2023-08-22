@@ -13,6 +13,11 @@ const iterable = <X>(items: Iterable<X>): Iterable<X> => ({
   [Symbol.iterator]: () => items[Symbol.iterator]()
 })
 
+const isIterable = <X extends object>(
+  x: X
+): x is Extract<X, Iterable<unknown>> =>
+  Symbol.iterator in x && typeof x[Symbol.iterator] === 'function'
+
 const SCHEME = String.raw`^[a-zA-Z][a-zA-Z0-9+.-]*:`
 const DOT_SEGMENT = String.raw`(?:\/|^)\.\.(?:\/|$)`
 const NOT_RELPATH = RegExp(String.raw`${SCHEME}|^\/|\/\/|[?#]|${DOT_SEGMENT}`)
@@ -54,10 +59,10 @@ export const loadContent = async (
     : new Uint8Array(await new Blob([src]).arrayBuffer())
 
 export type Module =
+  | Iterable<[string, Awaitable<Module>]>
   | { get: Get }
   | { get?: never; default: Awaitable<Content> }
   | { get?: never; default?: never; [k: string]: Awaitable<Module> }
-  | Map<string, Awaitable<Module>>
 
 interface HttpRequest<Name = string> {
   name: Name
@@ -98,7 +103,7 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       typeCheck(mod, 'module', 'object')
       const ancestors = [mod, ...tree.ancestors]
       let routes
-      if (mod instanceof Map) {
+      if (isIterable(mod)) {
         routes = mod
       } else if (typeof mod.get === 'function') {
         const request =
