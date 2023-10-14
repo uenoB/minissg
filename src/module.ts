@@ -60,21 +60,21 @@ export const loadContent = async (
 
 export type Module =
   | Iterable<[string, Awaitable<Module>]>
-  | { get: Get }
-  | { get?: never; default: Awaitable<Content> }
-  | { get?: never; default?: never; [k: string]: Awaitable<Module> }
+  | { entries: Entries }
+  | { entries?: never; default: Awaitable<Content> }
+  | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
 interface HttpRequest<Name = string> {
   name: Name
   incoming: IncomingMessage
 }
 
-export interface GetArg {
+export interface EntriesArg {
   moduleName: string
   ancestors: Iterable<Module>
   request: HttpRequest | undefined
 }
-export type Get = (this: void, arg: GetArg) => Awaitable<Module>
+export type Entries = (arg: EntriesArg) => Awaitable<Module>
 
 export type Tree = Readonly<{
   moduleName: ModuleName
@@ -105,14 +105,14 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       let routes
       if (isIterable(mod)) {
         routes = mod
-      } else if (typeof mod.get === 'function') {
+      } else if (typeof mod.entries === 'function') {
         const request =
           tree.request != null
             ? { ...tree.request, name: tree.request.name.path }
             : undefined
         const moduleName = tree.moduleName.path
         const arg = { request, moduleName, ancestors: iterable(tree.ancestors) }
-        const module = await run(tree.loaded, () => mod.get(arg))
+        const module = await run(tree.loaded, () => mod.entries(arg))
         return [{ ...tree, module, ancestors }]
       } else if ('default' in mod) {
         return null

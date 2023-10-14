@@ -1,33 +1,34 @@
-export const get = () => ({
+export const entries = () => ({
   'preact/index.html': {
-    get: () => import('../../template/preact/src/index.html.jsx?render')
+    entries: () => import('../../template/preact/src/index.html.jsx?render')
   },
   'preact/browser.html': {
-    get: () => import('../../template/preact/src/browser.html.jsx?render')
+    entries: () => import('../../template/preact/src/browser.html.jsx?render')
   },
   'react/index.html': {
-    get: () => import('../../template/react/src/index.html.jsx?render')
+    entries: () => import('../../template/react/src/index.html.jsx?render')
   },
   'react/browser.html': {
-    get: () => import('../../template/react/src/browser.html.jsx?render')
+    entries: () => import('../../template/react/src/browser.html.jsx?render')
   },
   'solid/index.html': {
-    get: () => import('../../template/solid/src/index.html.jsx?render')
+    entries: () => import('../../template/solid/src/index.html.jsx?render')
   },
   'solid/browser.html': {
-    get: () => import('../../template/solid/src/browser.html.jsx?render')
+    entries: () => import('../../template/solid/src/browser.html.jsx?render')
   },
   'svelte/index.html': {
-    get: () => import('../../template/svelte/src/index.html.svelte?render')
+    entries: () => import('../../template/svelte/src/index.html.svelte?render')
   },
   'svelte/browser.html': {
-    get: () => import('../../template/svelte/src/browser.html.svelte?render')
+    entries: () =>
+      import('../../template/svelte/src/browser.html.svelte?render')
   },
   'vue/index.html': {
-    get: () => import('../../template/vue/src/index-html.vue?render')
+    entries: () => import('../../template/vue/src/index-html.vue?render')
   },
   'vue/browser.html': {
-    get: () => import('../../template/vue/src/browser-html.vue?render')
+    entries: () => import('../../template/vue/src/browser-html.vue?render')
   },
   '': { default: indexHtml() }
 })

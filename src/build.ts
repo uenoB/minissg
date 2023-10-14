@@ -17,7 +17,7 @@ const load = <X extends NonNullable<object>>(name: string): Load<X> => {
 }
 
 // prettier-ignore
-const get = <X>(lib: Load<LibModule>, id: string, load: Load<X>): Load<X> =>
+const loader = <X>(lib: Load<LibModule>, id: string, load: Load<X>): Load<X> =>
   async () => await lib().then(m => m.add(id)).then(load)
 
 const loadEntry = (
@@ -36,7 +36,8 @@ const loadEntry = (
       if (r == null || r.external !== false) return [k, { default: null }]
       const chunk = chunkMap.get(r.id)
       if (chunk == null) return [k, { default: null }]
-      return [k, { get: get(lib, r.id, load(resolve(outDir, chunk.fileName))) }]
+      const fileName = resolve(outDir, chunk.fileName)
+      return [k, { entries: loader(lib, r.id, load(fileName)) }]
     })
   )
   return { moduleName: ModuleName.root, module, lib }

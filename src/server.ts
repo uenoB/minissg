@@ -25,7 +25,7 @@ const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
   const lib = server.ssrLoadModule(Virtual.Lib) as Promise<LibModule>
   const module = new Map(
     Array.from(site.entries(), ([key, id]) => {
-      const get = async (): Promise<Module> => {
+      const entries = async (): Promise<Module> => {
         const plugin = server.pluginContainer
         const r = await plugin.resolveId(id, undefined, { ssr: true })
         if (r == null) return { default: null }
@@ -35,7 +35,7 @@ const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
         if (node?.id != null) (await lib).add(node.id)
         return module
       }
-      return [key, { get }]
+      return [key, { entries }]
     })
   )
   return { lib: async () => await lib, module, moduleName: ModuleName.root }

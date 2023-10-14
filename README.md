@@ -173,11 +173,11 @@ To generate multiple pages, do one of the following:
    })
    ```
 
-2. Define `get` function in `index.html.js` instead of the `default`
+2. Define `entries` function in `index.html.js` instead of the `default`
    export and indicate multiple routes in it.
 
    ```js
-   export const get = () => ({
+   export const entries = () => ({
      'index.html':
        {
          default: `<!DOCTYPE html>
@@ -340,7 +340,7 @@ The variation of a module is defined as follows in TypeScript:
 
 ```typescript
 type Module =
-  | { get: (arg: GetArg) => Module | PromiseLike<Module> }
+  | { entries: (arg: EntriesArg) => Module | PromiseLike<Module> }
   | { default: Content | PromiseLike<Content> }
   | Record<string, Module | PromiseLike<Module>>
   | Iterable<[string, Module | PromiseLike<Module>]>;
@@ -354,13 +354,13 @@ export type Content =
   | undefined
 ```
 
-The definition of `GetArg` will be given later in Contextual
+The definition of `EntriesArg` will be given later in Contextual
 Information of Modules section.
 
 The `Module` type is the type of modules expected by Minissg.
 Intuitively:
 
-1. A module may have `get` function that returns another module.
+1. A module may have `entries` function that returns another module.
    This allows the module to delegate file generation to another
    module.
 2. A module may also have `default` value that gives Minissg the
@@ -373,7 +373,7 @@ Intuitively:
    sources; for example, a module can download something by fetch
    API and pass its response as a Blob to Minissg.
    The `null` or `undefined` content means "not found."
-   If a module have both `get` and `default`, `get` has precedence
+   If a module have both `entries` and `default`, `entries` has precedence
    and `default` is ignored.
 3. A module may also be an Iterable object that enumerates multiple
    routing.
@@ -386,7 +386,7 @@ Intuitively:
 
 Empty module is regarded as `{ default: null }`.
 
-Through the `get` functions and mapping objects, the collection of
+Through the `entries` functions and mapping objects, the collection of
 modules constitute a tree structure.
 The root of this tree is the _top-level module_, which is a virtual
 module generated in accordance with Vite's `build.rollupOptions.input`
@@ -405,7 +405,7 @@ The top-level module is constructed depending on the structure of
    `index.html` file.
    This is equivalent to the following module:
    ```js
-   { "index.html": { get: () => import("./index.html.js") } }
+   { "index.html": { entries: () => import("./index.html.js") } }
    ```
 2. If it is an array of strings, the top-level modules is a mapping
    from their names to their modules.
@@ -416,8 +416,8 @@ The top-level module is constructed depending on the structure of
    means the following module:
    ```js
    {
-     "index.html": { get: () => import("./index.html.js") },
-     "hello.txt": { get: () => import("./hello.txt") }
+     "index.html": { entries: () => import("./index.html.js") },
+     "hello.txt": { entries: () => import("./hello.txt") }
    }
    ```
 3. If it is an object, Minissg uses it as the mapping from names to
@@ -429,7 +429,7 @@ The top-level module is constructed depending on the structure of
    Minissg uses `index.js` to generate `index.html`, i.e., the
    top-level module should look like the following:
    ```js
-   { "index.html": { get: () => import("./index.js") } }
+   { "index.html": { entries: () => import("./index.js") } }
    ```
 
 ### Static Routing
@@ -442,8 +442,8 @@ For other modules, which must be child modules of a module,
 their names are computed from the name of their parent module by the
 following rule:
 
-1. The name of the module returned by `get` function is same
-   as that of the module owning the `get` function.
+1. The name of the module returned by `entries` function is same
+   as that of the module owning the `entries` function.
 2. The name of a module associated to a relative path in a parent
    module is obtained by appending the relative path to the end of the
    name of the parent module.
@@ -464,7 +464,7 @@ following rule:
 
 For static site generation, Minissg visits all of the modules
 reachable from the top-level module.
-During this traversal, Minissg calls all `get` functions
+During this traversal, Minissg calls all `entries` functions
 to determine the entire set of modules.
 After that, for each module that have effective `default` value,
 Minissg generates a file whose name is the name of the module and
@@ -480,19 +480,19 @@ in a parent module.
 
 A simple but powerful way to organize multiple modules is to use
 Vite's `import.meta.glob` feature.
-The following example defines the `get` function that
+The following example defines the `entries` function that
 includes all of the `*.md` files in the `pages` directory to
 generate `*/index.html` files from them.
 
 ```js
 const mdFiles = import.meta.glob("./**/*.md", { query: { render: "" } });
 
-// transform filenames *.md to */ and import functions to get functions
-const modules = Object.entries(mdFiles).map(([filename, get]) => {
-  return [filename.replace(/\.md$/, "/"), { get }]
+// transform filenames *.md to */ and import functions to entries functions
+const modules = Object.entries(mdFiles).map(([filename, entries]) => {
+  return [filename.replace(/\.md$/, "/"), { entries }]
 });
 
-export const get = () => modules;
+export const entries = () => modules;
 ```
 
 By exploiting the fact that `index.html` and `./` fragments in a
@@ -504,11 +504,11 @@ A typical example is, as shown below, to separate the top page from
 other pages that are generated from Markdown files.
 
 ```js
-export const get = () => ({
+export const entries = () => ({
   // Only the top page has a special construction.
-  'index.html': { get: () => import("./index.jsx") },
+  'index.html': { entries: () => import("./index.jsx") },
   // But others have the same layout and generated in the same way.
-  '.': { get: () => import("./pages.js") }
+  '.': { entries: () => import("./pages.js") }
 });
 ```
 
@@ -599,9 +599,9 @@ For example, suppose the following three files:
 1. `index.html.js`
    ```js
    import "./index.css";
-   export const get = () => ({
-     "foo.html" => { get: () => import("./foo.html.js") },
-     "bar.html" => { get: () => import("./bar.html.js") }
+   export const entries = () => ({
+     "foo.html" => { entries: () => import("./foo.html.js") },
+     "bar.html" => { entries: () => import("./bar.html.js") }
    });
    ```
 2. `foo.html.js`
@@ -916,17 +916,17 @@ const Layout = ({ children }) => {
 
 const pages = import.meta.glob("./**/*.mdx");
 const modules = Object.entries(pages).map(([filename, load]) => {
-  const get = async () => {
+  const entries = async () => {
     // load an MDX file and compose it with Layout.
     const Component = await load();
     const Page = () => <Layout><Component /></Layout>;
     // serialize the composed component.
     return render(Page);
   };
-  return [filename.replace(/mdx$/, "html"), { get }]
+  return [filename.replace(/mdx$/, "html"), { entries }]
 });
 
-export const get = () => modules;
+export const entries = () => modules;
 ```
 
 ### User-defined Renderers and Hydration
@@ -1008,7 +1008,7 @@ library codes and hydration wrappers.
 
 ### Contextual Information of Modules
 
-The `get` function of a module is given an object that offers the
+The `entries` function of a module is given an object that offers the
 following information:
 * `moduleName`: The full name of the module.
   It is ensured that this does not start with `/`.
@@ -1021,17 +1021,17 @@ following information:
   parent.
 * `request`: information for dynamic routing and server-side
   rendering.
-  If it is given, the `get` function may dynamically create and return
+  If it is given, the `entries` function may dynamically create and return
   a module depending on it.
   Note that Minissg is a static site generator, not a web application
   framework.
   Currently, we do not have any plan to enhance this feature.
 
-The type of the `get` function, `GetArg`, is defined as follows in
+The type of the `entries` function, `EntriesArg`, is defined as follows in
 TypeScript:
 
 ```typescript
-type GetArg = {
+type EntriesArg = {
   moduleName: string;
   ancestors: Iterable<Module>;
   request: HttpRequest | undefined;

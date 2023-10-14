@@ -6,7 +6,7 @@ const pages = import.meta.glob(['./*.{md,mdx}', '!./App.mdx'])
 
 const pagesMap = Object.entries(pages).map(([filename, load]) => {
   const relPath = filename.replace(/(?:\/index)?\.mdx?$/, '/')
-  const get = async () => {
+  const entries = async () => {
     const md = await load()
     const title = md.frontmatter?.title ?? filename
     const component = () => (
@@ -16,7 +16,7 @@ const pagesMap = Object.entries(pages).map(([filename, load]) => {
     )
     return { default: render(component) }
   }
-  return [relPath, { get }]
+  return [relPath, { entries }]
 })
 
-export const get = () => pagesMap
+export const entries = () => pagesMap
