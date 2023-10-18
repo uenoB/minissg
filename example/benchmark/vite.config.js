@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import remarkSmartypants from 'remark-smartypants'
 import preact from '@preact/preset-vite'
 import ssg from 'vite-plugin-minissg'
-import ssgPreact from 'vite-plugin-minissg/renderer/preact'
+import ssgPreact from '@minissg/render-preact'
 
 export default defineConfig({
   base: '/hoge/',

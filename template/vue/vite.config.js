@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import ssg from 'vite-plugin-minissg'
-import ssgVue from 'vite-plugin-minissg/renderer/vue'
+import ssgVue from '@minissg/render-vue'
 
 export default defineConfig({
   build: {

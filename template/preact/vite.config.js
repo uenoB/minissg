@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import preact from '@preact/preset-vite'
 import ssg from 'vite-plugin-minissg'
-import ssgPreact from 'vite-plugin-minissg/renderer/preact'
+import ssgPreact from '@minissg/render-preact'
 
 export default defineConfig({
   build: {

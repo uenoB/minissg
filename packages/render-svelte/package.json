@@ -1,0 +1,36 @@
+{
+  "name": "@minissg/render-svelte",
+  "version": "1.0.0",
+  "description": "Preact plugin for vite-plugin-minissg",
+  "homepage": "https://github.com/uenoB/vite-plugin-minissg#readme",
+  "repository": "github:uenoB/vite-plugin-minissg",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "module": "dist/index.js",
+  "main": "dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "dist/index.d.ts",
+      "import": "dist/index.js",
+      "default": "dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.cjs",
+    "dist/index.cjs.map",
+    "dist/index.d.cts",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/index.js.map"
+  ],
+  "keywords": [
+    "vite-plugin-minissg",
+    "svelte"
+  ],
+  "peerDependencies": {
+    "svelte": "^4.2.0",
+    "vite-plugin-minissg": "^1.0.0"
+  }
+}

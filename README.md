@@ -200,16 +200,16 @@ First of all, install React and its Vite plugin by the following
 command:
 
 ```bash
-npm install react react-dom @vitejs/plugin-react
+npm install react react-dom @vitejs/plugin-react @minissg/render-react
 ```
 
 Write `vite.config.js` as follows:
 
 ```js
 import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react"  // ADDED
 import minissg from "vite-plugin-minissg"
-import minissgReact from "vite-plugin-minissg/renderer/react"  // ADDED
+import react from "@vitejs/plugin-react"  // ADDED
+import minissgReact from "@minissg/render-react"  // ADDED
 
 export default defineConfig({
   build: {
@@ -270,7 +270,7 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import mdx from "@mdx-js/rollup"           // ADDED
 import minissg from "vite-plugin-minissg"
-import minissgReact from "vite-plugin-minissg/renderer/react"
+import minissgReact from "@minissg/render-react"
 
 export default defineConfig({
   build: {
@@ -562,16 +562,16 @@ Minissg searches for a renderer of a particular file in accordance with
 this association.
 See Plugin Options section for details of the `render` option.
 
-Minissg provides several renderers for popular component systems in
-its package.
-You can import the following renderers in `vite.config.js` by the
-following names:
+Minissg provides several renderers for popular component systems
+in separate packages.
+To use renderers, install the following packages and import them in
+`vite.config.js`:
 
-* `vite-plugin-minissg/renderer/preact` for [Preact] components.
-* `vite-plugin-minissg/renderer/react` for [React] components.
-* `vite-plugin-minissg/renderer/solid` for [Solid] components.
-* `vite-plugin-minissg/renderer/svelte` for [Svelte] components.
-* `vite-plugin-minissg/renderer/vue` for [Vue] components.
+* `@minissg/render-preact` for [Preact] components.
+* `@minissg/render-react` for [React] components.
+* `@minissg/render-solid` for [Solid] components.
+* `@minissg/render-svelte` for [Svelte] components.
+* `@minissg/render-vue` for [Vue] components.
 
 Note that using renderers is not essential;
 you can avoid it by writing your own serializer by your hand and

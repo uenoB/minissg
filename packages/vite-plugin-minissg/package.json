@@ -1,0 +1,50 @@
+{
+  "name": "vite-plugin-minissg",
+  "version": "1.0.0",
+  "description": "Minimum-sized static site generator as a Vite plugin",
+  "homepage": "https://github.com/uenoB/vite-plugin-minissg#readme",
+  "repository": "github:uenoB/vite-plugin-minissg",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "module": "dist/index.js",
+  "main": "dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
+    },
+    "./renderer/*": {
+      "types": "./dist/renderer/*.d.ts",
+      "import": "./dist/renderer/*.js",
+      "default": "./dist/renderer/*.cjs"
+    },
+    "./client": {
+      "types": "./client.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "client.d.ts",
+    "dist/index.cjs",
+    "dist/index.cjs.map",
+    "dist/index.d.cts",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/index.js.map"
+  ],
+  "keywords": [
+    "vite-plugin",
+    "ssg",
+    "ssr"
+  ],
+  "dependencies": {
+    "es-module-lexer": "^1.3.0",
+    "magic-string": "^0.30.2",
+    "mrmime": "^1.0.1"
+  },
+  "peerDependencies": {
+    "vite": ">=4"
+  }
+}

@@ -6,6 +6,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "@minissg/render-vue": "^1.0.0",
     "@vitejs/plugin-vue": "^4.3.1",
     "vite": "^4.4.9",
     "vite-plugin-minissg": "^1.0.0",

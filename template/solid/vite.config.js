@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
 import ssg from 'vite-plugin-minissg'
-import ssgSolid from 'vite-plugin-minissg/renderer/solid'
+import ssgSolid from '@minissg/render-solid'
 
 export default defineConfig({
   build: {

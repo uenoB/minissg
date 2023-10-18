@@ -1,4 +1,5 @@
-import { type Renderer, js } from '../index'
+import type { Renderer } from '../../vite-plugin-minissg/src/options'
+import { js } from '../../vite-plugin-minissg/src/utils'
 
 const renderer: Renderer = {
   render: {

@@ -68,7 +68,7 @@ const expand = config => {
 
 export default [
   {
-    ignores: ['**/dist/**/*', 'client.d.ts']
+    ignores: ['**/dist/**/*', 'packages/vite-plugin-minissg/client.d.ts']
   },
   {
     linterOptions: {

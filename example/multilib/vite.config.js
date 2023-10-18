@@ -5,11 +5,11 @@ import solid from 'vite-plugin-solid'
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 import vue from '@vitejs/plugin-vue'
 import ssg from 'vite-plugin-minissg'
-import ssgPreact from 'vite-plugin-minissg/renderer/preact'
-import ssgReact from 'vite-plugin-minissg/renderer/react'
-import ssgSolid from 'vite-plugin-minissg/renderer/solid'
-import ssgSvelte from 'vite-plugin-minissg/renderer/svelte'
-import ssgVue from 'vite-plugin-minissg/renderer/vue'
+import ssgPreact from '@minissg/render-preact'
+import ssgReact from '@minissg/render-react'
+import ssgSolid from '@minissg/render-solid'
+import ssgSvelte from '@minissg/render-svelte'
+import ssgVue from '@minissg/render-vue'
 
 const preactPlugin = () => {
   return [

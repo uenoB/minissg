@@ -1,30 +1,17 @@
 import { readdirSync, readFileSync, rmSync } from 'node:fs'
-import * as path from 'node:path'
+import { relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import esbuild from 'rollup-plugin-esbuild'
 import terserPlugin from '@rollup/plugin-terser'
-import typescript from '@rollup/plugin-typescript'
-import dtsPlugin from 'rollup-plugin-dts'
+import dts from 'rollup-plugin-dts'
+
+const readDir = url => readdirSync(url).map(i => new URL(`${i}/`, url))
+const readJson = url => JSON.parse(readFileSync(new URL('package.json', url)))
+const readPackage = url => ({ url, json: readJson(url) })
 
 const baseURL = new URL('.', import.meta.url)
-const baseDir = fileURLToPath(baseURL)
-const outDir = fileURLToPath(new URL('dist/', baseURL))
-const packageJson = JSON.parse(readFileSync(new URL('package.json', baseURL)))
-const renderers = Object.fromEntries(
-  readdirSync(path.join(baseDir, 'src/renderer'))
-    .filter(i => i.endsWith('.ts'))
-    .map(i => [i.replace(/\.ts$/, ''), path.join('src/renderer', i)])
-)
-
-const dts = () =>
-  dtsPlugin({
-    tsconfig: 'tsconfig.json',
-    compilerOptions: {
-      noEmit: false,
-      declaration: true,
-      emitDeclarationOnly: true,
-      noEmitOnError: true
-    }
-  })
+const packages = readDir(new URL('packages/', baseURL)).map(readPackage)
+const toRelPath = url => relative(fileURLToPath(baseURL), fileURLToPath(url))
 
 const terser = () =>
   terserPlugin({
@@ -45,20 +32,14 @@ const terser = () =>
     }
   })
 
-const cleanup = () => ({
+const cleanup = outDir => ({
   name: 'cleanup',
   buildStart: () => rmSync(outDir, { recursive: true, force: true })
 })
 
-const externalize = map => ({
-  name: 'externalize',
-  resolveId: id => (id in map ? { id: map[id], external: true } : null)
-})
-
-const external = [
-  ...Object.keys(packageJson.dependencies),
-  ...Object.keys(packageJson.peerDependencies),
-  /^node:/
+const externalNames = ({ json }) => [
+  ...Object.keys(json.dependencies ?? {}),
+  ...Object.keys(json.peerDependencies ?? {})
 ]
 
 const esmOutput = {
@@ -70,45 +51,36 @@ const esmOutput = {
 const cjsOutput = {
   format: 'cjs',
   entryFileNames: '[name].cjs',
-  chunkFileNames: '[name].cjs',
   exports: 'named',
   esModule: true,
   sourcemap: true,
   sourcemapExcludeSources: true
 }
 
-export default [
-  {
-    external,
-    plugins: [cleanup(), typescript(), terser()],
-    input: 'src/index.ts',
-    output: [
-      { ...esmOutput, dir: outDir },
-      { ...cjsOutput, dir: outDir }
-    ]
-  },
-  {
-    external,
-    plugins: [externalize({ '../index': '../index.js' }), typescript()],
-    input: renderers,
-    output: { ...esmOutput, dir: path.join(outDir, 'renderer') }
-  },
-  {
-    external,
-    plugins: [externalize({ '../index': '../index.cjs' }), typescript()],
-    input: renderers,
-    output: { ...cjsOutput, dir: path.join(outDir, 'renderer') }
-  },
-  {
-    external,
-    plugins: [dts()],
-    input: 'src/index.ts',
-    output: { dir: outDir }
-  },
-  {
-    external,
-    plugins: [externalize({ '../index': '../index.js' }), dts()],
-    input: renderers,
-    output: { dir: path.join(outDir, 'renderer') }
-  }
-]
+const build = pkg => {
+  const external = new Set(externalNames(pkg))
+  const input = toRelPath(new URL('src/index.ts', pkg.url))
+  const outDir = toRelPath(new URL('dist/', pkg.url))
+  return [
+    {
+      external: [...external, /^node:/],
+      plugins: [cleanup(outDir), esbuild(), terser()],
+      input,
+      output: [
+        { ...esmOutput, dir: outDir },
+        { ...cjsOutput, dir: outDir }
+      ]
+    },
+    {
+      external: [...external, /^node:/],
+      plugins: [dts()],
+      input,
+      output: [
+        { dir: outDir, entryFileNames: '[name].d.ts' },
+        { dir: outDir, entryFileNames: '[name].d.cts' }
+      ]
+    }
+  ]
+}
+
+export default packages.map(build).flat()
