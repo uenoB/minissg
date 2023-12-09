@@ -30,7 +30,7 @@
     "svelte"
   ],
   "peerDependencies": {
-    "svelte": "^4.2.0",
+    "svelte": "^4.0.0",
     "vite-plugin-minissg": "^1.0.0"
   }
 }
