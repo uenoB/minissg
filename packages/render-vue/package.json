@@ -9,6 +9,10 @@
   "sideEffects": false,
   "module": "dist/index.js",
   "main": "dist/index.cjs",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
