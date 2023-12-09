@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@minissg/render-preact": "^3.0.0",
-    "@minissg/render-react": "^1.0.0",
+    "@minissg/render-react": "^3.0.0",
     "@minissg/render-solid": "^1.0.0",
     "@minissg/render-svelte": "^1.0.0",
     "@minissg/render-vue": "^1.0.0",
