@@ -10,6 +10,6 @@
     "markdown-it": "^14.0.0",
     "tiged": "^2.12.5",
     "vite": "^5.0.7",
-    "vite-plugin-minissg": "^1.0.0"
+    "vite-plugin-minissg": "^3.0.0"
   }
 }
