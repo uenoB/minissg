@@ -1,6 +1,6 @@
 {
   "name": "@minissg/render-solid",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Preact plugin for vite-plugin-minissg",
   "homepage": "https://github.com/uenoB/vite-plugin-minissg#readme",
   "repository": "github:uenoB/vite-plugin-minissg",
