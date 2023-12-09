@@ -11,9 +11,9 @@
   "main": "dist/index.cjs",
   "exports": {
     ".": {
-      "types": "dist/index.d.ts",
-      "import": "dist/index.js",
-      "default": "dist/index.cjs"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },
