@@ -7,9 +7,9 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "markdown-it": "^13.0.1",
+    "markdown-it": "^14.0.0",
     "tiged": "^2.12.5",
-    "vite": "^4.4.9",
+    "vite": "^5.0.7",
     "vite-plugin-minissg": "^1.0.0"
   }
 }
