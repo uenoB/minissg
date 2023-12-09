@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@mdx-js/rollup": "^3.0.0",
-    "@minissg/render-preact": "^1.0.0",
+    "@minissg/render-preact": "^3.0.0",
     "@preact/preset-vite": "^2.7.0",
     "preact": "^10.19.3",
     "preact-render-to-string": "^6.3.1",
