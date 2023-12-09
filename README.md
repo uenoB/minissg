@@ -29,6 +29,10 @@ This is a monorepo containing Minissg and its related packages.
 * [@minissg/render-svelte]
 * [@minissg/render-vue]
 
+## License
+
+MIT
+
 [packages/vite-plugin-minissg/README.md]: packages/vite-plugin-minissg/README.md
 [vite-plugin-minissg]: packages/vite-plugin-minissg
 [@minissg/render-preact]: packages/render-preact
