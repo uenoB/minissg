@@ -91,11 +91,12 @@ export interface Page<Head = Iterable<string>> {
 export interface Run extends Tree {
   loaded: Set<string>
   ancestors: Module[]
+  path: string
 }
 
 export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
   await mapReduce({
-    sources: [{ ...root, loaded: new Set<string>(), ancestors: [] }],
+    sources: [{ ...root, loaded: new Set<string>(), ancestors: [], path: '' }],
     destination: new Map<string, Page>(),
     fork: async ({ module, ...tree }: Run) => {
       const { run } = await tree.lib()
@@ -113,40 +114,41 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
         const moduleName = tree.moduleName.path
         const arg = { request, moduleName, ancestors: iterable(tree.ancestors) }
         const module = await run(tree.loaded, () => mod.entries(arg))
-        return [{ ...tree, module, ancestors }]
+        return [{ ...tree, module, ancestors, path: `${tree.path}.entries()` }]
       } else if ('default' in mod) {
         return null
       } else {
         routes = Object.entries(mod)
       }
-      const children = Array.from(routes, ([key, module]) => {
+      const children = Array.from(routes, ([key, module]): Run | null => {
         typeCheck(key, 'module key', 'string')
         const moduleName = tree.moduleName.join(key)
         if (tree.request?.name.isIn(moduleName) === false) return null
         const loaded = new Set(tree.loaded)
-        return { ...tree, module, loaded, ancestors, moduleName }
+        const path = `${tree.path}["${key}"]`
+        return { ...tree, module, loaded, ancestors, moduleName, path }
       })
       const subtrees = children.filter(isNotNull)
       return subtrees.length > 0 || children.length > 0 ? subtrees : null
     },
-    map: async ({ moduleName, module, loaded, lib }) => {
+    map: async ({ moduleName, module, loaded, lib, path }: Run) => {
       const { run } = await lib()
       const mod = await module // module must be already fulfilled
       const src = 'default' in mod ? mod.default : null
       const data = await run(loaded, async () => await src)
       const content: Page['content'] = async () => await loadContent(data)
-      return { moduleName, page: { head: loaded, content } }
+      return { moduleName, path, page: { head: loaded, content } }
     },
-    reduce: (i, z) => {
-      const moduleName = i.moduleName.fileName()
-      if (z.has(moduleName)) {
-        site.config.logger.warn(`duplicate module name ${moduleName}`)
+    reduce: ({ moduleName, path, page }, z) => {
+      const fileName = moduleName.fileName()
+      if (z.has(fileName)) {
+        site.config.logger.warn(`duplicate file ${fileName} by root${path}`)
       } else {
-        z.set(moduleName, i.page)
+        z.set(fileName, page)
       }
     },
-    catch: (e, { moduleName: name }) => {
-      site.config.logger.error(`error occurred in visiting ${name.fileName()}`)
+    catch: (e, { path }: Run) => {
+      site.config.logger.error(`error occurred in visiting root${path}`)
       if (e instanceof Error) throw e
       throw Error(format('uncaught non-error throw: %o', e), { cause: e })
     }
