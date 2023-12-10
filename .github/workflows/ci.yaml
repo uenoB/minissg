@@ -3,10 +3,12 @@ on:
     branches:
       - main
       - latest
+      - next
   pull_request:
     branches:
       - main
       - latest
+      - next
 permissions:
   contents: read
 jobs:
@@ -32,7 +34,7 @@ jobs:
       - run: pnpm --recursive --sequential run build
   release:
     needs: check
-    if: github.ref == 'refs/heads/latest'
+    if: github.ref == 'refs/heads/latest' || github.ref == 'refs/heads/next'
     permissions:
       contents: write
       issues: write

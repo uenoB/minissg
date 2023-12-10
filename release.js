@@ -106,7 +106,10 @@ for (const name of packages) {
     nextRelease.notes %>`
 
   const options = {
-    branches: ['latest'],
+    branches: [
+      { name: 'latest' },
+      { name: 'next', channel: 'next', prerelease: true }
+    ],
     tagFormat: name + '-v<%= version %>',
     plugins: [
       wrap(commitAnalyzer),
