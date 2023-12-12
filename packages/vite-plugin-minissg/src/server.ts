@@ -91,7 +91,7 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
   configureServer: server => () => {
     const site = new Site(server.config, options)
     const root = loadToplevelModule(server, site)
-    server.middlewares.use(function minissg(req, res, next) {
+    server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res): void => {
         res.writeHead(200, { 'content-type': content.type })
         res.write(content.body)

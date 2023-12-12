@@ -20,7 +20,8 @@ const terser = () =>
       join_vars: false,
       sequences: false,
       lhs_constants: false,
-      reduce_funcs: false
+      reduce_funcs: false,
+      keep_fnames: /Middleware$/
     },
     mangle: false,
     output: {
