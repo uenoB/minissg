@@ -19,8 +19,8 @@ const isIterable = <X extends object>(
   Symbol.iterator in x && typeof x[Symbol.iterator] === 'function'
 
 const SCHEME = String.raw`^[a-zA-Z][a-zA-Z0-9+.-]*:`
-const DOT_SEGMENT = String.raw`(?:\/|^)\.\.(?:\/|$)`
-const NOT_RELPATH = RegExp(String.raw`${SCHEME}|^\/|\/\/|[?#]|${DOT_SEGMENT}`)
+const DOT2_SEGMENT = String.raw`(?:\/|^)\.\.(?:\/|$)`
+const NOT_RELPATH = RegExp(String.raw`${SCHEME}|^\/|\/\/|[?#]|${DOT2_SEGMENT}`)
 
 export class ModuleName {
   readonly path: string
