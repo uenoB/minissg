@@ -175,7 +175,7 @@ export const buildPlugin = (
     },
 
     async moduleParsed({ isEntry }) {
-      if (!isEntry || --entryCount > 0) return
+      if (!isEntry || --entryCount !== 0) return
       // load all server-side codes before loading any client-side code
       serverChunks = await traverseGraph({
         nodes: Array.from(entryModules.values(), i => i?.id).filter(isNotNull),
@@ -192,6 +192,7 @@ export const buildPlugin = (
       for (const [outputName, page] of heads) {
         if (page.head === '') continue
         const id = Virtual.Head(outputName)
+        // NOTE: this makes entryCount negative
         this.emitFile({ type: 'chunk', id, preserveSignature: false })
       }
     },
