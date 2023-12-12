@@ -1,6 +1,12 @@
 import { test, expect } from 'vitest'
 import * as M from '../utils'
 
+test('addSet order', () => {
+  const set = new Set([0, 1, 3])
+  M.addSet(set, [2, 3])
+  expect(Array.from(set)).toStrictEqual([0, 1, 3, 2])
+})
+
 test.each([
   ['string', () => M.js`import ${'foo'}`, 'import "foo"'],
   ['number', () => M.js`import ${123}`, 'import 123'],
@@ -88,5 +94,30 @@ test('traverseGraph order', async () => {
     2: [2, 3],
     3: [3],
     4: [4, 2, 3]
+  })
+})
+
+test('traverseGraph cycle', async () => {
+  const graph: Array<M.NodeInfo<number, number>> = [
+    { next: [1, 4], values: [0] },
+    { next: [2], values: [1] },
+    { next: [3], values: [2] },
+    { next: [1], values: [3] },
+    { next: [], values: [4] }
+  ]
+  await expect(
+    M.traverseGraph({
+      nodes: [0],
+      nodeInfo: async n => {
+        await sleep(n * 10)
+        return graph[n] ?? {}
+      }
+    }).then(toObj)
+  ).resolves.toStrictEqual({
+    0: [0, 1, 2, 3, 4],
+    1: [1, 2, 3],
+    2: [2, 3, 1],
+    3: [3, 1, 2],
+    4: [4]
   })
 })

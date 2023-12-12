@@ -54,55 +54,46 @@ export interface NodeInfo<Node, Value> {
   readonly entries?: Iterable<Node> | Null
 }
 
-// traverse acyclic directed graph in depth-first pre-order
+// traverse possibly-cyclic directed graph in depth-first pre-order
 export const traverseGraph = async <Node, Value>(graph: {
   readonly nodes: Iterable<Node>
   readonly nodeInfo: (node: Node) => Awaitable<Readonly<NodeInfo<Node, Value>>>
 }): Promise<Map<Node, Set<Value>>> => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-  type Result = { values: Set<Value>; children?: Array<{ node: Node }> | Null }
-  type Item = { values?: never; node: Node } | Result
-  const results = new Map<Node, Result>()
-  const propagate = (result: Result): Result | Null => {
-    if (result.children == null) return
-    for (let i = 0; i < result.children.length; i++) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const r = results.get(result.children[i]!.node)!
-      if (r.children != null) {
-        result.children = result.children.slice(i)
-        return result
-      }
-      addSet(result.values, r.values)
-    }
-    return (result.children = null)
+  type Attr = { values: Set<Value>; next: Item[] }
+  type Item = { result: Set<Value>; node: Node; pred: Item[] } & Partial<Attr>
+  const items = new Map<Node, Item>()
+  const visit = (node: Node): Item => {
+    let r = items.get(node)
+    if (r == null) items.set(node, (r = { node, pred: [], result: new Set() }))
+    return r
   }
-  let postponed = await mapReduce<Item, Result | undefined, Result[]>({
-    sources: Array.from(graph.nodes, node => ({ node })),
-    destination: [],
+  await mapReduce<Item, Item, undefined>({
+    sources: Array.from(graph.nodes, visit),
+    destination: undefined,
     fork: async item => {
-      if (item.values != null) return null
-      const r = results.get(item.node)
-      if (r != null) return []
-      const result: Result = { values: new Set<Value>(), children: [] }
-      results.set(item.node, result)
-      const { next, entries, values } = await graph.nodeInfo(item.node)
-      result.values = new Set(values ?? [])
-      const roots = Array.from(entries ?? [], node => ({ node }))
-      const children = Array.from(next ?? [], node => ({ node }))
-      result.children = children.length > 0 ? children : null
-      return [...children, result, ...roots] // post-order tree traversal
+      if (item.values != null) return []
+      const { values, next, entries } = await graph.nodeInfo(item.node)
+      item.values = item.result = new Set(values ?? [])
+      item.next = Array.from(next ?? [], visit)
+      items.set(item.node, item)
+      for (const i of item.next) i.pred.push(item)
+      return item.next.concat(Array.from(entries ?? [], visit))
     },
-    map: item => (item.values != null ? item : undefined),
-    reduce: (result, z) => {
-      if (result == null) return
-      const r = propagate(result)
-      if (r != null) z.push(r)
-    }
+    map: i => i
   })
-  while (postponed.length > 0) {
-    postponed = postponed.map(propagate).filter(isNotNull)
+  let work = new Set(items.values() as Iterable<Required<Item>>)
+  while (work.size > 0) {
+    const current = work
+    work = new Set()
+    for (const i of current) {
+      const old = i.result
+      i.result = new Set(i.values)
+      for (const n of i.next) addSet(i.result, n.result)
+      if (Array.from(i.result).some(v => !old.has(v))) addSet(work, i.pred)
+    }
   }
-  return new Map(Array.from(results, ([k, v]) => [k, v.values]))
+  return new Map(Array.from(items, ([k, v]) => [k, v.result]))
 }
 
 export const touch = <X>(error: X): X => {
