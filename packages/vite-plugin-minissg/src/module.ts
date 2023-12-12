@@ -95,13 +95,13 @@ export interface Run extends Tree {
 }
 
 export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
-  await mapReduce({
-    sources: [{ ...root, loaded: new Set<string>(), ancestors: [], path: '' }],
+  await mapReduce<Run, Run, Map<string, Page>>({
+    sources: [{ ...root, loaded: new Set(), ancestors: [], path: 'root' }],
     destination: new Map<string, Page>(),
     fork: async ({ module, ...tree }: Run) => {
       const { run } = await tree.lib()
       const mod = await run(tree.loaded, async () => await module)
-      typeCheck(mod, 'module', 'object')
+      typeCheck(mod, tree.path, 'object')
       const ancestors = [mod, ...tree.ancestors]
       let routes
       if (isIterable(mod)) {
@@ -120,8 +120,8 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       } else {
         routes = Object.entries(mod)
       }
-      const children = Array.from(routes, ([key, module]): Run | null => {
-        typeCheck(key, 'module key', 'string')
+      const children = Array.from(routes, ([key, module], i): Run | null => {
+        typeCheck(key, `${tree.path}[${i}][0]`, 'string')
         const moduleName = tree.moduleName.join(key)
         if (tree.request?.name.isIn(moduleName) === false) return null
         const loaded = new Set(tree.loaded)
@@ -131,24 +131,23 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       const subtrees = children.filter(isNotNull)
       return subtrees.length > 0 || children.length > 0 ? subtrees : null
     },
-    map: async ({ moduleName, module, loaded, lib, path }: Run) => {
+    map: x => x,
+    reduce: async ({ moduleName, module, loaded, lib, path }: Run, z) => {
       const { run } = await lib()
       const mod = await module // module must be already fulfilled
       const src = 'default' in mod ? mod.default : null
       const data = await run(loaded, async () => await src)
       const content: Page['content'] = async () => await loadContent(data)
-      return { moduleName, path, page: { head: loaded, content } }
-    },
-    reduce: ({ moduleName, path, page }, z) => {
+      const page = { head: loaded, content }
       const fileName = moduleName.fileName()
       if (z.has(fileName)) {
-        site.config.logger.warn(`duplicate file ${fileName} by root${path}`)
+        site.config.logger.warn(`duplicate file ${fileName} by ${path}`)
       } else {
         z.set(fileName, page)
       }
     },
     catch: (e, { path }: Run) => {
-      site.config.logger.error(`error occurred in visiting root${path}`)
+      site.config.logger.error(`error occurred in visiting ${path}`)
       if (e instanceof Error) throw e
       throw Error(format('uncaught non-error throw: %o', e), { cause: e })
     }
