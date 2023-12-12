@@ -13,7 +13,6 @@ interface Req {
   site: Site
   root: Tree
   req: IncomingMessage
-  url: string
 }
 
 interface Res {
@@ -63,9 +62,9 @@ const getHtmlHead = async (
   return scriptsHtml(Array.from(src, i => '/' + i))
 }
 
-const getPage = async (req: Req): Promise<Res | undefined> => {
+const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   // url must be a normalized absolute path
-  const url = req.url.replace(/\?[^#]*$/, '')
+  url = url.replace(/\?[^#]*$/, '')
   if (/^(?:[^/]|$)|\/\/|[?#]|\/\.\.?(?:\/|$)/.test(url)) return
   const requestName = req.root.moduleName.join(url.slice(1))
   const requestFileName = requestName.fileName()
@@ -81,7 +80,6 @@ const getPage = async (req: Req): Promise<Res | undefined> => {
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   return { type: lookup(requestFileName) ?? 'application/octet-stream', body }
 }
 
@@ -92,21 +90,23 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
     const site = new Site(server.config, options)
     const root = loadToplevelModule(server, site)
     server.middlewares.use(function minissgMiddleware(req, res, next) {
-      const write = (content: Res): void => {
-        res.writeHead(200, { 'content-type': content.type })
+      const write = (content: Res & { code?: number }): void => {
+        res.writeHead(content.code ?? 404, { 'content-type': content.type })
         res.write(content.body)
         res.end()
-      }
-      const done = (content: Res | undefined): void => {
-        content != null ? write(content) : next()
       }
       const error = (e: unknown): void => {
         if (e instanceof Error) server.ssrFixStacktrace(touch(e))
         next(e)
       }
+      const context = { server, site, root, req }
       req.method == null || req.url == null
         ? next()
-        : getPage({ server, site, root, url: req.url, req }).then(done, error)
+        : getPage(context, req.url)
+            .then(c => (c != null ? { ...c, code: 200 } : c))
+            .then(async c => c ?? (await getPage(context, '/404.html')))
+            .then(c => c ?? { type: 'text/plain', body: 'Not Found' })
+            .then(write, error)
     })
   }
 })
