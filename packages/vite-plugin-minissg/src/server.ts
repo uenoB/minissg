@@ -73,10 +73,11 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const pages = await run(req.site, tree)
   const page = pages.get(requestFileName)
   if (page == null) return
-  let body = await page.content()
+  const { head: heads, body: bodyFn } = await page()
+  let body = await bodyFn()
   if (body == null) return
   if (requestFileName.endsWith('.html')) {
-    let head = await getHtmlHead(req.server.moduleGraph, req.site, page.head)
+    let head = await getHtmlHead(req.server.moduleGraph, req.site, heads)
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }

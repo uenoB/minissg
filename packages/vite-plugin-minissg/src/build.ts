@@ -3,7 +3,8 @@ import type { Plugin, Rollup, UserConfig, InlineConfig } from 'vite'
 import { build } from 'vite'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
-import { type Module, type Tree, type Page, ModuleName, run } from './module'
+import { ModuleName, run } from './module'
+import type { Module, Tree, Page, PageBody } from './module'
 import { scriptsHtml, injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Virtual, loaderPlugin, clientInfo } from './loader'
@@ -43,39 +44,40 @@ const loadEntry = (
   return { moduleName: ModuleName.root, module, lib }
 }
 
-const emitHeads = (
+const emitPages = async (
   chunks: ReadonlyMap<string, Iterable<string>>,
   pages: ReadonlyMap<string, Page>
-): Map<string, Page<string>> =>
-  new Map(
-    Array.from(pages, ([outputName, { head, content }]) => {
-      const src = new Set<string>()
-      for (const id of head) addSet(src, chunks.get(id))
-      if (src.size > 0) src.add(Virtual.Keep(outputName)) // avoid deduplication
-      return [outputName, { head: scriptsHtml(src, true), content }]
+): Promise<Iterable<readonly [string, { head: string; body: PageBody }]>> =>
+  await Promise.all(
+    Array.from(pages).map(async ([outputName, page]) => {
+      const { head, body } = await page()
+      const set = new Set<string>()
+      for (const id of head) addSet(set, chunks.get(id))
+      if (set.size > 0) set.add(Virtual.Keep(outputName)) // avoid deduplication
+      return [outputName, { head: scriptsHtml(set, true), body }] as const
     })
   )
 
-const emitPages = async (
+const emitFiles = async (
   this_: Rollup.PluginContext,
   site: Site,
   bundle: Rollup.OutputBundle,
-  pages: ReadonlyMap<string, Pick<Page, 'content'>>
+  pages: ReadonlyMap<string, { body: PageBody }>
 ): Promise<void> => {
   await mapReduce({
     sources: pages,
     destination: undefined,
-    map: async ([outputName, { content }]) => {
+    map: async ([outputName, { body }]) => {
       const assetName = '\0' + Virtual.Head(outputName)
       const head = bundle[assetName]
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
-      let body = await content()
-      if (body == null) return
+      let source = await body()
+      if (source == null) return
       if (outputName.endsWith('.html') && head?.type === 'asset') {
-        body = injectHtmlHead(body, head.source)
+        source = injectHtmlHead(source, head.source)
       }
-      this_.emitFile({ type: 'asset', fileName: outputName, source: body })
+      this_.emitFile({ type: 'asset', fileName: outputName, source })
     },
     catch: (error, [outputName]) => {
       site.config.logger.error(`error occurred in emitting ${outputName}`)
@@ -118,7 +120,7 @@ const generateInput = async (
 
 export const buildPlugin = (
   options: ResolvedOptions,
-  heads?: ReadonlyMap<string, Page<string>>
+  bodys?: ReadonlyMap<string, { body: PageBody }>
 ): Plugin => {
   let baseConfig: UserConfig
   let site: Site
@@ -140,11 +142,11 @@ export const buildPlugin = (
         return {
           build: {
             // the first pass is for SSR
-            ...(heads == null ? { ssr: true } : null),
+            ...(bodys == null ? { ssr: true } : null),
             // copyPublicDir will be done in the second pass
-            ...(heads == null ? { copyPublicDir: false } : null),
+            ...(bodys == null ? { copyPublicDir: false } : null),
             // SSR chunks are never gzipped
-            ...(heads == null ? { reportCompressedSize: false } : null)
+            ...(bodys == null ? { reportCompressedSize: false } : null)
           }
         }
       }
@@ -168,7 +170,7 @@ export const buildPlugin = (
         },
         reduce: (i, z) => z.set(...i)
       })
-      if (heads == null) {
+      if (bodys == null) {
         libFileId = this.emitFile({ type: 'chunk', id: Virtual.Lib })
         entryCount++
       }
@@ -188,9 +190,8 @@ export const buildPlugin = (
           return clientInfo({ next, entries }, id, site)
         }
       })
-      if (heads == null) return
-      for (const [outputName, page] of heads) {
-        if (page.head === '') continue
+      if (bodys == null) return
+      for (const outputName of bodys.keys()) {
         const id = Virtual.Head(outputName)
         // NOTE: this makes entryCount negative
         this.emitFile({ type: 'chunk', id, preserveSignature: false })
@@ -198,8 +199,8 @@ export const buildPlugin = (
     },
 
     async generateBundle(outputOptions, bundle) {
-      if (heads != null) {
-        await emitPages(this, site, bundle, heads)
+      if (bodys != null) {
+        await emitFiles(this, site, bundle, bodys)
         return
       }
       const dir = outputOptions.dir ?? site.config.build.outDir
@@ -211,10 +212,9 @@ export const buildPlugin = (
       onClose = async function (this: void) {
         onClose = undefined // for early memory release
         try {
-          const pages = await run(site, tree)
-          const heads = emitHeads(serverChunks, pages)
+          const pages = await emitPages(serverChunks, await run(site, tree))
           const lib = await tree.lib()
-          await build(configure(site, baseConfig, lib, heads, input))
+          await build(configure(site, baseConfig, lib, new Map(pages), input))
         } catch (error) {
           throw touch(error)
         }
@@ -254,7 +254,7 @@ const configure = (
   site: Site,
   baseConfig: UserConfig,
   lib: LibModule,
-  heads: ReadonlyMap<string, Page<string>>,
+  pages: ReadonlyMap<string, { head: string; body: PageBody }>,
   input: { entries: string[]; spoilers: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig,
@@ -273,8 +273,8 @@ const configure = (
     }
   },
   plugins: [
-    loaderPlugin(site.options, { heads, data: lib.data }),
-    buildPlugin(site.options, heads),
+    loaderPlugin(site.options, { heads: pages, data: lib.data }),
+    buildPlugin(site.options, pages),
     site.options.config.plugins,
     site.options.plugins(),
     spoilPlugin(input.spoilers) // this must be at very last
