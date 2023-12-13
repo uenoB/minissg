@@ -58,27 +58,27 @@ export const loadContent = async (
     ? src
     : new Uint8Array(await new Blob([src]).arrayBuffer())
 
+interface Request {
+  requestName: ModuleName
+  incoming: IncomingMessage
+}
+
+export interface EntriesArg {
+  moduleName: ModuleName
+  ancestors: Iterable<Module>
+  request: Request | undefined
+}
+export type Entries = (arg: EntriesArg) => Awaitable<Module>
+
 export type Module =
   | Iterable<[string, Awaitable<Module>]>
   | { entries: Entries }
   | { entries?: never; default: Awaitable<Content> }
   | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
-interface HttpRequest<Name = string> {
-  name: Name
-  incoming: IncomingMessage
-}
-
-export interface EntriesArg {
-  moduleName: string
-  ancestors: Iterable<Module>
-  request: HttpRequest | undefined
-}
-export type Entries = (arg: EntriesArg) => Awaitable<Module>
-
 export type Tree = Readonly<{
   moduleName: ModuleName
-  request?: Readonly<HttpRequest<ModuleName>> // `undefined` means get all
+  request?: Readonly<Request> // `undefined` means get all
   module: Awaitable<Module>
   lib: () => Awaitable<LibModule>
 }>
@@ -105,11 +105,8 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       if (isIterable(mod)) {
         routes = mod
       } else if (typeof mod.entries === 'function') {
-        const request =
-          tree.request != null
-            ? { ...tree.request, name: tree.request.name.path }
-            : undefined
-        const moduleName = tree.moduleName.path
+        const request = tree.request
+        const moduleName = tree.moduleName
         const arg = { request, moduleName, ancestors: iterable(tree.ancestors) }
         const module = await run(tree.loaded, () => mod.entries(arg))
         return [{ ...tree, module, ancestors, path: `${tree.path}.entries()` }]
@@ -121,7 +118,7 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       const children = Array.from(routes, ([key, module], i): Run | null => {
         typeCheck(key, `${tree.path}[${i}][0]`, 'string')
         const moduleName = tree.moduleName.join(key)
-        if (tree.request?.name.isIn(moduleName) === false) return null
+        if (tree.request?.requestName.isIn(moduleName) === false) return null
         const loaded = new Set(tree.loaded)
         const path = `${tree.path}["${key}"]`
         return { ...tree, module, loaded, ancestors, moduleName, path }

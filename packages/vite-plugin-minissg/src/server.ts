@@ -68,7 +68,7 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   if (/^(?:[^/]|$)|\/\/|#|\/\.\.?(?:\/|$)/.test(url)) return
   const requestName = req.root.moduleName.join(url.slice(1))
   const requestFileName = requestName.fileName()
-  const request = { name: requestName, incoming: req.req }
+  const request = { requestName, incoming: req.req }
   const tree = { ...req.root, request }
   const pages = await run(req.site, tree)
   const page = pages.get(requestFileName)

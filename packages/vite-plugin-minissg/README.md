@@ -1011,9 +1011,11 @@ library codes and hydration wrappers.
 The `entries` function of a module is given an object that offers the
 following information:
 * `moduleName`: The full name of the module.
-  It is ensured that this does not start with `/`.
   This would be convenient to compute the canonical URL of each
   module.
+  This is a `ModuleName`, which is a class having a property `path`
+  and three instance methods `fileName`, `join`, and `isIn`.
+  It is ensured that the `path` property does not start with `/`.
 * `ancestors`: an iterable object of the sequence of ancestor modules.
   The last one is the root of the module tree.
   This would be useful to change the contents of a module depending on
@@ -1027,19 +1029,26 @@ following information:
   framework.
   Currently, we do not have any plan to enhance this feature.
 
-The type of the `entries` function, `EntriesArg`, is defined as follows in
-TypeScript:
+The type of the argument of the `entries` function, `EntriesArg`,
+is defined as follows in TypeScript:
 
 ```typescript
 type EntriesArg = {
-  moduleName: string;
+  moduleName: ModuleName;
   ancestors: Iterable<Module>;
   request: HttpRequest | undefined;
 }
 
 type HttpRequest = {
-  name: string;
+  requestName: ModuleName;
   incoming: import("node:http").IncomingMessage | undefined;
+}
+
+type ModuleName = {
+  readonly path: string
+  fileName(): string
+  join(path: string): ModuleName;
+  isIn(other: ModuleName): boolean;
 }
 ```
 
