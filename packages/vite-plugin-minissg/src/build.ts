@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { format } from 'node:util'
 import type { Plugin, Rollup, UserConfig, InlineConfig } from 'vite'
 import { build } from 'vite'
 import type { ResolvedOptions } from './options'
@@ -215,8 +216,10 @@ export const buildPlugin = (
           const pages = await emitPages(serverChunks, await run(site, tree))
           const lib = await tree.lib()
           await build(configure(site, baseConfig, lib, new Map(pages), input))
-        } catch (error) {
-          throw touch(error)
+        } catch (e) {
+          throw e instanceof Error
+            ? touch(e)
+            : touch(Error(format('uncaught thrown value: %o', e), { cause: e }))
         }
       }
     },
