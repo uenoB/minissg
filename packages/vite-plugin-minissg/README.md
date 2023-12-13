@@ -25,6 +25,34 @@ Including this point, Minissg aims to be not an opinionated framework,
 but a _transparent atmosphere_, which does not lead you to anything
 but maximum freedom of static site programming.
 
+* [Getting Started](#getting-started)
+* [Getting Started from Scratch](#getting-started-from-scratch)
+  * [Hello, World](#hello-world)
+  * [Previewing and Dev Server](#previewing-and-dev-server)
+  * [Multiple Page Generation](#multiple-page-generation)
+  * [Using a Component Library](#using-a-component-library)
+  * [Authoring with Markdown](#authoring-with-markdown)
+* [How It Works](#how-it-works)
+  * [Vite Runs Twice](#vite-runs-twice)
+  * [Module Tree](#module-tree)
+  * [Static Routing](#static-routing)
+  * [Renderers](#renderers)
+  * [Style Sheets](#style-sheets)
+  * [Client-side Code](#client-side-code)
+  * [Partial Hydration](#partial-hydration)
+* [Advanced Features](#advanced-features)
+  * [Configuring Client-side Run](#configuring-client-side-run)
+  * [Generating Data for Client-side Code](#generating-data-for-client-side-code)
+  * [Renderer for a Module Itself](#renderer-for-a-module-itself)
+  * [User-defined Renderers and Hydration](#user-defined-renderers-and-hydration)
+  * [Mixing Components of Different Systems](#mixing-components-of-different-systems)
+  * [Contextual Information of Modules](#contextual-information-of-modules)
+  * [Debugging Server-side Code](#debugging-server-side-code)
+* [Plugin Options](#plugin-options)
+* [Related Works](#related-works)
+* [Tips and Notes](#tips-and-notes)
+* [License](#license)
+
 ## Getting Started
 
 Template projects using Minissg with Preact, React, Solid, Svelte, Vue,
@@ -354,8 +382,9 @@ export type Content =
   | undefined
 ```
 
-The definition of `EntriesArg` will be given later in Contextual
-Information of Modules section.
+The definition of `EntriesArg` will be given later in
+[Contextual Information of Modules](#contextual-information-of-modules)
+section.
 
 The `Module` type is the type of modules expected by Minissg.
 Intuitively:
@@ -381,8 +410,8 @@ Intuitively:
    (array with two elements) of a string and module, where the string
    is a relative path that will be joined with the name of currently
    requested file.
-   See Static Routing section below for the details of name
-   concatination.
+   See [Static Routing](#static-routing) section below for the details
+   of name concatination.
 
 Empty module is regarded as `{ default: null }`.
 
@@ -487,7 +516,7 @@ generate `*/index.html` files from them.
 ```js
 const mdFiles = import.meta.glob("./**/*.md", { query: { render: "" } });
 
-// transform filenames *.md to */ and import functions to entries functions
+// transform filenames *.md to */ and make modules with import functions
 const modules = Object.entries(mdFiles).map(([filename, entries]) => {
   return [filename.replace(/\.md$/, "/"), { entries }]
 });
@@ -560,7 +589,8 @@ Minissg's `render` option in `vite.config.js`.
 The `render` option associates a glob pattern to a renderer.
 Minissg searches for a renderer of a particular file in accordance with
 this association.
-See Plugin Options section for details of the `render` option.
+See [Plugin Options](#plugin-options) section for details of the
+`render` option.
 
 Minissg provides several renderers for popular component systems
 in separate packages.
@@ -578,7 +608,8 @@ you can avoid it by writing your own serializer by your hand and
 include it in server-side code.
 You can even write custom renderers and give it to Minissg through
 Minissg's `render` option.
-See User-defined Renderer and Hydration section for details.
+See [User-defined Renderer and Hydration](#user-defined-renderer-and-hydration)
+section for details.
 
 ### Style Sheets
 
@@ -710,7 +741,7 @@ server-side and client-side code to embed its initial view in the
 static file and to hydrate the view in the web browsers.
 
 As an example, here we attempt to use the `Count.jsx` presented in
-Renderer section.
+[Renderers](#renderers) section.
 At first, To enable partial hydration feature for `*.jsx` files,
 associate `**/*.jsx` to React renderer in Minissg plugin's `render`
 option.
@@ -852,7 +883,7 @@ client-side code.
 For this purpose, importing with `?client` query provides us with a
 mutable object that holds data to be passed to the client-side code.
 Client-side code can refer to such data by importing a virtual module
-named `virtual:minissg/client`.
+named `virtual:minissg/self?client`.
 
 Suppose that we have a client-side code `foo.js` and attempt to pass
 some data to it from server-side code.
@@ -871,14 +902,14 @@ to `foo.js`.
 Minissg serialize this object in JSON and generate a client-side
 module that provides the JSON object.
 Because of this implementation, the values put in this object must be
-serializable in JSON.
+serializable by `JSON.stringify`.
 
-In client-side code, import `virtual:minissg/client` in `foo.js` to
-have an access to the object passed from the server-side code.
+In client-side code, import `virtual:minissg/self?client` in `foo.js`
+to have an access to the object passed from the server-side code.
 For example, in `foo.js`, the following client-side code
 
 ```js
-import data from "virtual:minissg/client";
+import data from "virtual:minissg/self?client";
 
 console.log(data["bar"]);
 ```
@@ -890,15 +921,15 @@ initial content.
 The value of the `id` property is a string of a unique identifier of
 this client-side module.
 You can overwrite or delete it if it is not needed.
-A supposed usage of this identifier is to find particular HTML elements
+A supposed usage of `id` is to find particular HTML elements
 generated by server-side code from client-side code.
 
 ### Renderer for a Module Itself
 
 Sometimes it is convenient if a module can obtain the renderer
 associated to itself.
-A special module named `virtual:minissg/render` provides it.
-The default export of `virtual:minissg/render` is the rendering
+A special module named `virtual:minissg/self?renderer` provides it.
+The default export of `virtual:minissg/self?renderer` is the rendering
 function of the importer.
 The actual type of the rendering function depends on its definition.
 
@@ -907,7 +938,7 @@ children of the same type and renders them in the same way.
 The following is an example of JSX file that aggregates MDX files:
 
 ```jsx
-import render from "virtual:minissg/render";
+import render from "virtual:minissg/self?renderer";
 
 // common layout for all MDX files
 const Layout = ({ children }) => {
@@ -971,7 +1002,7 @@ language as the file that `?hydrate` query is given.
 Each function in `render` must return a string of the source code of
 an ES6 module whose default export is the rendering function, which
 serializes the given data or component into a format specified in
-the `Content` type described in Module Tree section.
+the `Content` type described in [Module Tree](#module-tree) section.
 The `render` functions takes one argument, namely `parameter`, which
 holds the value of `?render` query.
 
@@ -1089,7 +1120,8 @@ The `clean` option is the flag indicating whether or not Minissg
 removes intermediate chunks, such as server-side code.
 
 This is provided for debugging.
-See Debugging Server-side Code section for details.
+See [Debugging Server-side Code](#debugging-server-side-code) section
+for details.
 
 ### `config`
 
@@ -1099,7 +1131,8 @@ See Debugging Server-side Code section for details.
 
 The `config` option provides additional configuration for client-side
 run.
-See Configuring Client-side Run section for details.
+See [Configuring Client-side Run](#configuring-client-side-run) section
+for details.
 
 ### `plugins`
 
@@ -1109,7 +1142,8 @@ See Configuring Client-side Run section for details.
 
 The `plugins` option has a function that returns an array of plugins
 used in both server-side and client-side run.
-See Configuring Client-side Run section for details.
+See [Configuring Client-side Run](#configuring-cilent-side-run) section
+for details.
 
 ### `render`
 
