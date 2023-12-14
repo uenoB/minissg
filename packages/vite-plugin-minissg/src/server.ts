@@ -6,7 +6,7 @@ import { Site } from './site'
 import { type Tree, type Module, ModuleName, run } from './module'
 import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './utils'
-import { type LibModule, clientNodeInfo, Virtual } from './loader'
+import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
 
 interface Req {
   server: ViteDevServer
@@ -21,14 +21,14 @@ interface Res {
 }
 
 const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
-  const lib = server.ssrLoadModule(Virtual.Lib) as Promise<LibModule>
+  const lib = server.ssrLoadModule(Lib) as Promise<LibModule>
   const module = new Map(
     Array.from(site.entries(), ([key, id]) => {
       const entries = async (): Promise<Module> => {
         const plugin = server.pluginContainer
         const r = await plugin.resolveId(id, undefined, { ssr: true })
         if (r == null) return { default: null }
-        const url = Virtual.Exact(r.id)
+        const url = Exact(r.id)
         const module = await server.ssrLoadModule(url)
         const node = await server.moduleGraph.getModuleByUrl(url)
         if (node?.id != null) (await lib).add(node.id)

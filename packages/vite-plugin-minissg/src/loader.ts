@@ -42,10 +42,8 @@ const isVirtual = <Name extends string, N extends number>(
   args: N
 ): v is Virtual<Name, N> => v != null && v[0] === name && v.length > args
 
-const Lib = virtual(['Lib'], 'lib.js')
-const Keep = (outputName: string): string =>
-  virtual(['Keep', outputName], virtualName(outputName, '.css'))
-const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
+export const Lib = virtual(['Lib'], 'lib.js')
+export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
 const Client = (side: string, id: string): string =>
   virtual(['Client', side, id], virtualName(id))
@@ -57,9 +55,8 @@ const Render = (id: string, arg: string): string =>
   virtual(['Render', id, arg], virtualName(id))
 const Resolved = (id: string): string =>
   virtual(['Resolved', id], virtualName(id))
-const Exact = (id: string, ext = '.js'): string =>
+export const Exact = (id: string, ext = '.js'): string =>
   virtual(['Exact', id], virtualName(id, ext))
-export const Virtual = { Lib, Keep, Exact, Head }
 
 export interface ServerSideResult {
   pages: ReadonlyMap<string, { readonly head: readonly string[] }>
@@ -152,8 +149,6 @@ export const loaderPlugin = (
         const v = getVirtual(site.canonical(id))
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
-        } else if (isVirtual(v, 'Keep', 0)) {
-          return { code: '', moduleSideEffects: 'no-treeshake' }
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null

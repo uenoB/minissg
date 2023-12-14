@@ -8,7 +8,7 @@ import { ModuleName, run } from './module'
 import type { Module, Tree, Page, PageBody } from './module'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
-import { Virtual, loaderPlugin, clientNodeInfo } from './loader'
+import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './utils'
 
 type Load<X> = () => Promise<X>
@@ -68,7 +68,7 @@ const emitFiles = async (
     sources: pages,
     destination: undefined,
     map: async ([outputName, { body }]) => {
-      const assetName = '\0' + Virtual.Head(outputName, 'html')
+      const assetName = '\0' + Head(outputName, 'html')
       const head = bundle[assetName]
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
@@ -105,16 +105,15 @@ const generateInput = async (
     return assets != null && assets.size > 0 && !assets.has(id)
   }
   const entries: string[] = []
-  const spoilers = new Map<string, string[]>()
+  const spoilers = new Map<string, string[]>([['\0' + Lib, []]]) // dummy
   for (const [id, assets] of assetGenerators) {
     const info = this_.getModuleInfo(id)
-    if (info == null || assets.size === 0) continue
-    if (info.isEntry) entries.push(Virtual.Exact(id))
-    if (assets.has(id)) continue
+    if (info?.isEntry === true && assets.size > 0) entries.push(Exact(id))
+    if (info == null || assets.has(id) || assets.size === 0) continue
     const imports = [...info.importedIds, ...info.dynamicallyImportedIds]
     spoilers.set(id, imports.filter(isAssetGenerator))
   }
-  if (entries.length === 0) entries.push(Virtual.Keep('')) // avoid empty input
+  if (entries.length === 0) entries.push(Lib) // avoid empty input with dummy
   return { entries, spoilers }
 }
 
@@ -171,7 +170,7 @@ export const buildPlugin = (
         reduce: (i, z) => z.set(...i)
       })
       if (bodys == null) {
-        libFileId = this.emitFile({ type: 'chunk', id: Virtual.Lib })
+        libFileId = this.emitFile({ type: 'chunk', id: Lib })
         entryCount++
       }
     },
@@ -192,7 +191,7 @@ export const buildPlugin = (
       })
       if (bodys == null) return
       for (const outputName of bodys.keys()) {
-        const id = Virtual.Head(outputName, 'html')
+        const id = Head(outputName, 'html')
         // NOTE: this makes entryCount negative
         this.emitFile({ type: 'chunk', id, preserveSignature: false })
       }
@@ -245,7 +244,7 @@ const spoilPlugin = (src: ReadonlyMap<string, readonly string[]>): Plugin => ({
     handler(_, id) {
       const imports = src.get(id)
       if (imports == null) return null
-      const code = imports.map(i => js`import ${Virtual.Exact(i)}`)
+      const code = imports.map(i => js`import ${Exact(i)}`)
       code.push('export const __MINISSG_SPOILER__ = true')
       return { code: code.join('\n'), map: { mappings: '' } }
     }
