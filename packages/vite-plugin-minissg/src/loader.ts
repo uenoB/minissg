@@ -46,11 +46,11 @@ const Keep = (outputName: string): string =>
   virtual(['Keep', outputName], virtualName(outputName, '.css'))
 const Head = (outputName: string): string =>
   virtual(['Head', outputName], virtualName(outputName, '.html'))
-const Client = (side: Side, id: string): string =>
+const Client = (side: string, id: string): string =>
   virtual(['Client', side, id], virtualName(id))
-const Hydrate = (side: Side | '', id: string, arg: string): string =>
+const Hydrate = (side: string, id: string, arg: string): string =>
   virtual(['Hydrate', side, id, arg], side === 'server' ? id : virtualName(id))
-const Renderer = (side: Side, key: number, arg: string): string =>
+const Renderer = (side: string, key: number, arg: string): string =>
   virtual(['Renderer', side, String(key), arg], 'render.js')
 const Render = (id: string, arg: string): string =>
   virtual(['Render', id, arg], virtualName(id))
