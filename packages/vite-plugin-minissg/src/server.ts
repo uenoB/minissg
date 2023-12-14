@@ -45,21 +45,21 @@ const getHtmlHead = async (
   site: Site,
   loaded: Iterable<string>
 ): Promise<string> => {
-  const getUrl = (i: string): string | undefined => graph.getModuleById(i)?.url
-  const urls = Array.from(loaded, getUrl).filter(isNotNull)
-  const chunks = await traverseGraph({
+  const loadedUrls = Array.from(loaded, id => graph.getModuleById(id)?.url)
+  const urls = loadedUrls.filter(isNotNull)
+  const staticImports = await traverseGraph({
     nodes: urls,
     nodeInfo: async url => {
-      url = url.replace(/^\/@id\/(__x00__)?/, (_, i) => (i == null ? '' : '\0'))
+      url = url.replace(/^\/@id\//, '').replace('__x00__', '\0') // unwrapId
       const node = await graph.getModuleByUrl(url)
       const tr = node?.ssrTransformResult
       const info = { next: tr?.deps, entries: tr?.dynamicDeps }
       return clientNodeInfo(info, node?.id, site)
     }
   })
-  const src = new Set<string>()
-  for (const i of urls) addSet(src, chunks.get(i))
-  return scriptsHtml(Array.from(src, i => '/' + i))
+  const set = new Set<string>()
+  for (const url of urls) addSet(set, staticImports.get(url))
+  return scriptsHtml(Array.from(set, i => '/' + i))
 }
 
 const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
