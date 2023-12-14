@@ -53,10 +53,8 @@ const Renderer = (side: string, key: number, arg: string): string =>
   virtual(['Renderer', side, String(key), arg], 'render.js')
 const Render = (id: string, arg: string): string =>
   virtual(['Render', id, arg], virtualName(id))
-const Resolved = (id: string): string =>
-  virtual(['Resolved', id], virtualName(id))
-export const Exact = (id: string, ext = '.js'): string =>
-  virtual(['Exact', id], virtualName(id, ext))
+export const Exact = (id: string, resolve = false, ext = '.js'): string =>
+  virtual(['Exact', id, resolve ? 'resolve' : ''], virtualName(id, ext))
 
 export interface ServerSideResult {
   pages: ReadonlyMap<string, { readonly head: readonly string[] }>
@@ -73,7 +71,7 @@ export const clientNodeInfo = <Node>(
   if (isVirtual(v, 'Client', 2)) return { values: [Exact(v[2])] }
   if (isVirtual(v, 'Hydrate', 3)) return { values: [Hydrate('', v[2], v[3])] }
   // add `.css` suffix to avoid polyfill insertion by Vite
-  if (site.isAsset(id)) return { values: [Exact(id, '.css')] }
+  if (site.isAsset(id)) return { values: [Exact(id, false, '.css')] }
   return info
 }
 
@@ -116,10 +114,8 @@ export const loaderPlugin = (
         let r: Rollup.PartialResolvedId | null = { id }
         if (isVirtual(v, 'self', 1) && importer != null) {
           r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
-        } else if (isVirtual(v, 'Exact', 1)) {
-          r = { id: v[1] }
-        } else if (isVirtual(v, 'Resolved', 1)) {
-          r = resolveQuery({ id: v[1] })
+        } else if (isVirtual(v, 'Exact', 2)) {
+          r = (v[2] === '' ? <X>(x: X): X => x : resolveQuery)({ id: v[1] })
         } else if (v == null) {
           r = await this.resolve(id, importer, { ...options, skipSelf: true })
           if (r == null || Boolean(r.external) || r.id.includes('\0')) return r
@@ -176,9 +172,9 @@ export const loaderPlugin = (
           return await r({ parameter: v[3] })
         } else if (isVirtual(v, 'Render', 2)) {
           return js`
-            import render from ${Resolved(RENDERER.add(v[1], v[2]))}
-            import * as m from ${Resolved(v[1])}
-            export * from ${Resolved(v[1])}
+            import render from ${Exact(RENDERER.add(v[1], v[2]), true)}
+            import * as m from ${Exact(v[1], true)}
+            export * from ${Exact(v[1], true)}
             const get = m => Promise.resolve(m.default)
             const desc = Object.create(null)
             desc['value'] = (...a) => get(m).then(render).then(...a)
@@ -189,7 +185,7 @@ export const loaderPlugin = (
           let h = site.options.render.match(v[2])?.value.hydrate?.[k]
           h ??= () => js`throw Error(${`hydration not available for ${v[2]}`})`
           const hid = site.scriptId(v[2])
-          const args = { id: hid, moduleId: Resolved(v[2]), parameter: v[3] }
+          const args = { id: hid, moduleId: Exact(v[2], true), parameter: v[3] }
           return { code: await h(args), map: { mappings: '' } }
         }
         return null
@@ -210,7 +206,7 @@ export const loaderPlugin = (
         if (d < 0 || n == null) continue
         const r = await this.resolve(n, id)
         if (r == null || Boolean(r.external)) continue
-        const load = addId + js`(${r.id}),import(${Resolved(r.id)})`
+        const load = addId + js`(${r.id}),import(${Exact(r.id, true)})`
         ms.update(ss, se, `(${load})`)
       }
       if (!ms.hasChanged()) return null
