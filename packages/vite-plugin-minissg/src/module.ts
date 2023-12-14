@@ -84,7 +84,7 @@ export type Tree = Readonly<{
 }>
 
 export type PageBody = () => Promise<string | Uint8Array | Null>
-export type Page = () => Promise<{ head: Iterable<string>; body: PageBody }>
+export type Page = () => Promise<{ loaded: Iterable<string>; body: PageBody }>
 
 export interface Run extends Tree {
   loaded: Set<string>
@@ -133,7 +133,7 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       const src = 'default' in mod ? mod.default : null
       const page: Page = async () => {
         const body = await run(loaded, async () => await src)
-        return { head: loaded, body: async () => await loadContent(body) }
+        return { loaded, body: async () => await loadContent(body) }
       }
       const fileName = moduleName.fileName()
       if (z.has(fileName)) {

@@ -51,9 +51,9 @@ const emitPages = async (
 ): Promise<Iterable<readonly [string, { head: string; body: PageBody }]>> =>
   await Promise.all(
     Array.from(pages).map(async ([outputName, page]) => {
-      const { head, body } = await page()
+      const { loaded, body } = await page()
       const set = new Set<string>()
-      for (const id of head) addSet(set, staticImports.get(id))
+      for (const id of loaded) addSet(set, staticImports.get(id))
       if (set.size > 0) set.add(Virtual.Keep(outputName)) // avoid deduplication
       return [outputName, { head: scriptsHtml(set, true), body }] as const
     })

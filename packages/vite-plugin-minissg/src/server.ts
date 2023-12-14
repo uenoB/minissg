@@ -43,10 +43,10 @@ const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
 const getHtmlHead = async (
   graph: ModuleGraph,
   site: Site,
-  chunkIds: Iterable<string>
+  loaded: Iterable<string>
 ): Promise<string> => {
   const getUrl = (i: string): string | undefined => graph.getModuleById(i)?.url
-  const urls = Array.from(chunkIds, getUrl).filter(isNotNull)
+  const urls = Array.from(loaded, getUrl).filter(isNotNull)
   const chunks = await traverseGraph({
     nodes: urls,
     nodeInfo: async url => {
@@ -73,11 +73,11 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const pages = await run(req.site, tree)
   const page = pages.get(requestFileName)
   if (page == null) return
-  const { head: heads, body: bodyFn } = await page()
+  const { loaded, body: bodyFn } = await page()
   let body = await bodyFn()
   if (body == null) return
   if (requestFileName.endsWith('.html')) {
-    let head = await getHtmlHead(req.server.moduleGraph, req.site, heads)
+    let head = await getHtmlHead(req.server.moduleGraph, req.site, loaded)
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }
