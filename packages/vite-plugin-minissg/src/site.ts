@@ -25,11 +25,15 @@ export class Site {
     return this.config.assetsInclude(moduleId.replace(/[?#].*$/s, ''))
   }
 
-  scriptId(moduleId: string): string {
+  canonical(moduleId: string): string {
     if (moduleId.startsWith(this.projectRoot)) {
       moduleId = moduleId.slice(this.projectRoot.length)
     }
-    moduleId = moduleId.replace(/[?#].*$/s, '')
+    return moduleId.replace(/[?#].*$/s, '')
+  }
+
+  scriptId(moduleId: string): string {
+    moduleId = this.canonical(moduleId)
     const hmac = createHmac('sha256', '--MINISSG--').update(moduleId)
     return hmac.digest('base64url').slice(0, 8)
   }

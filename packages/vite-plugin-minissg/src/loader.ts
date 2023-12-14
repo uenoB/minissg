@@ -97,7 +97,7 @@ export const loaderPlugin = (
       async handler(id, importer, options) {
         const fromSSR = importer == null || isInSSR.get(importer)
         const inSSR = fromSSR ?? options.ssr === true
-        const v = getVirtual(id)
+        let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
           if ((q = RENDERER.match(r.id)) != null) {
@@ -127,10 +127,12 @@ export const loaderPlugin = (
           if (r == null || Boolean(r.external) || r.id.includes('\0')) return r
           r = resolveQuery(r)
         }
-        if (!r.id.startsWith('\0')) {
-          const v = getVirtual(r.id)
-          // server-side hydration code needs to be processed by other plugins
-          if (v != null && !(v[0] === 'Hydrate' && v[1] === 'server')) {
+        if (!r.id.startsWith('\0') && (v = getVirtual(r.id)) != null) {
+          if (v[0] === 'Head') {
+            // html file must be identified by its absolute path in config.root
+            r = { ...r, id: site.projectRoot + '\0' + r.id }
+          } else if (!(v[0] === 'Hydrate' && v[1] === 'server')) {
+            // server-side hydration code needs to be processed by other plugins
             r = { ...r, id: '\0' + r.id }
           }
         }
@@ -144,7 +146,7 @@ export const loaderPlugin = (
     load: {
       order: 'pre',
       async handler(id) {
-        const v = getVirtual(id)
+        const v = getVirtual(site.canonical(id))
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Keep', 0)) {
