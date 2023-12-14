@@ -4,7 +4,7 @@ import { lookup } from 'mrmime'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { type Tree, type Module, ModuleName, run } from './module'
-import { scriptsHtml, injectHtmlHead } from './html'
+import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './utils'
 import { type LibModule, clientNodeInfo, Virtual } from './loader'
 
@@ -59,7 +59,7 @@ const getHtmlHead = async (
   })
   const set = new Set<string>()
   for (const url of urls) addSet(set, staticImports.get(url))
-  return scriptsHtml(Array.from(set, i => '/' + i))
+  return Array.from(set, i => script(`/@id/${i}`)).join('\n')
 }
 
 const getPage = async (req: Req, url: string): Promise<Res | undefined> => {

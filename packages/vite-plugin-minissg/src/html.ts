@@ -1,14 +1,11 @@
-import { isCSSRequest } from 'vite'
-
 const escape = (s: string): string =>
   s.replace(/[<>"]/g, i => (i === '<' ? '&lt;' : i === '>' ? '&gt;' : '&quot;'))
 
-export const scriptsHtml = (src: Iterable<string>, link = false): string =>
-  Array.from(src, i =>
-    link && isCSSRequest(i)
-      ? `<link rel="stylesheet" href="${escape(i)}">\n`
-      : `<script type="module" src="${escape(i)}"></script>\n`
-  ).join('')
+export const script = (src: string): string =>
+  `<script type="module" src="${escape(src)}"></script>`
+
+export const link = (href: string): string =>
+  `<link rel="stylesheet" href="${escape(href)}">`
 
 export const injectHtmlHead = (
   html: string | Uint8Array,

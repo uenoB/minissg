@@ -1,6 +1,7 @@
 import type { Plugin, PluginOption, Rollup } from 'vite'
 import { init, parse } from 'es-module-lexer'
 import MagicString from 'magic-string'
+import { script, link } from './html'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { Query } from './query'
@@ -44,8 +45,8 @@ const isVirtual = <Name extends string, N extends number>(
 const Lib = virtual(['Lib'], 'lib.js')
 const Keep = (outputName: string): string =>
   virtual(['Keep', outputName], virtualName(outputName, '.css'))
-const Head = (outputName: string): string =>
-  virtual(['Head', outputName], virtualName(outputName, '.html'))
+const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
+  virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
 const Client = (side: string, id: string): string =>
   virtual(['Client', side, id], virtualName(id))
 const Hydrate = (side: string, id: string, arg: string): string =>
@@ -61,7 +62,7 @@ const Exact = (id: string, ext = '.js'): string =>
 export const Virtual = { Lib, Keep, Exact, Head }
 
 export interface ServerSideResult {
-  heads: ReadonlyMap<string, { head: string }>
+  pages: ReadonlyMap<string, { readonly head: readonly string[] }>
   data: ReadonlyMap<string, JsonObj>
 }
 
@@ -128,9 +129,11 @@ export const loaderPlugin = (
           r = resolveQuery(r)
         }
         if (!r.id.startsWith('\0') && (v = getVirtual(r.id)) != null) {
-          if (v[0] === 'Head') {
+          if (v[0] === 'Head' && v[2] === 'html') {
             // html file must be identified by its absolute path in config.root
             r = { ...r, id: site.projectRoot + '\0' + r.id }
+          } else if (v[0] === 'Head') {
+            r = { ...r, id: '\0' + id.replace(/\.[^.]*$/, '.js') }
           } else if (!(v[0] === 'Hydrate' && v[1] === 'server')) {
             // server-side hydration code needs to be processed by other plugins
             r = { ...r, id: '\0' + r.id }
@@ -151,8 +154,16 @@ export const loaderPlugin = (
           return libModule
         } else if (isVirtual(v, 'Keep', 0)) {
           return { code: '', moduleSideEffects: 'no-treeshake' }
-        } else if (isVirtual(v, 'Head', 1)) {
-          return server?.heads.get(v[1])?.head ?? null
+        } else if (isVirtual(v, 'Head', 2)) {
+          const head = server?.pages.get(v[1])?.head
+          if (head == null) return null
+          if (v[2] === 'html') {
+            return head.some(i => !i.endsWith('.css'))
+              ? script(Head(v[1], 'js'))
+              : link(Head(v[1], 'css'))
+          } else {
+            return head.map(i => js`import ${i}`).join('\n')
+          }
         } else if (isVirtual(v, 'Client', 2)) {
           const key = site.scriptId(v[2])
           if (v[1] === 'server') {

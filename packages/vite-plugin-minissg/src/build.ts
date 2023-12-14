@@ -6,7 +6,7 @@ import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { ModuleName, run } from './module'
 import type { Module, Tree, Page, PageBody } from './module'
-import { scriptsHtml, injectHtmlHead } from './html'
+import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Virtual, loaderPlugin, clientNodeInfo } from './loader'
 import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './utils'
@@ -48,14 +48,13 @@ const loadEntry = (
 const emitPages = async (
   staticImports: ReadonlyMap<string, Iterable<string>>,
   pages: ReadonlyMap<string, Page>
-): Promise<Iterable<readonly [string, { head: string; body: PageBody }]>> =>
+): Promise<Iterable<readonly [string, { head: string[]; body: PageBody }]>> =>
   await Promise.all(
     Array.from(pages).map(async ([outputName, page]) => {
       const { loaded, body } = await page()
-      const set = new Set<string>()
-      for (const id of loaded) addSet(set, staticImports.get(id))
-      if (set.size > 0) set.add(Virtual.Keep(outputName)) // avoid deduplication
-      return [outputName, { head: scriptsHtml(set, true), body }] as const
+      const head = new Set<string>()
+      for (const id of loaded) addSet(head, staticImports.get(id))
+      return [outputName, { head: Array.from(head), body }] as const
     })
   )
 
@@ -69,7 +68,7 @@ const emitFiles = async (
     sources: pages,
     destination: undefined,
     map: async ([outputName, { body }]) => {
-      const assetName = '\0' + Virtual.Head(outputName)
+      const assetName = '\0' + Virtual.Head(outputName, 'html')
       const head = bundle[assetName]
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
@@ -121,7 +120,7 @@ const generateInput = async (
 
 export const buildPlugin = (
   options: ResolvedOptions,
-  bodys?: ReadonlyMap<string, { body: PageBody }>
+  bodys?: ReadonlyMap<string, { readonly body: PageBody }>
 ): Plugin => {
   let baseConfig: UserConfig
   let site: Site
@@ -193,7 +192,7 @@ export const buildPlugin = (
       })
       if (bodys == null) return
       for (const outputName of bodys.keys()) {
-        const id = Virtual.Head(outputName)
+        const id = Virtual.Head(outputName, 'html')
         // NOTE: this makes entryCount negative
         this.emitFile({ type: 'chunk', id, preserveSignature: false })
       }
@@ -257,7 +256,7 @@ const configure = (
   site: Site,
   baseConfig: UserConfig,
   lib: LibModule,
-  pages: ReadonlyMap<string, { head: string; body: PageBody }>,
+  pages: ReadonlyMap<string, { head: readonly string[]; body: PageBody }>,
   input: { entries: string[]; spoilers: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig,
@@ -276,7 +275,7 @@ const configure = (
     }
   },
   plugins: [
-    loaderPlugin(site.options, { heads: pages, data: lib.data }),
+    loaderPlugin(site.options, { pages, data: lib.data }),
     buildPlugin(site.options, pages),
     site.options.config.plugins,
     site.options.plugins(),
