@@ -1,4 +1,4 @@
-import type { Plugin, PluginOption } from 'vite'
+import type { Plugin, PluginOption, Rollup } from 'vite'
 import { init, parse } from 'es-module-lexer'
 import MagicString from 'magic-string'
 import type { ResolvedOptions } from './options'
@@ -97,37 +97,42 @@ export const loaderPlugin = (
       async handler(id, importer, options) {
         const fromSSR = importer == null || isInSSR.get(importer)
         const inSSR = fromSSR ?? options.ssr === true
+        const v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
+          let q
           if ((q = RENDERER.match(r.id)) != null) {
             const k = coerceSide(inSSR)
             const m = site.options.render.match(r.id)
             const found = m?.value.render?.[k] != null
             const key = found ? m.key : -1
-            const a = found ? q.value : `renderer not found for ${r.id} on ${k}`
-            return { ...r, id: '\0' + Renderer(k, key, a) }
+            return { ...r, id: Renderer(k, key, found ? q.value : r.id) }
           } else if ((q = CLIENT.match(r.id)) != null) {
-            return { ...r, id: '\0' + Client(coerceSide(inSSR), q.remove()) }
+            return { ...r, id: Client(coerceSide(inSSR), q.remove()) }
           } else if ((q = RENDER.match(r.id)) != null) {
-            return { ...r, id: '\0' + Render(q.remove(), q.value) }
+            return { ...r, id: Render(q.remove(), q.value) }
           } else if ((q = HYDRATE.match(r.id)) != null) {
             return { ...r, id: Hydrate(coerceSide(inSSR), q.remove(), q.value) }
           }
           return r
         }
-        let r, q
-        const v = getVirtual(id)
+        let r: Rollup.PartialResolvedId | null = { id }
         if (isVirtual(v, 'self', 1) && importer != null) {
           r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
         } else if (isVirtual(v, 'Exact', 1)) {
           r = { id: v[1] }
         } else if (isVirtual(v, 'Resolved', 1)) {
           r = resolveQuery({ id: v[1] })
-        } else if (v != null) {
-          r = { id: v[0] === 'Hydrate' || id.startsWith('\0') ? id : '\0' + id }
-        } else {
+        } else if (v == null) {
           r = await this.resolve(id, importer, { ...options, skipSelf: true })
           if (r == null || Boolean(r.external) || r.id.includes('\0')) return r
           r = resolveQuery(r)
+        }
+        if (!r.id.startsWith('\0')) {
+          const v = getVirtual(r.id)
+          // server-side hydration code needs to be processed by other plugins
+          if (v != null && !(v[0] === 'Hydrate' && v[1] === 'server')) {
+            r = { ...r, id: '\0' + r.id }
+          }
         }
         const ssr = inSSR && !site.isAsset(r.id)
         const prev = isInSSR.get(r.id)
@@ -159,7 +164,7 @@ export const loaderPlugin = (
         } else if (isVirtual(v, 'Renderer', 3)) {
           const k = coerceSide(v[1])
           let r = site.options.render.get(Number(v[2]))?.render?.[k]
-          r ??= () => js`throw Error(${v[3]})`
+          r ??= () => js`throw Error(${`${k} renderer not found for ${v[3]}`})`
           return await r({ parameter: v[3] })
         } else if (isVirtual(v, 'Render', 2)) {
           return js`
