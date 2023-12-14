@@ -65,7 +65,7 @@ export interface ServerSideResult {
   data: ReadonlyMap<string, JsonObj>
 }
 
-export const clientInfo = <Node>(
+export const clientNodeInfo = <Node>(
   info: NodeInfo<Node, string>,
   id: string | null | undefined,
   site: Site

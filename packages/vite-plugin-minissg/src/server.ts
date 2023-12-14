@@ -6,7 +6,7 @@ import { Site } from './site'
 import { type Tree, type Module, ModuleName, run } from './module'
 import { scriptsHtml, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './utils'
-import { type LibModule, clientInfo, Virtual } from './loader'
+import { type LibModule, clientNodeInfo, Virtual } from './loader'
 
 interface Req {
   server: ViteDevServer
@@ -54,7 +54,7 @@ const getHtmlHead = async (
       const node = await graph.getModuleByUrl(url)
       const tr = node?.ssrTransformResult
       const info = { next: tr?.deps, entries: tr?.dynamicDeps }
-      return clientInfo(info, node?.id, site)
+      return clientNodeInfo(info, node?.id, site)
     }
   })
   const src = new Set<string>()

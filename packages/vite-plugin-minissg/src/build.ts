@@ -8,7 +8,7 @@ import { ModuleName, run } from './module'
 import type { Module, Tree, Page, PageBody } from './module'
 import { scriptsHtml, injectHtmlHead } from './html'
 import type { LibModule } from './loader'
-import { Virtual, loaderPlugin, clientInfo } from './loader'
+import { Virtual, loaderPlugin, clientNodeInfo } from './loader'
 import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './utils'
 
 type Load<X> = () => Promise<X>
@@ -188,7 +188,7 @@ export const buildPlugin = (
           if (info.isExternal) return {}
           const next = info.importedIds
           const entries = info.dynamicallyImportedIds
-          return clientInfo({ next, entries }, id, site)
+          return clientNodeInfo({ next, entries }, id, site)
         }
       })
       if (bodys == null) return
