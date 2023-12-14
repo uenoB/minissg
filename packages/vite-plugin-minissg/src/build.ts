@@ -46,14 +46,14 @@ const loadEntry = (
 }
 
 const emitPages = async (
-  chunks: ReadonlyMap<string, Iterable<string>>,
+  staticImports: ReadonlyMap<string, Iterable<string>>,
   pages: ReadonlyMap<string, Page>
 ): Promise<Iterable<readonly [string, { head: string; body: PageBody }]>> =>
   await Promise.all(
     Array.from(pages).map(async ([outputName, page]) => {
       const { head, body } = await page()
       const set = new Set<string>()
-      for (const id of head) addSet(set, chunks.get(id))
+      for (const id of head) addSet(set, staticImports.get(id))
       if (set.size > 0) set.add(Virtual.Keep(outputName)) // avoid deduplication
       return [outputName, { head: scriptsHtml(set, true), body }] as const
     })
@@ -126,7 +126,7 @@ export const buildPlugin = (
   let baseConfig: UserConfig
   let site: Site
   let onClose: (() => Promise<void>) | undefined
-  let serverChunks = new Map<string, Set<string>>()
+  let staticImports = new Map<string, Set<string>>()
   let entryModules = new Map<string, Rollup.ResolvedId | null>()
   let entryCount = 0
   let libFileId: string | undefined
@@ -180,7 +180,7 @@ export const buildPlugin = (
     async moduleParsed({ isEntry }) {
       if (!isEntry || --entryCount !== 0) return
       // load all server-side codes before loading any client-side code
-      serverChunks = await traverseGraph({
+      staticImports = await traverseGraph({
         nodes: Array.from(entryModules.values(), i => i?.id).filter(isNotNull),
         nodeInfo: async id => {
           if (this.getModuleInfo(id)?.isExternal === true) return {}
@@ -213,7 +213,7 @@ export const buildPlugin = (
       onClose = async function (this: void) {
         onClose = undefined // for early memory release
         try {
-          const pages = await emitPages(serverChunks, await run(site, tree))
+          const pages = await emitPages(staticImports, await run(site, tree))
           const lib = await tree.lib()
           await build(configure(site, baseConfig, lib, new Map(pages), input))
         } catch (e) {
