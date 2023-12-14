@@ -68,7 +68,7 @@ export const clientNodeInfo = <Node>(
 ): NodeInfo<Node, string> => {
   if (id == null) return {}
   const v = getVirtual(id)
-  if (isVirtual(v, 'Client', 2)) return { values: [Exact(v[2])] }
+  if (isVirtual(v, 'Client', 2)) return { values: [Exact(v[2], true)] }
   if (isVirtual(v, 'Hydrate', 3)) return { values: [Hydrate('', v[2], v[3])] }
   // add `.css` suffix to avoid polyfill insertion by Vite
   if (site.isAsset(id)) return { values: [Exact(id, false, '.css')] }
