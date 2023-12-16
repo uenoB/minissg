@@ -9,10 +9,6 @@ const typeCheck = (x: unknown, name: string, expect: string): void => {
   if (ty !== expect) throw Error(`${name} is not ${expect} but ${ty}`)
 }
 
-const iterable = <X>(items: Iterable<X>): Iterable<X> => ({
-  [Symbol.iterator]: () => items[Symbol.iterator]()
-})
-
 const SCHEME = String.raw`^[a-zA-Z][a-zA-Z0-9+.-]*:`
 const DOT2_SEGMENT = String.raw`(?:\/|^)\.\.(?:\/|$)`
 const NOT_RELPATH = RegExp(String.raw`${SCHEME}|^\/|\/\/|[?#]|${DOT2_SEGMENT}`)
@@ -24,7 +20,7 @@ export class ModuleName {
     this.path = path
   }
 
-  static readonly root = new ModuleName('')
+  static readonly root = Object.freeze(new ModuleName(''))
 
   fileName(): string {
     return this.path.replace(/(\/|^)$/, '$1index.html')
@@ -60,7 +56,7 @@ interface Request {
 
 export interface EntriesArg {
   moduleName: ModuleName
-  ancestors: Iterable<Readonly<Module>>
+  ancestors: readonly Module[]
   request: Readonly<Request> | undefined
 }
 export type Entries = (arg: EntriesArg) => Awaitable<Module>
@@ -102,7 +98,8 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       } else if (typeof mod.entries === 'function') {
         const request = tree.request
         const moduleName = tree.moduleName
-        const arg = { request, moduleName, ancestors: iterable(tree.ancestors) }
+        Object.freeze(tree.ancestors)
+        const arg = { request, moduleName, ancestors: tree.ancestors }
         const module = await run(tree.loaded, () => mod.entries(arg))
         return [{ ...tree, module, ancestors, path: `${tree.path}.entries()` }]
       } else if ('default' in mod) {
@@ -112,7 +109,7 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       }
       const children = Array.from(routes, ([key, module], i): Run | null => {
         typeCheck(key, `${tree.path}[${i}][0]`, 'string')
-        const moduleName = tree.moduleName.join(key)
+        const moduleName = Object.freeze(tree.moduleName.join(key))
         if (tree.request?.requestName.isIn(moduleName) === false) return null
         const loaded = new Set(tree.loaded)
         const path = `${tree.path}["${key}"]`

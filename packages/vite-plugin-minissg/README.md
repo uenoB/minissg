@@ -1066,7 +1066,7 @@ is defined as follows in TypeScript:
 ```typescript
 type EntriesArg = {
   moduleName: ModuleName;
-  ancestors: Iterable<Readonly<Module>>;
+  ancestors: ReadonlyArray<Module>;
   request: Readonly<Request> | undefined;
 }
 
