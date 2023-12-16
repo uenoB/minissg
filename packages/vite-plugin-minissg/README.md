@@ -368,10 +368,10 @@ The variation of a module is defined as follows in TypeScript:
 
 ```typescript
 type Module =
-  | { entries: (arg: EntriesArg) => Module | PromiseLike<Module> }
+  | { entries: (arg: Readonly<EntriesArg>) => Module | PromiseLike<Module> }
   | { default: Content | PromiseLike<Content> }
   | Record<string, Module | PromiseLike<Module>>
-  | Iterable<[string, Module | PromiseLike<Module>]>;
+  | Iterable<readonly [string, Module | PromiseLike<Module>]>;
 
 export type Content =
   | string
@@ -1066,8 +1066,8 @@ is defined as follows in TypeScript:
 ```typescript
 type EntriesArg = {
   moduleName: ModuleName;
-  ancestors: Iterable<Module>;
-  request: HttpRequest | undefined;
+  ancestors: Iterable<Readonly<Module>>;
+  request: Readonly<Request> | undefined;
 }
 
 type HttpRequest = {

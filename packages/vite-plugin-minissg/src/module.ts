@@ -13,11 +13,6 @@ const iterable = <X>(items: Iterable<X>): Iterable<X> => ({
   [Symbol.iterator]: () => items[Symbol.iterator]()
 })
 
-const isIterable = <X extends object>(
-  x: X
-): x is Extract<X, Iterable<unknown>> =>
-  Symbol.iterator in x && typeof x[Symbol.iterator] === 'function'
-
 const SCHEME = String.raw`^[a-zA-Z][a-zA-Z0-9+.-]*:`
 const DOT2_SEGMENT = String.raw`(?:\/|^)\.\.(?:\/|$)`
 const NOT_RELPATH = RegExp(String.raw`${SCHEME}|^\/|\/\/|[?#]|${DOT2_SEGMENT}`)
@@ -60,35 +55,35 @@ export const loadContent = async (
 
 interface Request {
   requestName: ModuleName
-  incoming: IncomingMessage
+  incoming: Readonly<IncomingMessage>
 }
 
 export interface EntriesArg {
   moduleName: ModuleName
-  ancestors: Iterable<Module>
-  request: Request | undefined
+  ancestors: Iterable<Readonly<Module>>
+  request: Readonly<Request> | undefined
 }
 export type Entries = (arg: EntriesArg) => Awaitable<Module>
 
 export type Module =
-  | Iterable<[string, Awaitable<Module>]>
+  | Iterable<readonly [string, Awaitable<Module>]>
   | { entries: Entries }
   | { entries?: never; default: Awaitable<Content> }
   | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
-export type Tree = Readonly<{
-  moduleName: ModuleName
-  request?: Readonly<Request> // `undefined` means get all
-  module: Awaitable<Module>
-  lib: () => Awaitable<LibModule>
-}>
+export interface Tree {
+  readonly moduleName: ModuleName
+  readonly request?: Readonly<Request> // `undefined` means get all
+  readonly module: Awaitable<Module>
+  readonly lib: () => Awaitable<LibModule>
+}
 
 export type PageBody = () => Promise<string | Uint8Array | Null>
 export type Page = () => Promise<{ loaded: Iterable<string>; body: PageBody }>
 
 export interface Run extends Tree {
   loaded: Set<string>
-  ancestors: Module[]
+  ancestors: readonly Module[]
   path: string
 }
 
@@ -102,7 +97,7 @@ export const run = async (site: Site, root: Tree): Promise<Map<string, Page>> =>
       typeCheck(mod, tree.path, 'object')
       const ancestors = [mod, ...tree.ancestors]
       let routes
-      if (isIterable(mod)) {
+      if (Symbol.iterator in mod) {
         routes = mod
       } else if (typeof mod.entries === 'function') {
         const request = tree.request
