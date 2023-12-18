@@ -368,7 +368,7 @@ The variation of a module is defined as follows in TypeScript:
 
 ```typescript
 type Module =
-  | { entries: (arg: Readonly<EntriesArg>) => Module | PromiseLike<Module> }
+  | { entries: (context: Readonly<Context>) => Module | PromiseLike<Module> }
   | { default: Content | PromiseLike<Content> }
   | Record<string, Module | PromiseLike<Module>>
   | Iterable<readonly [string, Module | PromiseLike<Module>]>;
@@ -382,7 +382,7 @@ export type Content =
   | undefined
 ```
 
-The definition of `EntriesArg` will be given later in
+The definition of `Context` will be given later in
 [Contextual Information of Modules](#contextual-information-of-modules)
 section.
 
@@ -413,7 +413,7 @@ Intuitively:
    See [Static Routing](#static-routing) section below for the details
    of name concatination.
 
-Empty module is regarded as `{ default: null }`.
+Empty module is regarded as `{ default: undefined }`.
 
 Through the `entries` functions and mapping objects, the collection of
 modules constitute a tree structure.
@@ -1041,17 +1041,13 @@ library codes and hydration wrappers.
 
 The `entries` function of a module is given an object that offers the
 following information:
+* `module`: The module itself.
 * `moduleName`: The full name of the module.
   This would be convenient to compute the canonical URL of each
   module.
   This is a `ModuleName`, which is a class having a property `path`
   and three instance methods `fileName`, `join`, and `isIn`.
   It is ensured that the `path` property does not start with `/`.
-* `ancestors`: an iterable object of the sequence of ancestor modules.
-  The last one is the root of the module tree.
-  This would be useful to change the contents of a module depending on
-  its ancestors; for example, it can use a renderer provided by its
-  parent.
 * `request`: information for dynamic routing and server-side
   rendering.
   If it is given, the `entries` function may dynamically create and return
@@ -1059,20 +1055,27 @@ following information:
   Note that Minissg is a static site generator, not a web application
   framework.
   Currently, we do not have any plan to enhance this feature.
+* `path`: relative path string from the parent module, or `undefined` if
+  the module is either the root or made by the `entries` function of the
+  parent module.
+* `parent`: the context of the parent module, or `undefined` if this
+  module is the root of the module tree.
 
-The type of the argument of the `entries` function, `EntriesArg`,
+The type of the argument of the `entries` function, `Context`,
 is defined as follows in TypeScript:
 
 ```typescript
-type EntriesArg = {
+type Context = {
   moduleName: ModuleName;
-  ancestors: ReadonlyArray<Module>;
-  request: Readonly<Request> | undefined;
+  module: Module;
+  request?: Readonly<Request> | undefined;
+  path?: string | undefined;
+  parent?: Readonly<Context> | undefined;
 }
 
-type HttpRequest = {
+type Request = {
   requestName: ModuleName;
-  incoming: import("node:http").IncomingMessage | undefined;
+  incoming: import("node:http").IncomingMessage;
 }
 
 type ModuleName = {

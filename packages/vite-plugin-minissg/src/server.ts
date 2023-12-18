@@ -3,7 +3,7 @@ import type { Plugin, ViteDevServer, ModuleGraph } from 'vite'
 import { lookup } from 'mrmime'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
-import { type Tree, type Module, ModuleName, run } from './module'
+import { type Context, type Module, ModuleName, run } from './module'
 import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './utils'
 import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
@@ -11,7 +11,7 @@ import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
 interface Req {
   server: ViteDevServer
   site: Site
-  root: Tree
+  root: Context
   req: IncomingMessage
 }
 
@@ -20,9 +20,10 @@ interface Res {
   body: string | Uint8Array
 }
 
-const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
-  const lib = (): PromiseLike<LibModule> =>
-    server.ssrLoadModule(Lib) as Promise<LibModule>
+const loadLib = (server: ViteDevServer): PromiseLike<LibModule> =>
+  server.ssrLoadModule(Lib) as Promise<LibModule>
+
+const setupRoot = (server: ViteDevServer, site: Site): Context => {
   const module = Array.from(site.entries(), ([key, id]) => {
     const entries = async (): Promise<Module> => {
       const plugin = server.pluginContainer
@@ -31,12 +32,12 @@ const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
       const url = Exact(r.id)
       const module = await server.ssrLoadModule(url)
       const node = await server.moduleGraph.getModuleByUrl(url)
-      if (node?.id != null) (await lib()).add(node.id)
+      if (node?.id != null) (await loadLib(server)).add(node.id)
       return module
     }
     return [key, { entries }] as const
   })
-  return { lib, module, moduleName: ModuleName.root }
+  return Object.freeze({ moduleName: ModuleName.root, module })
 }
 
 const getHtmlHead = async (
@@ -68,8 +69,8 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const requestName = Object.freeze(req.root.moduleName.join(url.slice(1)))
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
-  const tree = { ...req.root, request }
-  const pages = await run(req.site, tree)
+  const root = { ...req.root, request }
+  const pages = await run(req.site, await loadLib(req.server), root)
   const page = pages.get(requestFileName)
   if (page == null) return
   const { loaded, body: bodyFn } = await page()
@@ -88,7 +89,7 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
   config: () => ({ appType: 'mpa', optimizeDeps: { entries: [] } }),
   configureServer: server => () => {
     const site = new Site(server.config, options)
-    const root = loadToplevelModule(server, site)
+    const root = setupRoot(server, site)
     server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res & { code?: number }): void => {
         res.writeHead(content.code ?? 404, { 'content-type': content.type })

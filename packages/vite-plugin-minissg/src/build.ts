@@ -5,52 +5,47 @@ import { build } from 'vite'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { ModuleName, run } from './module'
-import type { Module, Tree, Page, PageBody } from './module'
+import type { Module, Context, Page, PageBody } from './module'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './utils'
 
-type Load<X> = () => Promise<X>
-
-const load = <X extends NonNullable<object>>(name: string): Load<X> => {
-  let r: X | undefined
-  return async () => r ?? (await import(name).then((x: X) => (r = x)))
+const lazy = <X>(f: () => PromiseLike<X>): PromiseLike<X> => {
+  let p: PromiseLike<X> | undefined
+  return { then: (r, e) => (p ??= f()).then(r, e) }
 }
 
-// prettier-ignore
-const loader = <X>(lib: Load<LibModule>, id: string, load: Load<X>): Load<X> =>
-  async () => await lib().then(m => m.add(id)).then(load)
-
-const loadEntry = (
+const setupRoot = (
   outDir: string,
-  lib: Load<LibModule>,
+  lib: PromiseLike<LibModule>,
   bundle: Readonly<Rollup.OutputBundle>,
   entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
-): Tree => {
+): Context => {
   const chunkMap = new Map<string, Rollup.OutputChunk>()
   for (const chunk of Object.values(bundle)) {
     if (chunk.type !== 'chunk' || chunk.facadeModuleId == null) continue
     chunkMap.set(chunk.facadeModuleId, chunk)
   }
-  const module = new Map<string, Module>(
-    Array.from(entryModules, ([k, r]) => {
-      if (r == null || r.external !== false) return [k, { default: null }]
-      const chunk = chunkMap.get(r.id)
-      if (chunk == null) return [k, { default: null }]
-      const fileName = resolve(outDir, chunk.fileName)
-      return [k, { entries: loader(lib, r.id, load(fileName)) }]
-    })
-  )
-  return { moduleName: ModuleName.root, module, lib }
+  const module = Array.from(entryModules, ([k, r]): [string, Module] => {
+    if (r == null || r.external !== false) return [k, { default: null }]
+    const chunk = chunkMap.get(r.id)
+    if (chunk == null) return [k, { default: null }]
+    const fileName = resolve(outDir, chunk.fileName)
+    const module = lazy((): PromiseLike<Module> => import(fileName))
+    const entries = (): PromiseLike<Module> =>
+      lib.then(m => m.add(r.id)).then(() => module)
+    return [k, { entries }]
+  })
+  return Object.freeze({ moduleName: ModuleName.root, module })
 }
 
 const emitPages = async (
   staticImports: ReadonlyMap<string, Iterable<string>>,
-  pages: ReadonlyMap<string, Page>
+  files: ReadonlyMap<string, Page>
 ): Promise<Iterable<readonly [string, { head: string[]; body: PageBody }]>> =>
   await Promise.all(
-    Array.from(pages).map(async ([outputName, page]) => {
+    Array.from(files).map(async ([outputName, page]) => {
       const { loaded, body } = await page()
       const head = new Set<string>()
       for (const id of loaded) addSet(head, staticImports.get(id))
@@ -63,10 +58,10 @@ const emitFiles = async (
   site: Site,
   bundle: Rollup.OutputBundle,
   pages: ReadonlyMap<string, { body: PageBody }>
-): Promise<void> => {
+): Promise<null> =>
   await mapReduce({
     sources: pages,
-    destination: undefined,
+    destination: null,
     map: async ([outputName, { body }]) => {
       const assetName = '\0' + Head(outputName, 'html')
       const head = bundle[assetName]
@@ -84,7 +79,6 @@ const emitFiles = async (
       throw error
     }
   })
-}
 
 const generateInput = async (
   this_: Rollup.PluginContext,
@@ -127,7 +121,7 @@ export const buildPlugin = (
   let staticImports = new Map<string, Set<string>>()
   let entryModules = new Map<string, Rollup.ResolvedId | null>()
   let entryCount = 0
-  let libFileId: string | undefined
+  let libEmitId: string | undefined
 
   return {
     name: 'minissg:build',
@@ -170,7 +164,7 @@ export const buildPlugin = (
         reduce: (i, z) => z.set(...i)
       })
       if (bodys == null) {
-        libFileId = this.emitFile({ type: 'chunk', id: Lib })
+        libEmitId = this.emitFile({ type: 'chunk', id: Lib })
         entryCount++
       }
     },
@@ -204,16 +198,17 @@ export const buildPlugin = (
       }
       const dir = outputOptions.dir ?? site.config.build.outDir
       const outDir = resolve(site.config.root, dir)
-      if (libFileId == null) throw Error('Lib module not found')
-      const lib = load<LibModule>(resolve(outDir, this.getFileName(libFileId)))
-      const tree = loadEntry(outDir, lib, bundle, entryModules)
+      if (libEmitId == null) throw Error('Lib module not found')
+      const libFileName = resolve(outDir, this.getFileName(libEmitId))
+      const lib = lazy((): PromiseLike<LibModule> => import(libFileName))
+      const root = setupRoot(outDir, lib, bundle, entryModules)
       const input = await generateInput(this, site, entryModules)
       onClose = async function (this: void) {
         onClose = undefined // for early memory release
         try {
-          const pages = await emitPages(staticImports, await run(site, tree))
-          const lib = await tree.lib()
-          await build(configure(site, baseConfig, lib, new Map(pages), input))
+          const files = await run(site, await lib, root)
+          const pages = new Map(await emitPages(staticImports, files))
+          await build(configure(site, baseConfig, await lib, pages, input))
         } catch (e) {
           throw e instanceof Error
             ? touch(e)
