@@ -79,7 +79,7 @@ const generateInput = async (
   this_: Rollup.PluginContext,
   site: Site,
   entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
-): Promise<{ entries: string[]; spoilers: Map<string, string[]> }> => {
+): Promise<{ entries: string[]; erasure: Map<string, string[]> }> => {
   const assetGenerators = await util.traverseGraph({
     nodes: Array.from(entryModules.values(), i => i?.id).filter(util.isNotNull),
     nodeInfo: id => {
@@ -94,16 +94,16 @@ const generateInput = async (
     return assets != null && assets.size > 0 && !assets.has(id)
   }
   const entries: string[] = []
-  const spoilers = new Map<string, string[]>([['\0' + Lib, []]]) // dummy
+  const erasure = new Map<string, string[]>([['\0' + Lib, []]]) // Lib as dummy
   for (const [id, assets] of assetGenerators) {
     const info = this_.getModuleInfo(id)
     if (info?.isEntry === true && assets.size > 0) entries.push(Exact(id))
     if (info == null || assets.has(id) || assets.size === 0) continue
     const imports = [...info.importedIds, ...info.dynamicallyImportedIds]
-    spoilers.set(id, imports.filter(isAssetGenerator))
+    erasure.set(id, imports.filter(isAssetGenerator))
   }
   if (entries.length === 0) entries.push(Lib) // avoid empty input with dummy
-  return { entries, spoilers }
+  return { entries, erasure }
 }
 
 export const buildPlugin = (
@@ -226,16 +226,16 @@ export const buildPlugin = (
   }
 }
 
-const spoilPlugin = (src: ReadonlyMap<string, readonly string[]>): Plugin => ({
-  name: 'minissg:spoiler',
+const erasePlugin = (s: ReadonlyMap<string, readonly string[]>): Plugin => ({
+  name: 'minissg:erase',
   enforce: 'post',
   transform: {
     order: 'post', // this must happen at very last
     handler(_, id) {
-      const imports = src.get(id)
+      const imports = s.get(id)
       if (imports == null) return null
-      const code = imports.map(i => util.js`import ${Exact(i)}`)
-      code.push('export const __MINISSG_SPOILER__ = true')
+      const code = imports.map(i => util.js`import ${Exact(i)};`)
+      code.push('export const __MINISSG_ERASED__ = true;')
       return { code: code.join('\n'), map: { mappings: '' } }
     }
   }
@@ -246,7 +246,7 @@ const configure = (
   baseConfig: UserConfig,
   lib: LibModule,
   pages: ReadonlyMap<string, { head: readonly string[]; body: PageBody }>,
-  input: { entries: string[]; spoilers: ReadonlyMap<string, readonly string[]> }
+  input: { entries: string[]; erasure: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig,
   root: site.config.root,
@@ -268,7 +268,7 @@ const configure = (
     buildPlugin(site.options, pages),
     site.options.config.plugins,
     site.options.plugins(),
-    spoilPlugin(input.spoilers) // this must be at very last
+    erasePlugin(input.erasure) // this must be at very last
   ],
   configFile: false
 })
