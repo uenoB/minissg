@@ -17,7 +17,6 @@ const raise = (e: unknown): never => {
   throw e
 }
 
-/* eslint-disable @typescript-eslint/promise-function-async */
 export const mapReduce = <X, Y, Z>(arg: {
   readonly sources: Iterable<X>
   readonly destination: Z
@@ -25,24 +24,23 @@ export const mapReduce = <X, Y, Z>(arg: {
   readonly map: (x: X) => Awaitable<Y>
   readonly reduce?: (y: Y, z: Z) => Awaitable<unknown>
   readonly catch?: (e: unknown, x: X) => Awaitable<void>
-}): Promise<Z> => {
+}): PromiseLike<Z> => {
   const fork = arg.fork ?? (() => null)
   const reduce = arg.reduce ?? (() => undefined)
   const catch_ = arg.catch ?? raise
-  const step = (z: Promise<unknown>, x: X): Promise<unknown> =>
-    (async () => await arg.map(x))().then(
+  const step = (z: PromiseLike<unknown>, x: X): PromiseLike<unknown> =>
+    Promise.resolve(arg.map(x)).then(
       y => z.then(() => reduce(y, arg.destination)),
       e => z.then(() => catch_(e, x))
     )
-  const spawn = (z: Promise<unknown>, x: X): Promise<unknown> =>
-    (async () => await fork(x))().then(
+  const spawn = (z: PromiseLike<unknown>, x: X): PromiseLike<unknown> =>
+    Promise.resolve(fork(x)).then(
       a => (a == null ? step(z, x) : a.reduce(spawn, z)),
       e => z.then(() => catch_(e, x))
     )
   const sources = Array.from(arg.sources).reduce(spawn, Promise.resolve(null))
   return sources.then(() => arg.destination)
 }
-/* eslint-enable */
 
 export const addSet = <V>(dst: Set<V>, src: Iterable<V> | Null): void => {
   if (src != null) for (const i of src) dst.add(i)
