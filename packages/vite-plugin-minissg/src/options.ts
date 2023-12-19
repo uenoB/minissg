@@ -1,6 +1,6 @@
 import type { UserConfig, FilterPattern, PluginOption } from 'vite'
 import { createFilter } from 'vite'
-import { type Awaitable, type Null, isNotNull } from './utils'
+import { type Awaitable, type Null, isNotNull } from './util'
 
 export interface HydrateArg {
   id: string // unique identifier of this component

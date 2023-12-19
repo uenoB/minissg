@@ -1,7 +1,7 @@
 import { format } from 'node:util'
 import type { IncomingMessage } from 'node:http'
 import type { Site } from './site'
-import { type Awaitable, type Null, mapReduce, isNotNull } from './utils'
+import { type Awaitable, type Null, mapReduce, isNotNull } from './util'
 import type { LibModule } from './loader'
 
 const typeCheck = (x: unknown, name: () => string, expect: string): void => {

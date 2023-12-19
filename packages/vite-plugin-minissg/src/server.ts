@@ -5,7 +5,7 @@ import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { type Context, type Module, ModuleName, run } from './module'
 import { script, injectHtmlHead } from './html'
-import { isNotNull, traverseGraph, addSet, touch } from './utils'
+import { isNotNull, traverseGraph, addSet, touch } from './util'
 import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
 
 interface Req {

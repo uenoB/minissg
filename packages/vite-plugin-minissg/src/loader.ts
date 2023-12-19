@@ -5,7 +5,7 @@ import { script, link } from './html'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { Query } from './query'
-import { type JsonObj, type NodeInfo, js, freshId } from './utils'
+import { type JsonObj, type NodeInfo, js, freshId } from './util'
 
 const encode64 = (s: string): string => Buffer.from(s).toString('base64url')
 const decode64 = (s: string): string => Buffer.from(s, 'base64url').toString()

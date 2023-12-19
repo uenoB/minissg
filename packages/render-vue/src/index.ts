@@ -1,5 +1,5 @@
 import type { Renderer } from '../../vite-plugin-minissg/src/options'
-import { js } from '../../vite-plugin-minissg/src/utils'
+import { js } from '../../vite-plugin-minissg/src/util'
 
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 const renderer: Renderer = {

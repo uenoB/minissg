@@ -5,7 +5,7 @@ import { buildPlugin } from './build'
 import { serverPlugin } from './server'
 export type { Options, Renderer } from './options'
 export type { Content, Module, ModuleName, Context, Entries } from './module'
-export { type Json, js } from './utils'
+export { type Json, js } from './util'
 
 export default function (userOptions?: Options | undefined): PluginOption {
   const options = resolveOptions(userOptions)

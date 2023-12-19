@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import * as M from '../utils'
+import * as M from '../util'
 
 test('addSet order', () => {
   const set = new Set([0, 1, 3])

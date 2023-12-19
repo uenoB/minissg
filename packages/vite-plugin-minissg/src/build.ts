@@ -9,7 +9,7 @@ import type { Module, Context, Page, PageBody } from './module'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
-import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './utils'
+import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './util'
 
 const lazy = <X>(f: () => PromiseLike<X>): PromiseLike<X> => {
   let p: PromiseLike<X> | undefined
