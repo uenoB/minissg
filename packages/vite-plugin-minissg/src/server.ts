@@ -21,23 +21,22 @@ interface Res {
 }
 
 const loadToplevelModule = (server: ViteDevServer, site: Site): Tree => {
-  const lib = server.ssrLoadModule(Lib) as Promise<LibModule>
-  const module = new Map(
-    Array.from(site.entries(), ([key, id]) => {
-      const entries = async (): Promise<Module> => {
-        const plugin = server.pluginContainer
-        const r = await plugin.resolveId(id, undefined, { ssr: true })
-        if (r == null) return { default: null }
-        const url = Exact(r.id)
-        const module = await server.ssrLoadModule(url)
-        const node = await server.moduleGraph.getModuleByUrl(url)
-        if (node?.id != null) (await lib).add(node.id)
-        return module
-      }
-      return [key, { entries }]
-    })
-  )
-  return { lib: async () => await lib, module, moduleName: ModuleName.root }
+  const lib = (): PromiseLike<LibModule> =>
+    server.ssrLoadModule(Lib) as Promise<LibModule>
+  const module = Array.from(site.entries(), ([key, id]) => {
+    const entries = async (): Promise<Module> => {
+      const plugin = server.pluginContainer
+      const r = await plugin.resolveId(id, undefined, { ssr: true })
+      if (r == null) return { default: null }
+      const url = Exact(r.id)
+      const module = await server.ssrLoadModule(url)
+      const node = await server.moduleGraph.getModuleByUrl(url)
+      if (node?.id != null) (await lib()).add(node.id)
+      return module
+    }
+    return [key, { entries }] as const
+  })
+  return { lib, module, moduleName: ModuleName.root }
 }
 
 const getHtmlHead = async (
