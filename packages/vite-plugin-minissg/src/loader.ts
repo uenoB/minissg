@@ -206,11 +206,11 @@ export const loaderPlugin = (
         if (d < 0 || n == null) continue
         const r = await this.resolve(n, id)
         if (r == null || Boolean(r.external)) continue
-        const load = addId + js`(${r.id}),import(${Exact(r.id, true)})`
-        ms.update(ss, se, `(${load})`)
+        const load = `(${addId}${js`(${r.id}),import(${Exact(r.id, true)})`})`
+        ms.update(ss, se, load)
       }
       if (!ms.hasChanged()) return null
-      ms.appendLeft(0, `import { add as ${addId} } ` + js`from ${Lib};` + '\n')
+      ms.appendLeft(0, `import { add as ${addId} } from ${js`${Lib}`};\n`)
       return { code: ms.toString(), map: ms.generateMap({ hires: true }) }
     },
     generateBundle: {
