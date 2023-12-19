@@ -41,7 +41,7 @@ const emitPages = async (
 ): Promise<Iterable<readonly [string, { head: string[]; body: PageBody }]>> =>
   await Promise.all(
     Array.from(files).map(async ([outputName, page]) => {
-      const { loaded, body } = await page()
+      const { loaded, body } = await page
       const head = new Set<string>()
       for (const id of loaded) util.addSet(head, staticImports.get(id))
       return [outputName, { head: Array.from(head), body }] as const
@@ -62,7 +62,7 @@ const emitFiles = async (
       const head = bundle[assetName]
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
-      let source = await body()
+      let source = await body
       if (source == null) return
       if (outputName.endsWith('.html') && head?.type === 'asset') {
         source = injectHtmlHead(source, head.source)

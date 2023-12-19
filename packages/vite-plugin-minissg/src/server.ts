@@ -73,8 +73,8 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const pages = await run(req.site, await loadLib(req.server), root)
   const page = pages.get(requestFileName)
   if (page == null) return
-  const { loaded, body: bodyFn } = await page()
-  let body = await bodyFn()
+  const { loaded, body: asyncBody } = await page
+  let body = await asyncBody
   if (body == null) return
   if (requestFileName.endsWith('.html')) {
     let head = await getHtmlHead(req.server.moduleGraph, req.site, loaded)

@@ -1,7 +1,7 @@
 import { format } from 'node:util'
 import type { IncomingMessage } from 'node:http'
 import type { Site } from './site'
-import { type Awaitable, type Null, mapReduce, isNotNull } from './util'
+import { type Awaitable, type Null, lazy, mapReduce, isNotNull } from './util'
 import type { LibModule } from './loader'
 
 const typeCheck = (x: unknown, name: () => string, expect: string): void => {
@@ -78,8 +78,8 @@ export type Module =
   | { entries?: never; default: Awaitable<Content> }
   | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
-export type PageBody = () => Promise<string | Uint8Array | Null>
-export type Page = () => Promise<{ loaded: Iterable<string>; body: PageBody }>
+export type PageBody = PromiseLike<string | Uint8Array | Null>
+export type Page = PromiseLike<{ loaded: Iterable<string>; body: PageBody }>
 
 export const run = async (
   site: Site,
@@ -119,10 +119,10 @@ export const run = async (
     map: x => x,
     reduce: ({ context: con, loaded }, z) => {
       const module = con.module as Extract<Module, { default: unknown }>
-      const page: Page = async () => {
+      const page = lazy(async () => {
         const body = await run(loaded, async () => await module.default)
-        return { loaded, body: async () => await loadContent(body) }
-      }
+        return { loaded, body: lazy(async () => await loadContent(body)) }
+      })
       const fileName = con.moduleName.fileName()
       if (z.has(fileName)) {
         site.config.logger.warn(`duplicate file ${fileName} by ${pathOf(con)}`)
