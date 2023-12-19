@@ -71,13 +71,11 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
   const pages = await run(req.site, await loadLib(req.server), root)
-  const page = pages.get(requestFileName)
-  if (page == null) return
-  const { loaded, body: asyncBody } = await page
-  let body = await asyncBody
-  if (body == null) return
+  const page = await pages.get(requestFileName)
+  if (page?.body == null) return
+  let body = await page.body
   if (requestFileName.endsWith('.html')) {
-    let head = await getHtmlHead(req.server.moduleGraph, req.site, loaded)
+    let head = await getHtmlHead(req.server.moduleGraph, req.site, page.loaded)
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }

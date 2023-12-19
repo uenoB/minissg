@@ -42,12 +42,12 @@ export class ModuleName {
 
 export type Content = string | ArrayBufferLike | ArrayBufferView | Blob | Null
 
-const loadContent = async (
-  src: Content
-): Promise<string | Uint8Array | Null> =>
-  src == null || typeof src === 'string' || src instanceof Uint8Array
-    ? src
-    : new Uint8Array(await new Blob([src]).arrayBuffer())
+const loadContent = (
+  src: NonNullable<Content>
+): Awaitable<string | Uint8Array> => {
+  if (typeof src === 'string' || src instanceof Uint8Array) return src
+  return new Blob([src]).arrayBuffer().then(buf => new Uint8Array(buf))
+}
 
 interface Request {
   requestName: ModuleName
@@ -78,7 +78,7 @@ export type Module =
   | { entries?: never; default: Awaitable<Content> }
   | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
-export type PageBody = PromiseLike<string | Uint8Array | Null>
+export type PageBody = PromiseLike<string | Uint8Array> | Null
 export type Page = PromiseLike<{ loaded: Iterable<string>; body: PageBody }>
 
 export const run = async (
@@ -119,9 +119,9 @@ export const run = async (
     map: x => x,
     reduce: ({ context: con, loaded }, z) => {
       const module = con.module as Extract<Module, { default: unknown }>
-      const page = lazy(async () => {
-        const body = await run(loaded, async () => await module.default)
-        return { loaded, body: lazy(async () => await loadContent(body)) }
+      const page: Page = lazy(async () => {
+        const t = await run(loaded, async () => await module.default)
+        return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
       })
       const fileName = con.moduleName.fileName()
       if (z.has(fileName)) {

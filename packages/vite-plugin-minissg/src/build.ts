@@ -62,8 +62,8 @@ const emitFiles = async (
       const head = bundle[assetName]
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
+      if (body == null) return
       let source = await body
-      if (source == null) return
       if (outputName.endsWith('.html') && head?.type === 'asset') {
         source = injectHtmlHead(source, head.source)
       }
