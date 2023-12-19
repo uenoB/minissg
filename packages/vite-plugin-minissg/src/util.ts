@@ -13,6 +13,11 @@ export const js = (code: TemplateStringsArray, ...args: Json[]): string => {
   return a.join('')
 }
 
+export const lazy = <X>(f: () => PromiseLike<X>): PromiseLike<X> => {
+  let p: PromiseLike<X> | undefined
+  return { then: (r, e) => (p ??= f()).then(r, e) }
+}
+
 const raise = (e: unknown): never => {
   throw e
 }

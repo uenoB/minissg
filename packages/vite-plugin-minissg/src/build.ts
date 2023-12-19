@@ -9,12 +9,7 @@ import type { Module, Context, Page, PageBody } from './module'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
-import { isNotNull, js, mapReduce, traverseGraph, addSet, touch } from './util'
-
-const lazy = <X>(f: () => PromiseLike<X>): PromiseLike<X> => {
-  let p: PromiseLike<X> | undefined
-  return { then: (r, e) => (p ??= f()).then(r, e) }
-}
+import * as util from './util'
 
 const setupRoot = (
   outDir: string,
@@ -32,7 +27,7 @@ const setupRoot = (
     const chunk = chunkMap.get(r.id)
     if (chunk == null) return [k, { default: null }]
     const fileName = resolve(outDir, chunk.fileName)
-    const module = lazy((): PromiseLike<Module> => import(fileName))
+    const module = util.lazy((): PromiseLike<Module> => import(fileName))
     const entries = (): PromiseLike<Module> =>
       lib.then(m => m.add(r.id)).then(() => module)
     return [k, { entries }]
@@ -48,7 +43,7 @@ const emitPages = async (
     Array.from(files).map(async ([outputName, page]) => {
       const { loaded, body } = await page()
       const head = new Set<string>()
-      for (const id of loaded) addSet(head, staticImports.get(id))
+      for (const id of loaded) util.addSet(head, staticImports.get(id))
       return [outputName, { head: Array.from(head), body }] as const
     })
   )
@@ -59,7 +54,7 @@ const emitFiles = async (
   bundle: Rollup.OutputBundle,
   pages: ReadonlyMap<string, { body: PageBody }>
 ): Promise<null> =>
-  await mapReduce({
+  await util.mapReduce({
     sources: pages,
     destination: null,
     map: async ([outputName, { body }]) => {
@@ -85,8 +80,8 @@ const generateInput = async (
   site: Site,
   entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
 ): Promise<{ entries: string[]; spoilers: Map<string, string[]> }> => {
-  const assetGenerators = await traverseGraph({
-    nodes: Array.from(entryModules.values(), i => i?.id).filter(isNotNull),
+  const assetGenerators = await util.traverseGraph({
+    nodes: Array.from(entryModules.values(), i => i?.id).filter(util.isNotNull),
     nodeInfo: id => {
       if (site.isAsset(id)) return { values: [id] }
       const info = this_.getModuleInfo(id)
@@ -151,7 +146,7 @@ export const buildPlugin = (
 
     async buildStart() {
       entryCount = 0
-      entryModules = await mapReduce({
+      entryModules = await util.mapReduce({
         sources: site.entries(),
         destination: new Map<string, Rollup.ResolvedId | null>(),
         map: async ([name, id]) => {
@@ -172,8 +167,8 @@ export const buildPlugin = (
     async moduleParsed({ isEntry }) {
       if (!isEntry || --entryCount !== 0) return
       // load all server-side codes before loading any client-side code
-      staticImports = await traverseGraph({
-        nodes: Array.from(entryModules.values(), i => i?.id).filter(isNotNull),
+      staticImports = await util.traverseGraph({
+        nodes: Array.from(entryModules, i => i[1]?.id).filter(util.isNotNull),
         nodeInfo: async id => {
           if (this.getModuleInfo(id)?.isExternal === true) return {}
           const info = await this.load({ id, resolveDependencies: true })
@@ -200,7 +195,7 @@ export const buildPlugin = (
       const outDir = resolve(site.config.root, dir)
       if (libEmitId == null) throw Error('Lib module not found')
       const libFileName = resolve(outDir, this.getFileName(libEmitId))
-      const lib = lazy((): PromiseLike<LibModule> => import(libFileName))
+      const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
       const root = setupRoot(outDir, lib, bundle, entryModules)
       const input = await generateInput(this, site, entryModules)
       onClose = async function (this: void) {
@@ -210,9 +205,9 @@ export const buildPlugin = (
           const pages = new Map(await emitPages(staticImports, files))
           await build(configure(site, baseConfig, await lib, pages, input))
         } catch (e) {
-          throw e instanceof Error
-            ? touch(e)
-            : touch(Error(format('uncaught thrown value: %o', e), { cause: e }))
+          if (e instanceof Error) throw util.touch(e)
+          const msg = format('uncaught thrown value: %o', e)
+          throw util.touch(Error(msg, { cause: e }))
         }
       }
     },
@@ -239,7 +234,7 @@ const spoilPlugin = (src: ReadonlyMap<string, readonly string[]>): Plugin => ({
     handler(_, id) {
       const imports = src.get(id)
       if (imports == null) return null
-      const code = imports.map(i => js`import ${Exact(i)}`)
+      const code = imports.map(i => util.js`import ${Exact(i)}`)
       code.push('export const __MINISSG_SPOILER__ = true')
       return { code: code.join('\n'), map: { mappings: '' } }
     }
