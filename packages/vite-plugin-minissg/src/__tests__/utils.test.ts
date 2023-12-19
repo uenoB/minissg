@@ -26,7 +26,7 @@ test('mapReduce order', async () => {
       sources: [1, 2, 3, 4, 5],
       destination: [0],
       map: i => i * 2,
-      reduce: (i, z) => z.push(i)
+      reduce: (i, z) => [...z, i]
     })
   ).resolves.toStrictEqual([0, 2, 4, 6, 8, 10])
 })
@@ -35,12 +35,37 @@ test('mapReduce fork', async () => {
   await expect(
     M.mapReduce({
       sources: [1, 2, 3, 4, 5],
+      destination: 0,
+      fork: i => (i > 0 ? Array(i).fill(0) : null),
+      map: i => i + 1,
+      reduce: (i, z) => z + i
+    })
+  ).resolves.toStrictEqual(15)
+})
+
+test('mapReduce update', async () => {
+  await expect(
+    M.mapReduce({
+      sources: [1, 2, 3, 4, 5],
       destination: { sum: 0 },
       fork: i => (i > 0 ? Array(i).fill(0) : null),
       map: i => i + 1,
-      reduce: (i, z) => (z.sum += i)
+      reduce: (i, z) => {
+        z.sum += i
+      }
     })
   ).resolves.toStrictEqual({ sum: 15 })
+})
+
+test('mapReduce null', async () => {
+  await expect(
+    M.mapReduce({
+      sources: [1, 2, 3, 4, 5],
+      destination: null,
+      map: i => i,
+      reduce: () => undefined
+    })
+  ).resolves.toStrictEqual(null)
 })
 
 const toObj = <X>(map: Iterable<[number, Iterable<X>]>): Record<number, X[]> =>
