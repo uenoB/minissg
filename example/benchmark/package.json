@@ -18,7 +18,7 @@
     "remark-mdx-frontmatter": "^4.0.0",
     "remark-smartypants": "^2.0.0",
     "tiged": "^2.12.5",
-    "vite": "^5.0.7",
+    "vite": "^5.0.10",
     "vite-plugin-minissg": "^3.0.0"
   }
 }
