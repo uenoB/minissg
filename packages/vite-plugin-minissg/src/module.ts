@@ -119,11 +119,17 @@ export const run = async (
     map: x => x,
     reduce: ({ context: con, loaded }, z) => {
       const module = con.module as Extract<Module, { default: unknown }>
-      const page: Page = lazy(async () => {
-        const t = await run(loaded, async () => await module.default)
-        return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
-      })
       const fileName = con.moduleName.fileName()
+      const page: Page = lazy(async () => {
+        try {
+          const t = await run(loaded, async () => await module.default)
+          return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
+        } catch (e) {
+          site.config.logger.error(`error occurred in outputing ${fileName}`)
+          if (e instanceof Error) throw e
+          throw Error(format('uncaught non-error throw: %o', e), { cause: e })
+        }
+      })
       if (z.has(fileName)) {
         site.config.logger.warn(`duplicate file ${fileName} by ${pathOf(con)}`)
       } else {
