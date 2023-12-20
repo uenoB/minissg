@@ -218,6 +218,12 @@ importers:
         specifier: ^3.3.11
         version: 3.3.11(typescript@5.3.3)
 
+  packages/page:
+    dependencies:
+      vite-plugin-minissg:
+        specifier: workspace:^
+        version: link:../vite-plugin-minissg
+
   packages/render-preact:
     dependencies:
       preact:
