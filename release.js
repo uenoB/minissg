@@ -67,6 +67,7 @@ const readJson = fileName => JSON.parse(readFileSync(fileName))
 
 const updatePackageJsons = {
   prepare(_config, { cwd, nextRelease }) {
+    if (nextRelease.type.startsWith('pre')) return
     const packageName = readJson(resolve(cwd, 'package.json')).name
     packageJsons.forEach(path => {
       const fileName = resolve(root, path)
