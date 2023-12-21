@@ -47,6 +47,7 @@ but maximum freedom of static site programming.
   * [User-defined Renderers and Hydration](#user-defined-renderers-and-hydration)
   * [Mixing Components of Different Systems](#mixing-components-of-different-systems)
   * [Contextual Information of Modules](#contextual-information-of-modules)
+  * [Ignoring the Effect of Dynamic Imports](#ignoring-the-effect-of-dynamic-imports)
   * [Debugging Server-side Code](#debugging-server-side-code)
 * [Plugin Options](#plugin-options)
 * [Related Works](#related-works)
@@ -1085,6 +1086,29 @@ type ModuleName = {
   isIn(other: ModuleName): boolean;
 }
 ```
+
+### Ignoring the Effect of Dynamic Imports
+
+As described in [Style Sheets](#style-sheets) section,
+Minissg exploits the effect of dynamic imports to associate style sheets
+and other assets to the generated pages.
+However, we sometimes would like to import some modules without any
+association with any asset.
+Typical examples include the case when you would like to read the
+frontmatter of an MDX module regardless of any relationship between
+the module and current page.
+
+For this purpose, Minissg provides `virtual:minissg/control` module
+with the following signature:
+
+```typescript
+declare module 'virtual:minissg/control' {
+  export const peek: <X>(f: () => X) => X
+}
+```
+
+The `peek` function just executes the given function but, during its
+execution, any asset offered by dynamic imports are ignored.
 
 ### Debugging Server-side Code
 

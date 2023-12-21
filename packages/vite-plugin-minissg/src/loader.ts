@@ -31,7 +31,7 @@ type Virtual<F, N extends number> = Tuple<F, string, N, []>
 const virtualName = (id: string, ext = '.js'): string =>
   id.replace(/^.*\/|[.?#].*$/gs, '') + ext
 const VIRTUAL_RE = /^\0?\/?virtual:minissg\/?(?:@\/([\w,-]*)\/|(\w+)(?=\?|$))/
-const virtual = (args: string[], id: string): string =>
+const virtual = (args: string[], id: string = `${args[0]}.js`): string =>
   `virtual:minissg/@/${args.map(encode64).join(',')}${id.replace(/^\/*/, '/')}`
 const getVirtual = (id: string): string[] | undefined => {
   const m = VIRTUAL_RE.exec(id)
@@ -46,6 +46,7 @@ const isVirtual = <Name extends string, N extends number>(
 ): v is Virtual<Name, N> => v != null && v[0] === name && v.length > args
 
 export const Lib = virtual(['Lib'], 'lib.js')
+export const Control = (side: string): string => virtual(['Control', side])
 export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
 const Client = (side: string, id: string): string =>
@@ -53,7 +54,7 @@ const Client = (side: string, id: string): string =>
 const Hydrate = (side: string, id: string, arg: string): string =>
   virtual(['Hydrate', side, id, arg], side === 'server' ? id : virtualName(id))
 const Renderer = (side: string, key: number, arg: string): string =>
-  virtual(['Renderer', side, String(key), arg], 'render.js')
+  virtual(['Renderer', side, String(key), arg])
 const Render = (id: string, arg: string): string =>
   virtual(['Render', id, arg], virtualName(id))
 export const Exact = (id: string, resolve = false, ext = '.js'): string =>
@@ -117,6 +118,8 @@ export const loaderPlugin = (
         let r: Rollup.PartialResolvedId | null = { id }
         if (isVirtual(v, 'self', 1) && importer != null) {
           r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
+        } else if (isVirtual(v, 'control', 1)) {
+          r = { id: Control(coerceSide(inSSR)) }
         } else if (isVirtual(v, 'Exact', 2)) {
           r = (v[2] === '' ? <X>(x: X): X => x : resolveQuery)({ id: v[1] })
         } else if (v == null) {
@@ -149,6 +152,9 @@ export const loaderPlugin = (
         if (v != null) debug('load virtual module %o', v)
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
+        } else if (isVirtual(v, 'Control', 0)) {
+          if (v[1] === 'server') return js`export { peek } from ${Lib}`
+          return js`export const peek = f => f()`
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null
@@ -246,4 +252,5 @@ const libModule = `
   export const data = /*#__PURE__*/ new Map()
   const storage = /*#__PURE__*/ new AsyncLocalStorage()
   export const add = id => storage.getStore()?.add(id)
-  export const run = storage.run.bind(storage)`
+  export const run = storage.run.bind(storage)
+  export const peek = f => storage.run({ add: () => void 0 }, f)`

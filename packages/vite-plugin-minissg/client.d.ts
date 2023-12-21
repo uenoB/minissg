@@ -18,3 +18,7 @@ declare module '*?hydrate' {
   const component: any
   export default component
 }
+
+declare module 'virtual:minissg/control' {
+  export const peek: <X>(f: () => X) => X
+}
