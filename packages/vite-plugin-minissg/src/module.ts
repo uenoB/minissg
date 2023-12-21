@@ -38,7 +38,7 @@ export interface Context {
 
 const pathOf = (c: Context): string => {
   const toSelector = (i: string | undefined): string =>
-    i == null ? '.entries()' : `[${JSON.stringify(i)}]`
+    i == null ? '.entries()' : format('[%o]', i)
   const selectors: string[] = []
   for (; c.parent != null; c = c.parent) selectors.push(toSelector(c.path))
   return 'root' + selectors.reverse().join('')
