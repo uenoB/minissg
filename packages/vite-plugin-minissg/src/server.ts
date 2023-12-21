@@ -70,7 +70,7 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   url = url.replace(/\?[^#]*$/, '')
   if (/^(?:[^/]|$)|\/\/|#|\/\.\.?(?:\/|$)/.test(url)) return
   debug('request %s', url)
-  const requestName = Object.freeze(req.root.moduleName.join(url.slice(1)))
+  const requestName = Object.freeze(req.root.moduleName.join('.' + url))
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
