@@ -78,8 +78,8 @@ export type Module =
   | { entries?: never; default: Awaitable<Content> }
   | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
 
-export type PageBody = PromiseLike<string | Uint8Array> | Null
-export type Page = PromiseLike<{ loaded: Iterable<string>; body: PageBody }>
+export type Body = PromiseLike<string | Uint8Array> | Null
+export type Page = PromiseLike<{ loaded: Iterable<string>; body: Body }>
 
 export const run = async (
   site: Site,

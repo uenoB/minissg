@@ -5,7 +5,7 @@ import { build } from 'vite'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { ModuleName, run } from './module'
-import type { Module, Context, Page, PageBody } from './module'
+import type { Module, Context, Page, Body } from './module'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
@@ -38,7 +38,7 @@ const setupRoot = (
 const emitPages = async (
   staticImports: ReadonlyMap<string, Iterable<string>>,
   files: ReadonlyMap<string, Page>
-): Promise<Iterable<readonly [string, { head: string[]; body: PageBody }]>> =>
+): Promise<Iterable<readonly [string, { head: string[]; body: Body }]>> =>
   await Promise.all(
     Array.from(files).map(async ([outputName, page]) => {
       const { loaded, body } = await page
@@ -52,7 +52,7 @@ const emitFiles = async (
   this_: Rollup.PluginContext,
   site: Site,
   bundle: Rollup.OutputBundle,
-  pages: ReadonlyMap<string, { body: PageBody }>
+  pages: ReadonlyMap<string, { body: Body }>
 ): Promise<null> =>
   await util.mapReduce({
     sources: pages,
@@ -108,7 +108,7 @@ const generateInput = async (
 
 export const buildPlugin = (
   options: ResolvedOptions,
-  bodys?: ReadonlyMap<string, { readonly body: PageBody }>
+  bodys?: ReadonlyMap<string, { readonly body: Body }>
 ): Plugin => {
   let baseConfig: UserConfig
   let site: Site
@@ -245,7 +245,7 @@ const configure = (
   site: Site,
   baseConfig: UserConfig,
   lib: LibModule,
-  pages: ReadonlyMap<string, { head: readonly string[]; body: PageBody }>,
+  pages: ReadonlyMap<string, { head: readonly string[]; body: Body }>,
   input: { entries: string[]; erasure: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig,
