@@ -155,7 +155,7 @@ test('bind', () => {
             url: { href: 'http://localhost/foo/' },
             stem: 'foo/',
             variant: '',
-            [loadSymbol]: {}
+            [loadSymbol]: FOO1
           }
         ]
       ]
@@ -170,7 +170,7 @@ test('bind', () => {
             url: { href: 'http://localhost/foo/' },
             stem: 'foo',
             variant: '',
-            [loadSymbol]: {}
+            [loadSymbol]: FOO2
           }
         ]
       ]
@@ -185,7 +185,7 @@ test('bind', () => {
             url: { href: 'http://localhost/en/foo/bar/' },
             stem: 'foo/bar',
             variant: 'en',
-            [loadSymbol]: {}
+            [loadSymbol]: BAR
           }
         ]
       ]
@@ -200,7 +200,7 @@ test('bind', () => {
             url: { href: 'http://localhost/tk/foo/baz/' },
             stem: 'foo/baz',
             variant: 'tk',
-            [loadSymbol]: {}
+            [loadSymbol]: BAZ
           }
         ]
       ]

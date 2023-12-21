@@ -57,7 +57,7 @@ export class Root<SomePage extends Page> {
 }
 
 export class Page<ModuleType = unknown> implements Source {
-  private [loadSymbol]: PromiseLike<ModuleType> | undefined = undefined
+  private [loadSymbol]: (() => Awaitable<ModuleType>) | undefined = undefined
   private [bindSymbol]: Bound<this> = []
   private [rootSymbol]: Root<this> | undefined = undefined
   readonly fileName: URL
@@ -94,7 +94,7 @@ export class Page<ModuleType = unknown> implements Source {
       const variant = join(this.variant, local.variant)
       const ThisPage = this.constructor as new (x: Source) => this
       const page = new ThisPage({ fileName, url, stem, variant })
-      page[loadSymbol] = lazy(load)
+      page[loadSymbol] = load
       page[bindSymbol].push(['', page])
       page[rootSymbol] = this[rootSymbol]
       this[bindSymbol].push([local.relURL, page[bindSymbol]])
@@ -167,7 +167,7 @@ export class Page<ModuleType = unknown> implements Source {
   }
 
   load(): PromiseLike<ModuleType> | undefined {
-    return this[loadSymbol]
+    return this[loadSymbol] == null ? undefined : lazy(this[loadSymbol])
   }
 
   async entries(): Promise<Module> {
