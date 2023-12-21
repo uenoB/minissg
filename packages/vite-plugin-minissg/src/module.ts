@@ -1,10 +1,13 @@
 import { format } from 'node:util'
 import type { IncomingMessage } from 'node:http'
+import createDebug from 'debug'
 import type { Site } from './site'
 import { type Awaitable, type Null, lazy, mapReduce, isNotNull } from './util'
 import type { LibModule } from './loader'
 import type { ModuleName } from './module-name'
 export { ModuleName } from './module-name'
+
+const debug = createDebug('minissg:module')
 
 const typeCheck = (x: unknown, name: () => string, expect: string): void => {
   const ty = x === null ? 'null' : typeof x
@@ -67,6 +70,7 @@ export const run = async (
         routes = con.module
       } else if (typeof con.module.entries === 'function') {
         const mod = con.module
+        if (debug.enabled) debug('await %s.entries()', pathOf(con))
         const module = await run(loaded, () => mod.entries(con))
         const context = { ...con, module, path: undefined, parent: con }
         return [{ context: Object.freeze(context), loaded }]
@@ -80,6 +84,7 @@ export const run = async (
         const moduleName = Object.freeze(con.moduleName.join(path))
         if (con.request?.requestName.isIn(moduleName) === false) return null
         const newLoaded = new Set(loaded)
+        if (debug.enabled) debug('await %s[%o]', pathOf(con), path)
         const module = await run(newLoaded, async () => await mod)
         const context = { ...con, moduleName, module, path, parent: con }
         return { context: Object.freeze(context), loaded: newLoaded }
@@ -93,10 +98,12 @@ export const run = async (
       const fileName = con.moduleName.fileName()
       const page: Page = lazy(async () => {
         try {
+          if (debug.enabled) debug('await %s.default', pathOf(con))
           const t = await run(loaded, async () => await module.default)
+          debug('dynamically imported modules for %o: %O', fileName, loaded)
           return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
         } catch (e) {
-          site.config.logger.error(`error occurred in outputing ${fileName}`)
+          site.config.logger.error(`error occurred in generating ${fileName}`)
           if (e instanceof Error) throw e
           throw Error(format('uncaught non-error throw: %o', e), { cause: e })
         }

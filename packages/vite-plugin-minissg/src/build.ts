@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { format } from 'node:util'
 import type { Plugin, Rollup, UserConfig, InlineConfig } from 'vite'
 import { build } from 'vite'
+import createDebug from 'debug'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { ModuleName, run } from './module'
@@ -10,6 +11,8 @@ import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import * as util from './util'
+
+const debug = createDebug('minissg:build')
 
 const setupRoot = (
   outDir: string,
@@ -63,6 +66,7 @@ const emitFiles = async (
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete bundle[assetName]
       if (body == null) return
+      debug('emit file %o', outputName)
       let source = await body
       if (outputName.endsWith('.html') && head?.type === 'asset') {
         source = injectHtmlHead(source, head.source)
@@ -101,6 +105,7 @@ const generateInput = async (
     if (info == null || assets.has(id) || assets.size === 0) continue
     const imports = [...info.importedIds, ...info.dynamicallyImportedIds]
     erasure.set(id, imports.filter(isAssetGenerator))
+    debug('schedule to load %o again for %d assets', id, assets.size)
   }
   if (entries.length === 0) entries.push(Lib) // avoid empty input with dummy
   return { entries, erasure }
@@ -178,6 +183,7 @@ export const buildPlugin = (
           return clientNodeInfo({ next, entries }, id, site)
         }
       })
+      debug('loaded %d server-side modules', staticImports.size)
       if (bodys == null) return
       for (const outputName of bodys.keys()) {
         const id = Head(outputName, 'html')
@@ -216,9 +222,10 @@ export const buildPlugin = (
       order: 'post', // defer vite.build as much as possible
       sequential: true,
       async handler() {
+        debug('%s-side run complete', bodys == null ? 'server' : 'client')
         if (onClose == null) return
         if (site.config.logger.hasWarned) {
-          this.error('[minissg] found some errors or warnings in the first run')
+          this.error('[minissg] found some errors or warnings')
         }
         await onClose()
       }
@@ -234,6 +241,7 @@ const erasePlugin = (s: ReadonlyMap<string, readonly string[]>): Plugin => ({
     handler(_, id) {
       const imports = s.get(id)
       if (imports == null) return null
+      debug('erase server-side code %o', id)
       const code = imports.map(i => util.js`import ${Exact(i)};`)
       code.push('export const __MINISSG_ERASED__ = true;')
       return { code: code.join('\n'), map: { mappings: '' } }

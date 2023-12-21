@@ -40,11 +40,15 @@
     "ssr"
   ],
   "dependencies": {
+    "debug": "^4.3.4",
     "es-module-lexer": "^1.4.1",
     "magic-string": "^0.30.5",
     "mrmime": "^1.0.1"
   },
   "peerDependencies": {
     "vite": "^5 || >=4"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12"
   }
 }
