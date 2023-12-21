@@ -1,5 +1,5 @@
 import type { Module, Content } from '../../vite-plugin-minissg/src/module'
-import { ModuleName } from '../../vite-plugin-minissg/src/module'
+import { ModuleName } from '../../vite-plugin-minissg/src/module-name'
 import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import { dig } from './util'
 

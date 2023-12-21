@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import * as M from '../module'
+import * as M from '../module-name'
 
 test.each([
   ['foo', '', 'foo'],
