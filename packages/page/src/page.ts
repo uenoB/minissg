@@ -161,6 +161,10 @@ export class Page<ModuleType = unknown> implements Source {
     return this.findByURL(path) ?? this.findByFileName(path)
   }
 
+  get root(): this {
+    return this[rootSymbol]?.pages[0] ?? this
+  }
+
   variants(): ReadonlyMap<string, this> {
     const ret = this[rootSymbol]?.stemVariantMap.get(this.stem)
     return ret ?? new Map([['', this]])
