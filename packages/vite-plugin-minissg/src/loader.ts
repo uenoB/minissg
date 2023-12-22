@@ -1,14 +1,11 @@
 import type { Plugin, PluginOption, Rollup } from 'vite'
 import { init, parse } from 'es-module-lexer'
 import MagicString from 'magic-string'
-import createDebug from 'debug'
 import { script, link } from './html'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { Query } from './query'
 import { type JsonObj, type NodeInfo, js, freshId } from './util'
-
-const debug = createDebug('minissg:loader')
 
 const encode64 = (s: string): string => Buffer.from(s).toString('base64url')
 const decode64 = (s: string): string => Buffer.from(s, 'base64url').toString()
@@ -149,7 +146,7 @@ export const loaderPlugin = (
       order: 'pre',
       async handler(id) {
         const v = getVirtual(site.canonical(id))
-        if (v != null) debug('load virtual module %o', v)
+        if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Control', 0)) {
@@ -232,7 +229,7 @@ export const loaderPlugin = (
           if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue
           // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete bundle[chunkName]
-          debug('delete server-side chunk %o', chunkName)
+          site.debug.loader?.('delete server-side chunk %o', chunkName)
         }
       }
     }

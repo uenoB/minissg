@@ -1,15 +1,12 @@
 import type { IncomingMessage } from 'node:http'
 import type { Plugin, ViteDevServer, ModuleGraph } from 'vite'
 import { lookup } from 'mrmime'
-import createDebug from 'debug'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { type Context, type Module, ModuleName, run } from './module'
 import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './util'
 import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
-
-const debug = createDebug('minissg:server')
 
 interface Req {
   server: ViteDevServer
@@ -69,12 +66,12 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   // url must be a normalized absolute path
   url = url.replace(/\?[^#]*$/, '')
   if (/^(?:[^/]|$)|\/\/|#|\/\.\.?(?:\/|$)/.test(url)) return
-  debug('request %s', url)
+  req.site.debug.server?.('request %s', url)
   const requestName = Object.freeze(req.root.moduleName.join('.' + url))
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
-  const pages = await run(req.site, await loadLib(req.server), root)
+  const pages = await run(root, await loadLib(req.server), req.site)
   const page = await pages.get(requestFileName)
   if (page?.body == null) return
   let body = await page.body
@@ -97,7 +94,7 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
         res.writeHead(content.code ?? 404, { 'content-type': content.type })
         res.write(content.body)
         res.end()
-        debug('response %d %s', content.code ?? 404, content.type)
+        site.debug.server?.('response %d %s', content.code ?? 404, content.type)
       }
       const error = (e: unknown): void => {
         if (e instanceof Error) server.ssrFixStacktrace(touch(e))

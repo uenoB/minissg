@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 import { type ResolvedConfig, normalizePath, isCSSRequest } from 'vite'
+import debug, { type Debugger } from 'debug'
 import type { ResolvedOptions } from './options'
 import { Query } from './query'
 
@@ -7,10 +8,21 @@ const hasUrlQuery = Query.Class('url').test
 const hasInlineQuery = Query.Class('inline').test
 const hasRawQuery = Query.Class('raw').test
 
+const createDebug = (namespace: string): Debugger | undefined => {
+  const d = debug(namespace)
+  return d.enabled ? d : undefined
+}
+
 export class Site {
   readonly config: ResolvedConfig
   readonly options: ResolvedOptions
   readonly projectRoot: string
+  readonly debug = {
+    module: createDebug('minissg:module'),
+    loader: createDebug('minissg:loader'),
+    build: createDebug('minissg:build'),
+    server: createDebug('minissg:server')
+  }
 
   constructor(config: ResolvedConfig, options: ResolvedOptions) {
     this.config = config

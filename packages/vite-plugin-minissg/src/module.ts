@@ -1,13 +1,10 @@
 import { format } from 'node:util'
 import type { IncomingMessage } from 'node:http'
-import createDebug from 'debug'
 import type { Site } from './site'
 import { type Awaitable, type Null, lazy, mapReduce, isNotNull } from './util'
 import type { LibModule } from './loader'
 import type { ModuleName } from './module-name'
 export { ModuleName } from './module-name'
-
-const debug = createDebug('minissg:module')
 
 const typeCheck = (x: unknown, name: () => string, expect: string): void => {
   const ty = x === null ? 'null' : typeof x
@@ -25,7 +22,7 @@ const loadContent = (
 
 interface Request {
   requestName: ModuleName
-  incoming: Readonly<IncomingMessage>
+  incoming?: Readonly<IncomingMessage> | undefined
 }
 
 export interface Context {
@@ -56,9 +53,9 @@ export type Body = PromiseLike<string | Uint8Array> | Null
 export type Page = PromiseLike<{ loaded: Iterable<string>; body: Body }>
 
 export const run = async (
-  site: Site,
-  { run }: LibModule,
-  root: Context
+  root: Context,
+  { run }: Pick<LibModule, 'run'> = { run: (_, f) => f() },
+  site?: Site
 ): Promise<Map<string, Page>> =>
   await mapReduce({
     sources: [{ context: root, loaded: new Set<string>() }],
@@ -70,7 +67,7 @@ export const run = async (
         routes = con.module
       } else if (typeof con.module.entries === 'function') {
         const mod = con.module
-        if (debug.enabled) debug('await %s.entries()', pathOf(con))
+        site?.debug.module?.('await %s.entries()', pathOf(con))
         const module = await run(loaded, () => mod.entries(con))
         const context = { ...con, module, path: undefined, parent: con }
         return [{ context: Object.freeze(context), loaded }]
@@ -84,7 +81,7 @@ export const run = async (
         const moduleName = Object.freeze(con.moduleName.join(path))
         if (con.request?.requestName.isIn(moduleName) === false) return null
         const newLoaded = new Set(loaded)
-        if (debug.enabled) debug('await %s[%o]', pathOf(con), path)
+        site?.debug.module?.('await %s[%o]', pathOf(con), path)
         const module = await run(newLoaded, async () => await mod)
         const context = { ...con, moduleName, module, path, parent: con }
         return { context: Object.freeze(context), loaded: newLoaded }
@@ -98,25 +95,25 @@ export const run = async (
       const fileName = con.moduleName.fileName()
       const page: Page = lazy(async () => {
         try {
-          if (debug.enabled) debug('await %s.default', pathOf(con))
+          site?.debug.module?.('await %s.default', pathOf(con))
           const t = await run(loaded, async () => await module.default)
-          debug('dynamically imported modules for %o: %O', fileName, loaded)
+          site?.debug.module?.('imported modules for %o: %O', fileName, loaded)
           return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
         } catch (e) {
-          site.config.logger.error(`error occurred in generating ${fileName}`)
-          if (e instanceof Error) throw e
+          site?.config.logger.error(`error occurred in generating ${fileName}`)
+          if (site == null || e instanceof Error) throw e
           throw Error(format('uncaught non-error throw: %o', e), { cause: e })
         }
       })
       if (z.has(fileName)) {
-        site.config.logger.warn(`duplicate file ${fileName} by ${pathOf(con)}`)
+        site?.config.logger.warn(`duplicate file ${fileName} by ${pathOf(con)}`)
       } else {
         z.set(fileName, page)
       }
     },
     catch: (e, { context: con }) => {
-      site.config.logger.error(`error occurred in visiting ${pathOf(con)}`)
-      if (e instanceof Error) throw e
+      site?.config.logger.error(`error occurred in visiting ${pathOf(con)}`)
+      if (site == null || e instanceof Error) throw e
       throw Error(format('uncaught non-error throw: %o', e), { cause: e })
     }
   })
