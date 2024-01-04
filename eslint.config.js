@@ -49,6 +49,8 @@ const modificationToStandardTs = {
       singleline: { delimiter: 'semi', requireLast: false }
     }
   ],
+  '@typescript-eslint/space-before-function-paren': 'off',
+  '@typescript-eslint/indent': 'off',
   // make some rules more permissive
   '@typescript-eslint/no-invalid-void-type': [
     'error',
