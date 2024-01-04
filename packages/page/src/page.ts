@@ -1,5 +1,5 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
-import { ModuleName } from '../../vite-plugin-minissg/src/module-name'
+import { ModuleName } from '../../vite-plugin-minissg/src/module'
 import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import { Trie } from './trie'
 import { dirPath, normalizePath, safeDefineProperty } from './util'
