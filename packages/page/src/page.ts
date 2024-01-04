@@ -46,8 +46,8 @@ interface Directory<SomePage> extends PageIndex<SomePage> {
   pages: Array<readonly [string, SomePage]>
 }
 
-export interface PagePrivate<Module, SomePage> {
-  content: (() => Awaitable<Module>) | Directory<SomePage> | undefined
+export interface PagePrivate<ModuleType, SomePage> {
+  content: (() => Awaitable<ModuleType>) | Directory<SomePage> | undefined
   fileName: string
   stem: ModuleName
   variant: ModuleName
@@ -192,30 +192,30 @@ type Items<X> = Iterable<readonly [string, X]> | Readonly<Record<string, X>>
 const iterate = <X>(items: Items<X>): Iterable<readonly [string, X]> =>
   Symbol.iterator in items ? items : Object.entries(items)
 
-interface PageConstructorArg<Module> {
+interface PageConstructorArg<ModuleType> {
   context?: Readonly<minissg.Context> | undefined
   url?: URL | string | undefined
   parsePath?: ((path: string) => PathInfo) | undefined
   render?: ((module: ModuleType) => Awaitable<minissg.Content>) | undefined
 }
 
-interface PageNewArg<Module> extends PageConstructorArg<Module> {
+interface PageNewArg<ModuleType> extends PageConstructorArg<ModuleType> {
   pages?: Items<() => Awaitable<ModuleType>> | undefined
   substPath?: ((path: string) => string) | undefined
 }
 
-export type PageArg<Module> =
+export type PageArg<ModuleType> =
   | Readonly<PageConstructorArg<ModuleType>>
   | undefined
 
-export class Page<Module = unknown> implements EntriesModule, PageContext {
-  declare readonly [priv_]: PagePrivate<Module, this>
+export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
+  declare readonly [priv_]: PagePrivate<ModuleType, this>
 
-  constructor(arg?: PageArg<Module>) {
+  constructor(arg?: PageArg<ModuleType>) {
     const parent = findParent(this, arg?.context)
     inherit(this, 'parsePath', arg, parent)
     inherit(this, 'render', arg, parent)
-    const priv: PagePrivate<Module, this> = {
+    const priv: PagePrivate<ModuleType, this> = {
       content: undefined,
       fileName: parent?.[priv_].fileName ?? '',
       stem: parent?.[priv_].stem ?? ModuleName.root,
@@ -299,7 +299,7 @@ export class Page<Module = unknown> implements EntriesModule, PageContext {
     return this[priv_].root
   }
 
-  load(): PromiseLike<Module> | undefined {
+  load(): PromiseLike<ModuleType> | undefined {
     const content = this[priv_].content
     return typeof content === 'function' ? lazy(content) : undefined
   }
@@ -355,7 +355,7 @@ export class Page<Module = unknown> implements EntriesModule, PageContext {
   }
 
   declare parsePath: BivarianceFunc<this, [string], PathInfo>
-  declare render: BivarianceFunc<this, [Module], Awaitable<minissg.Content>>
+  declare render: BivarianceFunc<this, [ModuleType], Awaitable<minissg.Content>>
 }
 
 safeDefineProperty(Page.prototype as Page, 'parsePath', {
