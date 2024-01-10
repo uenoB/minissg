@@ -36,11 +36,23 @@ interface Edge<SomePage> extends PastEdge<SomePage> {
   // state.
 }
 
-interface PageIndex<SomePage> {
-  fileNameMap: Trie<string, Array<Edge<SomePage>>>
-  moduleNameMap: Trie<string, Array<Edge<SomePage>>>
-  stemMap: Trie<string, Array<Edge<SomePage>>>
+export const priv_: unique symbol = Symbol('private')
+
+export interface Asset {
+  [priv_]?: never
+  type: 'asset'
+  url: PromiseLike<string>
 }
+
+interface PageIndexEntry<SomePage> {
+  fileNameMap: SomePage | Asset
+  moduleNameMap: SomePage
+  stemMap: SomePage
+}
+
+type PageIndexTrie<X> = Trie<string, Array<Edge<X>>>
+type MakePageIndex<X> = { [K in keyof X]: PageIndexTrie<X[K]> }
+type PageIndex<SomePage> = MakePageIndex<PageIndexEntry<SomePage>>
 
 interface Directory<SomePage> extends PageIndex<SomePage> {
   pages: Array<readonly [string, SomePage]>
@@ -57,9 +69,12 @@ export interface PagePrivate<ModuleType, SomePage> {
   root: SomePage
 }
 
-export const priv_: unique symbol = Symbol('private')
+interface PageBase<SomePage> extends minissg.Context {
+  [priv_]: PagePrivate<unknown, SomePage>
+}
+type Never<X> = { [K in keyof X]+?: never }
 
-const isSameClass = <SomePage extends Page>(
+const isSameClass = <SomePage extends NonNullable<object>>(
   page: SomePage,
   other: NonNullable<object>
 ): other is SomePage => {
@@ -68,7 +83,7 @@ const isSameClass = <SomePage extends Page>(
   return other instanceof PageType && page instanceof OtherType
 }
 
-const findParent = <SomePage extends Page>(
+const findParent = <SomePage extends NonNullable<object>>(
   page: SomePage,
   context: minissg.Context | undefined
 ): SomePage | undefined => {
@@ -78,11 +93,14 @@ const findParent = <SomePage extends Page>(
   return undefined
 }
 
-const derefPage = async <SomePage extends Page>(
+const derefPage = async <
+  SomePage extends Never<PageBase<SomePage>> | PageBase<SomePage>
+>(
   page: SomePage
 ): Promise<SomePage | undefined> => {
+  if (page[priv_] == null) return undefined
   if (typeof page[priv_].content !== 'function') return undefined
-  const moduleName = page.moduleName
+  const moduleName = page[priv_].moduleName
   let module = (await page[priv_].content()) as minissg.Module
   let context: minissg.Context = page
   while (typeof module === 'object' && module != null) {
@@ -113,11 +131,11 @@ const addPage = <SomePage>(
   }
 }
 
-const addRoute = <SomePage, Key extends keyof PageIndex<SomePage>>(
-  index: PageIndex<SomePage>,
+const addRoute = <Key extends keyof PageIndex<object>>(
+  index: PageIndex<object>,
   indexKey: Key,
   path: string,
-  page: SomePage
+  page: PageIndexEntry<object>[Key]
 ): void => {
   const trie = index[indexKey]
   const key = pathSteps(path)
@@ -133,12 +151,20 @@ const addRoute = <SomePage, Key extends keyof PageIndex<SomePage>>(
   addPage(trie, key.slice(0, key.length - 1), { page, final: false })
 }
 
-const find = <SomePage extends Page, Key extends keyof PageIndex<SomePage>>(
-  { page, final }: PastEdge<SomePage>,
+const find = <
+  SomePage extends PageBase<SomePage>,
+  Key extends keyof PageIndexEntry<SomePage>
+>(
+  { page, final }: PastEdge<PageIndexEntry<SomePage>[Key]>,
   indexKey: Key,
   path: string[],
-  all?: Set<SomePage> | undefined
-): PromiseLike<SomePage | undefined> | undefined => {
+  all?: Set<PageIndexEntry<SomePage>[Key]> | undefined
+): PromiseLike<PageIndexEntry<SomePage>[Key] | undefined> | undefined => {
+  if (page[priv_] == null) {
+    return path.length === 0 && final === true
+      ? Promise.resolve(page)
+      : undefined
+  }
   if (typeof page[priv_].content === 'function') {
     return derefPage(page).then(p => {
       if (p != null) return find({ page: p, final }, indexKey, path, all)
@@ -147,15 +173,20 @@ const find = <SomePage extends Page, Key extends keyof PageIndex<SomePage>>(
       return all != null ? undefined : page
     })
   }
-  return page[priv_].content?.[indexKey]
+  const index: PageIndex<SomePage> | undefined = page[priv_].content
+  return index?.[indexKey]
     .walk(path)
-    .reduceRight<PromiseLike<SomePage | undefined>>((z, { key, node }) => {
-      for (const next of node.value ?? []) {
-        if (path.length === 0 && final != null && final !== next.final) continue
-        z = z.then(r => r ?? find(next, indexKey, key, all))
-      }
-      return z
-    }, Promise.resolve(undefined))
+    .reduceRight<PromiseLike<PageIndexEntry<SomePage>[Key] | undefined>>(
+      (z, { key, node }) => {
+        for (const next of node.value ?? []) {
+          if (path.length !== 0 || final == null || final === next.final) {
+            z = z.then(r => r ?? find(next, indexKey, key, all))
+          }
+        }
+        return z
+      },
+      Promise.resolve(undefined)
+    )
 }
 
 const defaultParsePath = (path: string): PathInfo => {
@@ -202,6 +233,7 @@ interface PageConstructorArg<ModuleType> {
 interface PageNewArg<ModuleType> extends PageConstructorArg<ModuleType> {
   pages?: Items<() => Awaitable<ModuleType>> | undefined
   substPath?: ((path: string) => string) | undefined
+  assets?: Items<() => Awaitable<string>> | undefined
 }
 
 export type PageArg<ModuleType> =
@@ -238,7 +270,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     ...args: Args
   ): SomePage {
     const self = new this(arg, ...args)
-    if (arg?.pages == null) return self
+    if (arg?.pages == null && arg?.assets == null) return self
     const priv = self[priv_]
     const parent = priv.parent
     const dir: Directory<SomePage> = (self[priv_].content = {
@@ -247,26 +279,41 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
       moduleNameMap: new Trie(),
       stemMap: new Trie()
     })
-    for (const [rawPath, load] of iterate(arg.pages)) {
-      const filePath = normalizePath(rawPath)
-      const srcPath = normalizePath(arg?.substPath?.(rawPath) ?? rawPath)
-      const { relURL, stem, variant } = self.parsePath(srcPath)
-      const moduleName = priv.moduleName.join(relURL)
-      const context = { parent, moduleName, module: self, path: relURL }
-      const page = new this({ context: Object.freeze(context) })
-      page[priv_].content = load
-      page[priv_].stem = priv.stem.join(stem)
-      page[priv_].variant = priv.variant.join(variant)
-      page[priv_].url = new URL(moduleName.path, priv.root[priv_].url).href
-      if (rawPath !== '') {
-        page[priv_].fileName = dirPath(priv.fileName) + filePath
+    if (arg?.pages != null) {
+      for (const [rawPath, load] of iterate(arg.pages)) {
+        const filePath = normalizePath(rawPath)
+        const srcPath = normalizePath(arg?.substPath?.(rawPath) ?? rawPath)
+        const { relURL, stem, variant } = self.parsePath(srcPath)
+        const moduleName = priv.moduleName.join(relURL)
+        const context = { parent, moduleName, module: self, path: relURL }
+        const page = new this({ context: Object.freeze(context) })
+        page[priv_].content = load
+        page[priv_].stem = priv.stem.join(stem)
+        page[priv_].variant = priv.variant.join(variant)
+        page[priv_].url = new URL(moduleName.path, priv.root[priv_].url).href
+        if (rawPath !== '') {
+          page[priv_].fileName = dirPath(priv.fileName) + filePath
+        }
+        const relName = moduleName.path.slice(priv.moduleName.path.length)
+        const relStem = page[priv_].stem.path.slice(priv.stem.path.length)
+        addRoute(dir, 'fileNameMap', filePath, page)
+        addRoute(dir, 'moduleNameMap', relName, page)
+        addRoute(dir, 'stemMap', relStem, page)
+        dir.pages.push([relURL, page])
       }
-      const relName = moduleName.path.slice(priv.moduleName.path.length)
-      const relStem = page[priv_].stem.path.slice(priv.stem.path.length)
-      addRoute(dir, 'fileNameMap', filePath, page)
-      addRoute(dir, 'moduleNameMap', relName, page)
-      addRoute(dir, 'stemMap', relStem, page)
-      dir.pages.push([relURL, page])
+    }
+    if (arg?.assets != null) {
+      const origin = new URL(priv.root[priv_].url).origin
+      for (const [rawPath, load] of iterate(arg.assets)) {
+        const filePath = normalizePath(rawPath)
+        const asset: Asset = {
+          type: 'asset',
+          get url(): Promise<string> {
+            return Promise.resolve(load()).then(s => new URL(s, origin).href)
+          }
+        }
+        addRoute(dir, 'fileNameMap', filePath, asset)
+      }
     }
     return self
   }
@@ -311,27 +358,30 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     const url = new URL(path.startsWith('/') ? path.slice(1) : path, base)
     if (!url.href.startsWith(root.href)) return Promise.resolve(undefined)
     const key = url.pathname.slice(root.pathname.length)
-    return find({ page: priv.root }, 'moduleNameMap', pathSteps(key))
+    const edge = { page: priv.root } as const
+    return find<this, 'moduleNameMap'>(edge, 'moduleNameMap', pathSteps(key))
   }
 
-  findByFileName(path: string): PromiseLike<this | undefined> | undefined {
+  findByFileName(
+    path: string
+  ): PromiseLike<this | Asset | undefined> | undefined {
     const priv = this[priv_]
     const key = path.startsWith('/')
       ? normalizePath(path.slice(1))
       : normalizePath(dirPath(priv.fileName) + path)
-    return find({ page: priv.root }, 'fileNameMap', pathSteps(key))
+    const edge = { page: priv.root } as const
+    return find<this, 'fileNameMap'>(edge, 'fileNameMap', pathSteps(key))
   }
 
-  find(path: string): PromiseLike<this | undefined> | undefined {
+  find(path: string): PromiseLike<this | Asset | undefined> | undefined {
     return this.findByURL(path)?.then(r => r ?? this.findByFileName(path))
   }
 
-  variants(): PromiseLike<Set<this>> {
+  variants(): PromiseLike<Set<this>> | undefined {
     const set = new Set<this>()
     const key = pathSteps(this[priv_].stem.path)
-    return Promise.resolve(
-      find({ page: this[priv_].root }, 'stemMap', key, set)
-    ).then(() => set)
+    const edge = { page: this[priv_].root } as const
+    return find(edge, 'stemMap', key, set)?.then(() => set)
   }
 
   async entries(): Promise<minissg.Module> {
@@ -356,6 +406,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
 
   declare parsePath: BivarianceFunc<this, [string], PathInfo>
   declare render: BivarianceFunc<this, [ModuleType], Awaitable<minissg.Content>>
+  declare readonly type: 'page'
 }
 
 safeDefineProperty(Page.prototype as Page, 'parsePath', {
@@ -368,4 +419,10 @@ safeDefineProperty(Page.prototype as Page, 'render', {
   configurable: true,
   writable: true,
   value: defaultRender
+})
+
+safeDefineProperty(Page.prototype as Page, 'type', {
+  configurable: true,
+  writable: true,
+  value: 'page'
 })

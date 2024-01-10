@@ -1,12 +1,13 @@
 import { test, expect } from 'vitest'
 import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
-import { Page, pathSteps } from '../page'
+import { Page, pathSteps, type Asset } from '../page'
 
 const undef = Promise.resolve(undefined)
 
 interface Pages {
   root: Page
-  [k: string]: Page | undefined
+  [k: `/${string}`]: Page | undefined
+  [k: `${string}.js`]: Page | Asset | undefined
 }
 
 const tree = async (): Promise<Pages> => {
@@ -86,7 +87,7 @@ const tree = async (): Promise<Pages> => {
     'qux/index.html..js': await p.findByFileName('qux/index.html..js'),
     'qux/foo.js': await p.findByFileName('qux/foo.js'),
     'qux/bar.html..js': await p.findByFileName('qux/bar.html..js')
-  }
+  } as const
 }
 
 test.each([
@@ -184,7 +185,7 @@ test.each([
   ['/foo/qux.html/', 'qux/index.html..js'],
   ['/foo/qux.html/foo/', 'qux/foo.js'],
   ['/foo/qux.html/bar.html', 'qux/bar.html..js']
-])('page %s and %s must be identical', async (url, fileName) => {
+] as const)('page %s and %s must be identical', async (url, fileName) => {
   const t = await tree()
   expect(t[url]).toBe(t[fileName])
 })
@@ -200,7 +201,7 @@ test.each([
   ['/foo/qux.html/', 'qux1'],
   ['/foo/qux.html/foo/', 'qux2'],
   ['/foo/qux.html/bar.html', 'qux3']
-])('page %s must have %s', async (url, body) => {
+] as const)('page %o must have %o as its contents', async (url, body) => {
   const getDefault = async (m: Module): Promise<Content | undefined> =>
     'default' in m ? await m.default : undefined
   const t = await tree()
@@ -211,12 +212,12 @@ test.each([
   ['/foo/baz/en/', '/foo/baz/ja/'],
   ['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/'],
   ['/foo/']
-])('%o must have %o as variants', async (...urls) => {
+] as const)('%o must have %o as variants', async (...urls) => {
   const t = await tree()
   const undef = Promise.resolve(undefined)
   for (const url of urls) {
     await expect(
-      t[url]?.variants().then(Array.from) ?? undef
+      t[url]?.variants()?.then(Array.from) ?? undef
     ).resolves.toStrictEqual(urls.map(i => t[i]))
   }
 })
