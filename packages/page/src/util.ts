@@ -37,3 +37,16 @@ export const safeDefineProperty = <
   const desc = Object.assign(Object.create(null), descriptor) as Descriptor<Val>
   return Object.defineProperty(obj, key, desc)
 }
+
+interface SomeMap<K, V> {
+  get: (key: K) => V | undefined
+  set: (key: K, value: V) => unknown
+}
+
+export const dig = <X, Y, Z>(map: SomeMap<X, Map<Y, Z>>, key: X): Map<Y, Z> => {
+  const m = map.get(key)
+  if (m != null) return m
+  const n = new Map<Y, Z>()
+  map.set(key, n)
+  return n
+}

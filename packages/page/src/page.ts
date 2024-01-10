@@ -1,9 +1,11 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
-import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
+import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import { Trie } from './trie'
 import { dirPath, normalizePath, safeDefineProperty } from './util'
 import type { BivarianceFunc } from './util'
+import { type Delay, delay } from './delay'
+import { Memo } from './memo'
 
 type EntriesModule = Extract<minissg.Module, { entries: unknown }>
 
@@ -41,7 +43,8 @@ export const priv_: unique symbol = Symbol('private')
 export interface Asset {
   [priv_]?: never
   type: 'asset'
-  url: PromiseLike<string>
+  url: string
+  getURL: () => Delay<string>
 }
 
 interface PageIndexEntry<SomePage> {
@@ -159,11 +162,9 @@ const find = <
   indexKey: Key,
   path: string[],
   all?: Set<PageIndexEntry<SomePage>[Key]> | undefined
-): PromiseLike<PageIndexEntry<SomePage>[Key] | undefined> | undefined => {
+): Awaitable<PageIndexEntry<SomePage>[Key] | undefined> => {
   if (page[priv_] == null) {
-    return path.length === 0 && final === true
-      ? Promise.resolve(page)
-      : undefined
+    return path.length === 0 && final === true ? page : undefined
   }
   if (typeof page[priv_].content === 'function') {
     return derefPage(page).then(p => {
@@ -240,10 +241,13 @@ export type PageArg<ModuleType> =
   | Readonly<PageConstructorArg<ModuleType>>
   | undefined
 
+const memo = new Memo()
+
 export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
   declare readonly [priv_]: PagePrivate<ModuleType, this>
 
   constructor(arg?: PageArg<ModuleType>) {
+    memo.forget() // tree structure has possibly been changed
     const parent = findParent(this, arg?.context)
     inherit(this, 'parsePath', arg, parent)
     inherit(this, 'render', arg, parent)
@@ -308,8 +312,14 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
         const filePath = normalizePath(rawPath)
         const asset: Asset = {
           type: 'asset',
-          get url(): Promise<string> {
-            return Promise.resolve(load()).then(s => new URL(s, origin).href)
+          getURL(): Delay<string> {
+            return memo.memoize(
+              [this],
+              async () => new URL(await load(), origin).href
+            )
+          },
+          get url(): string {
+            return this.getURL().value
           }
         }
         addRoute(dir, 'fileNameMap', filePath, asset)
@@ -320,6 +330,10 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
 
   get url(): string {
     return this[priv_].url
+  }
+
+  get getURL(): Delay<string> {
+    return delay(() => this[priv_].url)
   }
 
   get fileName(): string {
@@ -346,42 +360,48 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     return this[priv_].root
   }
 
-  load(): PromiseLike<ModuleType> | undefined {
+  load(): Delay<ModuleType> | undefined {
     const content = this[priv_].content
-    return typeof content === 'function' ? lazy(content) : undefined
+    if (typeof content !== 'function') return undefined
+    return memo.memoize([this, 'load'], content)
   }
 
-  findByURL(path: string): PromiseLike<this | undefined> | undefined {
-    const priv = this[priv_]
-    const root = new URL('.', priv.root[priv_].url)
-    const base = path.startsWith('/') ? root : this[priv_].url
-    const url = new URL(path.startsWith('/') ? path.slice(1) : path, base)
-    if (!url.href.startsWith(root.href)) return Promise.resolve(undefined)
-    const key = url.pathname.slice(root.pathname.length)
-    const edge = { page: priv.root } as const
-    return find<this, 'moduleNameMap'>(edge, 'moduleNameMap', pathSteps(key))
+  findByURL(path: string): Delay<this | undefined> {
+    return memo.memoize([this, 'findByURL', path], () => {
+      const root = new URL('.', this[priv_].root[priv_].url)
+      const base = path.startsWith('/') ? root : this[priv_].url
+      const url = new URL(path.startsWith('/') ? path.slice(1) : path, base)
+      if (!url.href.startsWith(root.href)) return undefined
+      const key = url.pathname.slice(root.pathname.length)
+      const edge = { page: this[priv_].root } as const
+      return find<this, 'moduleNameMap'>(edge, 'moduleNameMap', pathSteps(key))
+    })
   }
 
-  findByFileName(
-    path: string
-  ): PromiseLike<this | Asset | undefined> | undefined {
-    const priv = this[priv_]
-    const key = path.startsWith('/')
-      ? normalizePath(path.slice(1))
-      : normalizePath(dirPath(priv.fileName) + path)
-    const edge = { page: priv.root } as const
-    return find<this, 'fileNameMap'>(edge, 'fileNameMap', pathSteps(key))
+  findByFileName(path: string): Delay<this | Asset | undefined> {
+    return memo.memoize([this, 'findByFileName', path], () => {
+      const key = path.startsWith('/')
+        ? normalizePath(path.slice(1))
+        : normalizePath(dirPath(this[priv_].fileName) + path)
+      const edge = { page: this[priv_].root } as const
+      return find<this, 'fileNameMap'>(edge, 'fileNameMap', pathSteps(key))
+    })
   }
 
-  find(path: string): PromiseLike<this | Asset | undefined> | undefined {
-    return this.findByURL(path)?.then(r => r ?? this.findByFileName(path))
+  find(path: string): Delay<this | Asset | undefined> {
+    return memo.memoize([this, 'find', path], async () => {
+      return (await this.findByURL(path)) ?? (await this.findByFileName(path))
+    })
   }
 
-  variants(): PromiseLike<Set<this>> | undefined {
-    const set = new Set<this>()
-    const key = pathSteps(this[priv_].stem.path)
-    const edge = { page: this[priv_].root } as const
-    return find(edge, 'stemMap', key, set)?.then(() => set)
+  variants(): Delay<Set<this>> {
+    return memo.memoize([this, 'variants'], async () => {
+      const key = pathSteps(this[priv_].stem.path)
+      const edge = { page: this[priv_].root } as const
+      const set = new Set<this>()
+      await find(edge, 'stemMap', key, set)
+      return set
+    })
   }
 
   async entries(): Promise<minissg.Module> {
@@ -393,7 +413,12 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
         return mod as minissg.Module
       }
     }
-    return { default: lazy(() => this.render(mod)) }
+    return {
+      default: delay(() => {
+        memo.forgetAll() // to obtain the effect of dynamic importing
+        return this.render(mod)
+      })
+    }
   }
 
   findParent<Key extends keyof this>(key?: Key | undefined): this | undefined {

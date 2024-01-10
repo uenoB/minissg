@@ -171,7 +171,7 @@ test.each([
   ['/foo/baz/ja']
 ])('page %s must be undefined', async url => {
   const t = await tree()
-  await expect(t.root.findByURL(url) ?? undef).resolves.toBeUndefined()
+  await expect(t.root.findByURL(url)).resolves.toBeUndefined()
 })
 
 test.each([
@@ -217,7 +217,7 @@ test.each([
   const undef = Promise.resolve(undefined)
   for (const url of urls) {
     await expect(
-      t[url]?.variants()?.then(Array.from) ?? undef
+      t[url]?.variants().then(Array.from) ?? undef
     ).resolves.toStrictEqual(urls.map(i => t[i]))
   }
 })
