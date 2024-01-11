@@ -245,6 +245,30 @@ export interface Paginate<Item = unknown, SomePage = Page> {
   numAllItems: number
 }
 
+const memo = new Memo()
+
+const createAsset = <SomePage extends PageBase<SomePage>>(
+  self: SomePage,
+  dir: Directory<SomePage>,
+  filePath: string,
+  load: () => Awaitable<string>
+): Asset => {
+  const asset: Asset = {
+    type: 'asset',
+    getURL(): Delay<string> {
+      return memo.memoize([self], async () => {
+        const origin = new URL(self[priv_].root[priv_].url).origin
+        return new URL(await load(), origin).href
+      })
+    },
+    get url(): string {
+      return this.getURL().value
+    }
+  }
+  addRoute(dir, 'fileNameMap', filePath, asset)
+  return asset
+}
+
 interface NewArg<ModuleType, This = never> {
   context?: Readonly<minissg.Context> | Null
   url?: URL | string | Null
@@ -274,11 +298,9 @@ type PageConstructor<ModuleType, This, Args extends readonly unknown[]> = new (
   ...args: Args
 ) => This
 
-const memo = new Memo()
-
 const createPage = <
   ModuleType,
-  SomePage extends Page,
+  SomePage extends Page<ModuleType>,
   Args extends readonly unknown[]
 >(
   This: PageConstructor<ModuleType, SomePage, Args>,
@@ -308,26 +330,63 @@ const createPage = <
   return page
 }
 
-const createAsset = <SomePage extends PageBase<SomePage>>(
-  self: SomePage,
-  dir: Directory<SomePage>,
-  filePath: string,
-  load: () => Awaitable<string>
-): Asset => {
-  const asset: Asset = {
-    type: 'asset',
-    getURL(): Delay<string> {
-      return memo.memoize([self], async () => {
-        const origin = new URL(self[priv_].root[priv_].url).origin
-        return new URL(await load(), origin).href
-      })
-    },
-    get url(): string {
-      return this.getURL().value
+const moduleDirectory = async <
+  ModuleType,
+  SomePage extends Page<ModuleType>,
+  Args extends readonly unknown[]
+>(
+  This: PageConstructor<ModuleType, SomePage, Args>,
+  page: SomePage,
+  arg: ModuleArg<ModuleType, SomePage> | Null,
+  args: Args
+): Promise<Directory<SomePage>> => {
+  const dir = createDirectory<SomePage>()
+  if (arg?.pages != null) {
+    for await (const [rawPath, load] of iterateTuples(arg.pages, page)) {
+      const srcPath = (await arg?.substPath?.call(page, rawPath)) ?? rawPath
+      const pathInfo = page.parsePath(normalizePath(srcPath))
+      const filePath = rawPath === '' ? null : normalizePath(rawPath)
+      createPage(This, page, dir, filePath, pathInfo, load, args)
     }
   }
-  addRoute(dir, 'fileNameMap', filePath, asset)
-  return asset
+  if (arg?.assets != null) {
+    for await (const [rawPath, load] of iterateTuples(arg.assets, page)) {
+      createAsset(page, dir, normalizePath(rawPath), load)
+    }
+  }
+  return dir
+}
+
+const paginateDirectory = async <
+  Item,
+  ModuleType,
+  SomePage extends Page<ModuleType>,
+  Args extends readonly unknown[]
+>(
+  This: PageConstructor<ModuleType, SomePage, Args>,
+  page: SomePage,
+  arg: PaginateArg<ModuleType, SomePage, Item>,
+  args: Args
+): Promise<Directory<SomePage>> => {
+  const dir = createDirectory<SomePage>()
+  const pageSize = arg.pageSize ?? 10
+  if (pageSize <= 0) return dir
+  const allItems = await listItems(arg.items, page)
+  const load = arg.load
+  const numAllItems = allItems.length
+  const numPages = Math.ceil(numAllItems / pageSize)
+  const pages: Array<Paginate<Item, SomePage>> = []
+  for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
+    const itemIndex = pageIndex * pageSize
+    const items = allItems.slice(itemIndex, itemIndex + pageSize)
+    const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
+    const load2 = (): Awaitable<ModuleType> => load.call(pagi.page, pagi)
+    const pathInfo = page.paginatePath(pageIndex)
+    const subpage = createPage(This, page, dir, null, pathInfo, load2, args)
+    pagi.page = subpage
+    pages.push(pagi)
+  }
+  return dir
 }
 
 export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
@@ -361,25 +420,8 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     arg?: Readonly<ModuleArg<ModuleType, SomePage>> | Null,
     ...args: Args
   ): SomePage {
-    const page = new this(arg ?? {}, ...args)
-    if (arg?.pages == null && arg?.assets == null) return page
-    page[priv_].content = (async () => {
-      const dir = createDirectory<SomePage>()
-      if (arg?.pages != null) {
-        for await (const [rawPath, load] of iterateTuples(arg.pages, page)) {
-          const srcPath = (await arg?.substPath?.call(page, rawPath)) ?? rawPath
-          const pathInfo = page.parsePath(normalizePath(srcPath))
-          const filePath = rawPath === '' ? null : normalizePath(rawPath)
-          createPage(this, page, dir, filePath, pathInfo, load, args)
-        }
-      }
-      if (arg?.assets != null) {
-        for await (const [rawPath, load] of iterateTuples(arg.assets, page)) {
-          createAsset(page, dir, normalizePath(rawPath), load)
-        }
-      }
-      return dir
-    })()
+    const page = new this(arg, ...args)
+    page[priv_].content = moduleDirectory(this, page, arg, args)
     return page
   }
 
@@ -393,28 +435,8 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     arg: Readonly<PaginateArg<ModuleType, SomePage, Item>>,
     ...args: Args
   ): SomePage {
-    const pageSize = arg.pageSize ?? 10
-    if (pageSize <= 0) throw Error(`non-positive pageSize: ${pageSize}`)
     const page = new this(arg, ...args)
-    page[priv_].content = (async () => {
-      const dir = createDirectory<SomePage>()
-      const allItems = await listItems(arg.items, page)
-      const load = arg.load
-      const numAllItems = allItems.length
-      const numPages = Math.ceil(numAllItems / pageSize)
-      const pages: Array<Paginate<Item, SomePage>> = []
-      for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
-        const itemIndex = pageIndex * pageSize
-        const items = allItems.slice(itemIndex, itemIndex + pageSize)
-        const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
-        const load2 = (): Awaitable<ModuleType> => load.call(pagi.page, pagi)
-        const pathInfo = page.paginatePath(pageIndex)
-        const subpage = createPage(this, page, dir, null, pathInfo, load2, args)
-        pagi.page = subpage
-        pages.push(pagi)
-      }
-      return dir
-    })()
+    page[priv_].content = paginateDirectory(this, page, arg, args)
     return page
   }
 
