@@ -1,24 +1,24 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
-import type { Awaitable } from '../../vite-plugin-minissg/src/util'
+import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
 import { Trie } from './trie'
 import { dirPath, normalizePath, safeDefineProperty } from './util'
 import type { BivarianceFunc } from './util'
+import { type Tuples, type Items, iterateTuples, listItems } from './items'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
 
 type EntriesModule = Extract<minissg.Module, { entries: unknown }>
 
 interface PageContext<SomePage extends Page = Page> extends minissg.Context {
-  moduleName: ModuleName
   module: SomePage
 }
 
-export type PathInfo = Readonly<{
+export interface PathInfo {
   stem: string
   variant: string
   relURL: string
-}>
+}
 
 interface PastEdge<SomePage> {
   page: SomePage
@@ -61,8 +61,18 @@ interface Directory<SomePage> extends PageIndex<SomePage> {
   pages: Array<readonly [string, SomePage]>
 }
 
+const createDirectory = <SomePage>(): Directory<SomePage> => ({
+  pages: [],
+  fileNameMap: new Trie(),
+  moduleNameMap: new Trie(),
+  stemMap: new Trie()
+})
+
 export interface PagePrivate<ModuleType, SomePage> {
-  content: (() => Awaitable<ModuleType>) | Directory<SomePage> | undefined
+  content:
+    | (() => Awaitable<ModuleType>)
+    | Promise<Directory<SomePage>>
+    | undefined
   fileName: string
   stem: ModuleName
   variant: ModuleName
@@ -72,7 +82,7 @@ export interface PagePrivate<ModuleType, SomePage> {
   root: SomePage
 }
 
-interface PageBase<SomePage> extends minissg.Context {
+interface PageBase<SomePage = unknown> extends minissg.Context {
   [priv_]: PagePrivate<unknown, SomePage>
 }
 type Never<X> = { [K in keyof X]+?: never }
@@ -88,7 +98,7 @@ const isSameClass = <SomePage extends NonNullable<object>>(
 
 const findParent = <SomePage extends NonNullable<object>>(
   page: SomePage,
-  context: minissg.Context | undefined
+  context: minissg.Context | Null
 ): SomePage | undefined => {
   for (let c = context; c != null; c = c.parent) {
     if (isSameClass(page, c.module) && c.module !== page) return c.module
@@ -174,23 +184,25 @@ const find = <
       return all != null ? undefined : page
     })
   }
-  const index: PageIndex<SomePage> | undefined = page[priv_].content
-  return index?.[indexKey]
-    .walk(path)
-    .reduceRight<PromiseLike<PageIndexEntry<SomePage>[Key] | undefined>>(
-      (z, { key, node }) => {
-        for (const next of node.value ?? []) {
-          if (path.length !== 0 || final == null || final === next.final) {
-            z = z.then(r => r ?? find(next, indexKey, key, all))
-          }
-        }
-        return z
-      },
-      Promise.resolve(undefined)
-    )
+  return page[priv_].content?.then(
+    (index: PageIndex<SomePage> | undefined) =>
+      index?.[indexKey]
+        .walk(path)
+        .reduceRight<PromiseLike<PageIndexEntry<SomePage>[Key] | undefined>>(
+          (z, { key, node }) => {
+            for (const next of node.value ?? []) {
+              if (path.length !== 0 || final == null || final === next.final) {
+                z = z.then(r => r ?? find(next, indexKey, key, all))
+              }
+            }
+            return z
+          },
+          Promise.resolve(undefined)
+        )
+  )
 }
 
-const defaultParsePath = (path: string): PathInfo => {
+const defaultParsePath = (path: string): Readonly<PathInfo> => {
   const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(path)
   const variant = m?.[1] ?? ''
   const stemBase = path.slice(0, m?.index ?? path.length)
@@ -199,16 +211,21 @@ const defaultParsePath = (path: string): PathInfo => {
   return { stem, variant, relURL }
 }
 
+const defaultPaginatePath = (index: number): Readonly<PathInfo> =>
+  index === 0
+    ? { stem: '', variant: '', relURL: './' }
+    : { stem: '', variant: '', relURL: `${index + 1}/` }
+
 const defaultRender = (mod: unknown): Awaitable<minissg.Content> => {
   if (mod == null || typeof mod === 'string') return mod
   if (typeof mod !== 'object') return `[${typeof mod}]`
   return 'default' in mod ? (mod.default as minissg.Content) : undefined
 }
 
-const inherit = <SomePage extends Page, K extends 'parsePath' | 'render'>(
+const inherit = <SomePage extends Page, Key extends keyof SomePage>(
   page: SomePage,
-  key: K,
-  ...parents: ReadonlyArray<{ [P in K]?: SomePage[P] | undefined } | undefined>
+  key: Key,
+  ...parents: ReadonlyArray<{ [P in Key]?: SomePage[P] | Null } | Null>
 ): void => {
   for (const parent of parents) {
     const method = parent?.[key]
@@ -219,29 +236,99 @@ const inherit = <SomePage extends Page, K extends 'parsePath' | 'render'>(
   }
 }
 
-type Items<X> = Iterable<readonly [string, X]> | Readonly<Record<string, X>>
-
-const iterate = <X>(items: Items<X>): Iterable<readonly [string, X]> =>
-  Symbol.iterator in items ? items : Object.entries(items)
-
-interface PageConstructorArg<ModuleType> {
-  context?: Readonly<minissg.Context> | undefined
-  url?: URL | string | undefined
-  parsePath?: ((path: string) => PathInfo) | undefined
-  render?: ((module: ModuleType) => Awaitable<minissg.Content>) | undefined
+export interface Paginate<Item = unknown, SomePage = Page> {
+  pages: Array<Paginate<Item, SomePage>>
+  page: SomePage
+  pageIndex: number // starts from 0
+  itemIndex: number // starts from 0
+  items: Item[] // up to `pageSize` items
+  numAllItems: number
 }
 
-interface PageNewArg<ModuleType> extends PageConstructorArg<ModuleType> {
-  pages?: Items<() => Awaitable<ModuleType>> | undefined
-  substPath?: ((path: string) => string) | undefined
-  assets?: Items<() => Awaitable<string>> | undefined
+interface NewArg<ModuleType, This = never> {
+  context?: Readonly<minissg.Context> | Null
+  url?: URL | string | Null
+  render?:
+    | ((this: This, module: ModuleType) => Awaitable<minissg.Content>)
+    | Null
+  parsePath?: ((this: This, path: string) => Readonly<PathInfo>) | Null
+  paginatePath?: ((this: This, index: number) => Readonly<PathInfo>) | Null
 }
 
-export type PageArg<ModuleType> =
-  | Readonly<PageConstructorArg<ModuleType>>
-  | undefined
+interface ModuleArg<ModuleType, This> extends NewArg<ModuleType, This> {
+  pages?: Tuples<() => Awaitable<ModuleType>, This> | Null
+  substPath?: ((this: This, path: string) => Awaitable<string>) | Null
+  assets?: Tuples<() => Awaitable<string>, This>
+}
+
+interface PaginateArg<ModuleType, This, X> extends NewArg<ModuleType, This> {
+  items: Items<X, This>
+  load: (this: This, paginate: Paginate<X, This>) => Awaitable<ModuleType>
+  pageSize?: number | Null
+}
+
+export type PageArg<ModuleType> = Readonly<NewArg<ModuleType>> | Null
+
+type PageConstructor<ModuleType, This, Args extends readonly unknown[]> = new (
+  arg: Readonly<PageArg<ModuleType>>,
+  ...args: Args
+) => This
 
 const memo = new Memo()
+
+const createPage = <
+  ModuleType,
+  SomePage extends Page,
+  Args extends readonly unknown[]
+>(
+  This: PageConstructor<ModuleType, SomePage, Args>,
+  self: SomePage,
+  dir: Directory<SomePage>,
+  filePath: string | null,
+  { relURL, stem, variant }: Readonly<PathInfo>,
+  load: () => Awaitable<ModuleType>,
+  args: Args
+): SomePage => {
+  const priv = self[priv_]
+  const parent = priv.parent
+  const moduleName = priv.moduleName.join(relURL)
+  const context = { parent, moduleName, module: self, path: relURL }
+  const page = new This({ context: Object.freeze(context) }, ...args)
+  page[priv_].content = load
+  page[priv_].stem = priv.stem.join(stem)
+  page[priv_].variant = priv.variant.join(variant)
+  page[priv_].url = new URL(moduleName.path, priv.root[priv_].url).href
+  if (filePath != null) page[priv_].fileName = dirPath(priv.fileName) + filePath
+  const relName = moduleName.path.slice(priv.moduleName.path.length)
+  const relStem = page[priv_].stem.path.slice(priv.stem.path.length)
+  addRoute(dir, 'fileNameMap', filePath ?? '', page)
+  addRoute(dir, 'moduleNameMap', relName, page)
+  addRoute(dir, 'stemMap', relStem, page)
+  dir.pages.push([relURL, page])
+  return page
+}
+
+const createAsset = <SomePage extends PageBase<SomePage>>(
+  self: SomePage,
+  dir: Directory<SomePage>,
+  filePath: string,
+  load: () => Awaitable<string>
+): Asset => {
+  const asset: Asset = {
+    type: 'asset',
+    getURL(): Delay<string> {
+      return memo.memoize([self], async () => {
+        const origin = new URL(self[priv_].root[priv_].url).origin
+        return new URL(await load(), origin).href
+      })
+    },
+    get url(): string {
+      return this.getURL().value
+    }
+  }
+  addRoute(dir, 'fileNameMap', filePath, asset)
+  return asset
+}
 
 export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
   declare readonly [priv_]: PagePrivate<ModuleType, this>
@@ -251,6 +338,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     const parent = findParent(this, arg?.context)
     inherit(this, 'parsePath', arg, parent)
     inherit(this, 'render', arg, parent)
+    inherit(this, 'paginatePath', arg, parent)
     const priv: PagePrivate<ModuleType, this> = {
       content: undefined,
       fileName: parent?.[priv_].fileName ?? '',
@@ -269,63 +357,65 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     SomePage extends Page<ModuleType> = Page<ModuleType>,
     Args extends readonly unknown[] = []
   >(
-    this: new (arg: PageArg<ModuleType>, ...args: [] | Args) => SomePage,
-    arg?: Readonly<PageNewArg<ModuleType>> | undefined,
+    this: PageConstructor<ModuleType, SomePage, Args>,
+    arg?: Readonly<ModuleArg<ModuleType, SomePage>> | Null,
     ...args: Args
   ): SomePage {
-    const self = new this(arg, ...args)
-    if (arg?.pages == null && arg?.assets == null) return self
-    const priv = self[priv_]
-    const parent = priv.parent
-    const dir: Directory<SomePage> = (self[priv_].content = {
-      pages: [],
-      fileNameMap: new Trie(),
-      moduleNameMap: new Trie(),
-      stemMap: new Trie()
-    })
-    if (arg?.pages != null) {
-      for (const [rawPath, load] of iterate(arg.pages)) {
-        const filePath = normalizePath(rawPath)
-        const srcPath = normalizePath(arg?.substPath?.(rawPath) ?? rawPath)
-        const { relURL, stem, variant } = self.parsePath(srcPath)
-        const moduleName = priv.moduleName.join(relURL)
-        const context = { parent, moduleName, module: self, path: relURL }
-        const page = new this({ context: Object.freeze(context) })
-        page[priv_].content = load
-        page[priv_].stem = priv.stem.join(stem)
-        page[priv_].variant = priv.variant.join(variant)
-        page[priv_].url = new URL(moduleName.path, priv.root[priv_].url).href
-        if (rawPath !== '') {
-          page[priv_].fileName = dirPath(priv.fileName) + filePath
+    const page = new this(arg ?? {}, ...args)
+    if (arg?.pages == null && arg?.assets == null) return page
+    page[priv_].content = (async () => {
+      const dir = createDirectory<SomePage>()
+      if (arg?.pages != null) {
+        for await (const [rawPath, load] of iterateTuples(arg.pages, page)) {
+          const srcPath = (await arg?.substPath?.call(page, rawPath)) ?? rawPath
+          const pathInfo = page.parsePath(normalizePath(srcPath))
+          const filePath = rawPath === '' ? null : normalizePath(rawPath)
+          createPage(this, page, dir, filePath, pathInfo, load, args)
         }
-        const relName = moduleName.path.slice(priv.moduleName.path.length)
-        const relStem = page[priv_].stem.path.slice(priv.stem.path.length)
-        addRoute(dir, 'fileNameMap', filePath, page)
-        addRoute(dir, 'moduleNameMap', relName, page)
-        addRoute(dir, 'stemMap', relStem, page)
-        dir.pages.push([relURL, page])
       }
-    }
-    if (arg?.assets != null) {
-      const origin = new URL(priv.root[priv_].url).origin
-      for (const [rawPath, load] of iterate(arg.assets)) {
-        const filePath = normalizePath(rawPath)
-        const asset: Asset = {
-          type: 'asset',
-          getURL(): Delay<string> {
-            return memo.memoize(
-              [this],
-              async () => new URL(await load(), origin).href
-            )
-          },
-          get url(): string {
-            return this.getURL().value
-          }
+      if (arg?.assets != null) {
+        for await (const [rawPath, load] of iterateTuples(arg.assets, page)) {
+          createAsset(page, dir, normalizePath(rawPath), load)
         }
-        addRoute(dir, 'fileNameMap', filePath, asset)
       }
-    }
-    return self
+      return dir
+    })()
+    return page
+  }
+
+  static paginate<
+    Item,
+    ModuleType = unknown,
+    SomePage extends Page<ModuleType> = Page<ModuleType>,
+    Args extends readonly unknown[] = []
+  >(
+    this: PageConstructor<ModuleType, SomePage, Args>,
+    arg: Readonly<PaginateArg<ModuleType, SomePage, Item>>,
+    ...args: Args
+  ): SomePage {
+    const pageSize = arg.pageSize ?? 10
+    if (pageSize <= 0) throw Error(`non-positive pageSize: ${pageSize}`)
+    const page = new this(arg, ...args)
+    page[priv_].content = (async () => {
+      const dir = createDirectory<SomePage>()
+      const allItems = await listItems(arg.items, page)
+      const load = arg.load
+      const numAllItems = allItems.length
+      const numPages = Math.ceil(numAllItems / pageSize)
+      const pages: Array<Paginate<Item, SomePage>> = []
+      for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
+        const itemIndex = pageIndex * pageSize
+        const items = allItems.slice(itemIndex, itemIndex + pageSize)
+        const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
+        const load2 = (): Awaitable<ModuleType> => load.call(pagi.page, pagi)
+        const pathInfo = page.paginatePath(pageIndex)
+        const subpage = createPage(this, page, dir, null, pathInfo, load2, args)
+        pagi.page = subpage
+        pages.push(pagi)
+      }
+      return dir
+    })()
+    return page
   }
 
   get url(): string {
@@ -406,7 +496,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
 
   async entries(): Promise<minissg.Module> {
     const content = this[priv_].content
-    if (typeof content !== 'function') return content?.pages ?? []
+    if (typeof content !== 'function') return (await content)?.pages ?? []
     const mod = await content()
     if (typeof mod === 'object' && mod != null) {
       if (Symbol.iterator in mod || 'entries' in mod) {
@@ -429,7 +519,8 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     return undefined
   }
 
-  declare parsePath: BivarianceFunc<this, [string], PathInfo>
+  declare parsePath: BivarianceFunc<this, [string], Readonly<PathInfo>>
+  declare paginatePath: BivarianceFunc<this, [number], Readonly<PathInfo>>
   declare render: BivarianceFunc<this, [ModuleType], Awaitable<minissg.Content>>
   declare readonly type: 'page'
 }
@@ -438,6 +529,12 @@ safeDefineProperty(Page.prototype as Page, 'parsePath', {
   configurable: true,
   writable: true,
   value: defaultParsePath
+})
+
+safeDefineProperty(Page.prototype as Page, 'paginatePath', {
+  configurable: true,
+  writable: true,
+  value: defaultPaginatePath
 })
 
 safeDefineProperty(Page.prototype as Page, 'render', {
