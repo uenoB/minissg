@@ -258,7 +258,7 @@ interface NewArg<ModuleType, This = never> {
 interface ModuleArg<ModuleType, This> extends NewArg<ModuleType, This> {
   pages?: Tuples<() => Awaitable<ModuleType>, This> | Null
   substPath?: ((this: This, path: string) => Awaitable<string>) | Null
-  assets?: Tuples<() => Awaitable<string>, This>
+  assets?: Tuples<() => Awaitable<string>, This> | Null
 }
 
 interface PaginateArg<ModuleType, This, X> extends NewArg<ModuleType, This> {
@@ -352,7 +352,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     safeDefineProperty(this, priv_, { value: priv })
   }
 
-  static new<
+  static module<
     ModuleType = unknown,
     SomePage extends Page<ModuleType> = Page<ModuleType>,
     Args extends readonly unknown[] = []

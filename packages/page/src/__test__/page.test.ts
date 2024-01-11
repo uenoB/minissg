@@ -17,7 +17,7 @@ const tree = async (): Promise<Pages> => {
   let quxPage: Page | undefined
   const bar = (): Module => ({
     entries: context =>
-      (barPage ??= Page.new({
+      (barPage ??= Page.module({
         context,
         pages: { 'foo/bar.en.js': () => 'bar1', 'foo/bar.ja.js': () => 'bar2' },
         substPath: s => s.slice('foo/'.length)
@@ -25,7 +25,7 @@ const tree = async (): Promise<Pages> => {
   })
   const baz = (): Module => ({
     entries: context =>
-      (bazPage ??= Page.new({
+      (bazPage ??= Page.module({
         context,
         pages: {
           'index.html..en.js': () => 'baz1',
@@ -35,7 +35,7 @@ const tree = async (): Promise<Pages> => {
   })
   const qux = (): Module => ({
     entries: context =>
-      (quxPage ??= Page.new({
+      (quxPage ??= Page.module({
         context,
         pages: {
           '': () => 'qux0',
@@ -47,7 +47,7 @@ const tree = async (): Promise<Pages> => {
   })
   const foo = (): Module => ({
     entries: context =>
-      (fooPage ??= Page.new<unknown>({
+      (fooPage ??= Page.module<unknown>({
         context,
         pages: {
           'bar/bar.js': bar,
@@ -58,7 +58,7 @@ const tree = async (): Promise<Pages> => {
         substPath: s => s.replace(/^(?:foo|qux)\//, '')
       }))
   })
-  const p = Page.new<unknown>({
+  const p = Page.module<unknown>({
     url: 'http://example.com',
     pages: { 'foo.js': foo, 'index.html..js': () => 'root' }
   })
