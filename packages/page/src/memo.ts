@@ -1,26 +1,50 @@
-import { dig } from './util'
-import { delay, type Delay, type Delayable } from './delay'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import type { Awaitable } from '../../vite-plugin-minissg/src/util'
+import { delay, type Delay } from './delay'
 
-type Obj = NonNullable<object>
-type MemoMap = WeakMap<Obj, Map<unknown, Map<unknown, Delay<unknown>>>>
+interface SomeMap<K, V> {
+  get: (key: K) => V | undefined
+  set: (key: K, value: V) => unknown
+}
+
+const dig = <K>(map: SomeMap<K, MemoMap>, key: K): MemoMap => {
+  const r = map.get(key)
+  if (r != null) return r
+  const m = new MemoMap()
+  map.set(key, m)
+  return m
+}
+
+class MemoMap {
+  private wnext: WeakMap<object, MemoMap> | undefined
+  private pnext: Map<unknown, MemoMap> | undefined
+  value: Delay<unknown> | undefined
+
+  dig(key: unknown): MemoMap {
+    if (key != null && (typeof key === 'object' || typeof key === 'function')) {
+      return dig((this.wnext ??= new WeakMap()), key)
+    } else {
+      return dig((this.pnext ??= new Map()), key)
+    }
+  }
+}
 
 export class Memo {
-  private memoMap: MemoMap | undefined
+  private readonly memoMap = new AsyncLocalStorage<WeakMap<object, MemoMap>>()
 
-  memoize<X>(
-    [k1, k2, k3]: readonly [Obj, unknown?, unknown?],
-    load: Delayable<X>
-  ): Delay<X> {
-    this.memoMap ??= new WeakMap()
-    const m = dig(dig(this.memoMap, k1), k2)
-    const v = m.get(k3) as Delay<X> | undefined
-    if (v != null) return v
-    const d = delay(load)
-    m.set(k3, d)
-    return d
+  memoize<Args extends readonly unknown[], Ret>(
+    func: (...args: Args) => Awaitable<Ret>,
+    ...args: Args
+  ): Delay<Ret> {
+    const memoMap = this.memoMap.getStore()
+    if (memoMap == null) return delay(() => func(...args))
+    let m = dig(memoMap, func)
+    for (const i of args) m = m.dig(i)
+    if (m.value != null) return m.value as Delay<Ret>
+    return (m.value = delay(() => func(...args)))
   }
 
-  forget(): void {
-    this.memoMap = undefined
+  run<R>(f: () => R): R {
+    return this.memoMap.run(new WeakMap(), f)
   }
 }

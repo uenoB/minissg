@@ -1,7 +1,7 @@
-import { raise } from '../../vite-plugin-minissg/src/util'
+import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
 import { safeDefineProperty } from './util'
 
-export type Delayable<X> = (() => X | PromiseLike<X>) | PromiseLike<X>
+export type Delayable<X> = (() => Awaitable<X>) | PromiseLike<X>
 export type Delay<X> = PromiseLike<X> & { value: X }
 
 interface State<X> {

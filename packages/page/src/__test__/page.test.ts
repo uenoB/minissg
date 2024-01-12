@@ -53,7 +53,7 @@ const tree = async (): Promise<Pages> => {
           'bar/bar.js': bar,
           'baz.js': baz,
           'foo/index.html..js': () => 'foo',
-          'qux/qux.html..js': qux
+          'qux/qux.txt..js': qux
         },
         substPath: s => s.replace(/^(?:foo|qux)\//, '')
       }))
@@ -64,16 +64,16 @@ const tree = async (): Promise<Pages> => {
   })
   return {
     root: p,
-    '/': await p.findByURL(''),
-    '/foo/': await p.findByURL('/foo/'),
-    '/foo/bar/bar/en/bar/': await p.findByURL('/foo/bar/bar/en/bar/'),
-    '/foo/bar/bar/ja/bar/': await p.findByURL('/foo/bar/bar/ja/bar/'),
-    '/foo/baz/en/': await p.findByURL('/foo/baz/en/'),
-    '/foo/baz/ja/': await p.findByURL('/foo/baz/ja/'),
-    '/foo/qux.html': await p.findByURL('/foo/qux.html'),
-    '/foo/qux.html/': await p.findByURL('/foo/qux.html/'),
-    '/foo/qux.html/foo/': await p.findByURL('/foo/qux.html/foo/'),
-    '/foo/qux.html/bar.html': await p.findByURL('/foo/qux.html/bar.html'),
+    '/': await p.findByModuleName(''),
+    '/foo/': await p.findByModuleName('/foo/'),
+    '/foo/bar/bar/en/bar/': await p.findByModuleName('/foo/bar/bar/en/bar/'),
+    '/foo/bar/bar/ja/bar/': await p.findByModuleName('/foo/bar/bar/ja/bar/'),
+    '/foo/baz/en/': await p.findByModuleName('/foo/baz/en/'),
+    '/foo/baz/ja/': await p.findByModuleName('/foo/baz/ja/'),
+    '/foo/qux.txt': await p.findByModuleName('/foo/qux.txt'),
+    '/foo/qux.txt/': await p.findByModuleName('/foo/qux.txt/'),
+    '/foo/qux.txt/foo/': await p.findByModuleName('/foo/qux.txt/foo/'),
+    '/foo/qux.txt/bar.html': await p.findByModuleName('/foo/qux.txt/bar.html'),
     'index.html..js': await p.findByFileName('index.html..js'),
     'foo.js': fooPage,
     'foo/index.html..js': await p.findByFileName('foo/index.html..js'),
@@ -83,7 +83,7 @@ const tree = async (): Promise<Pages> => {
     'baz.js': bazPage,
     'index.html..en.js': await p.findByFileName('index.html..en.js'),
     'index.html..ja.js': await p.findByFileName('index.html..ja.js'),
-    'qux/qux.html..js': await p.findByFileName('qux/qux.html..js'),
+    'qux/qux.txt..js': await p.findByFileName('qux/qux.txt..js'),
     'qux/index.html..js': await p.findByFileName('qux/index.html..js'),
     'qux/foo.js': await p.findByFileName('qux/foo.js'),
     'qux/bar.html..js': await p.findByFileName('qux/bar.html..js')
@@ -171,7 +171,7 @@ test.each([
   ['/foo/baz/ja']
 ])('page %s must be undefined', async url => {
   const t = await tree()
-  await expect(t.root.findByURL(url)).resolves.toBeUndefined()
+  await expect(t.root.findByModuleName(url)).resolves.toBeUndefined()
 })
 
 test.each([
@@ -181,10 +181,10 @@ test.each([
   ['/foo/bar/bar/ja/bar/', 'bar/foo/bar.ja.js'],
   ['/foo/baz/en/', 'index.html..en.js'],
   ['/foo/baz/ja/', 'index.html..ja.js'],
-  ['/foo/qux.html', 'qux/qux.html..js'],
-  ['/foo/qux.html/', 'qux/index.html..js'],
-  ['/foo/qux.html/foo/', 'qux/foo.js'],
-  ['/foo/qux.html/bar.html', 'qux/bar.html..js']
+  ['/foo/qux.txt', 'qux/qux.txt..js'],
+  ['/foo/qux.txt/', 'qux/index.html..js'],
+  ['/foo/qux.txt/foo/', 'qux/foo.js'],
+  ['/foo/qux.txt/bar.html', 'qux/bar.html..js']
 ] as const)('page %s and %s must be identical', async (url, fileName) => {
   const t = await tree()
   expect(t[url]).toBe(t[fileName])
@@ -197,10 +197,10 @@ test.each([
   ['/foo/bar/bar/ja/bar/', 'bar2'],
   ['/foo/baz/en/', 'baz1'],
   ['/foo/baz/ja/', 'baz2'],
-  ['/foo/qux.html', 'qux0'],
-  ['/foo/qux.html/', 'qux1'],
-  ['/foo/qux.html/foo/', 'qux2'],
-  ['/foo/qux.html/bar.html', 'qux3']
+  ['/foo/qux.txt', 'qux0'],
+  ['/foo/qux.txt/', 'qux1'],
+  ['/foo/qux.txt/foo/', 'qux2'],
+  ['/foo/qux.txt/bar.html', 'qux3']
 ] as const)('page %o must have %o as its contents', async (url, body) => {
   const getDefault = async (m: Module): Promise<Content | undefined> =>
     'default' in m ? await m.default : undefined

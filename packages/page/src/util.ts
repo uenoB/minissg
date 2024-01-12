@@ -20,6 +20,15 @@ export const normalizePath = (path: string): string => {
   }
 }
 
+export const isAbsURL = (url: string): boolean => {
+  try {
+    void new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
   | { writable?: boolean; value: X; get?: never; set?: never }
   | { writable: boolean; value?: X; get?: never; set?: never }
