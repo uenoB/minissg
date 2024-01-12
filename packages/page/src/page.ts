@@ -14,6 +14,8 @@ interface PageContext<SomePage extends Page = Page> extends minissg.Context {
   module: SomePage
 }
 
+type AssetModule = Readonly<{ default: string }>
+
 export interface PathInfo {
   stem: string
   variant: string
@@ -283,25 +285,35 @@ const pathname = (url: string | URL, query: string | Null): string => {
   return u.href.slice(u.origin.length)
 }
 
+const assetPathname = function (this: Asset, query?: string | Null): string {
+  return pathname(this.url.value, query)
+}
+
 const assetURL = async (
   root: PageBase<unknown>,
-  load: () => Awaitable<string>
-): Promise<string> =>
-  new URL(await load(), new URL(root[priv_].url).origin).href
+  load: () => Awaitable<{ default: string }>
+): Promise<string> => {
+  const path = (await root[priv_].memo.memoize(load)).default
+  return new URL(path, new URL(root[priv_].url).origin).href
+}
 
 const createAsset = <SomePage extends PageBase<SomePage>>(
   page: SomePage,
   dir: Directory<SomePage>,
   filePath: string,
-  load: () => Awaitable<string>
+  load: (() => Awaitable<{ default: string }>) | string
 ): Asset => {
-  const asset: Asset = {
-    type: 'asset',
-    get url(): Delay<string> {
-      return page[priv_].memo.memoize(assetURL, page[priv_].root, load)
-    },
-    pathname(query?: string | Null): string {
-      return pathname(this.url.value, query)
+  let asset: Asset
+  if (typeof load === 'string') {
+    const url = new URL(load, page[priv_].root[priv_].url).href
+    asset = { type: 'asset', url: delay.dummy(url), pathname: assetPathname }
+  } else {
+    asset = {
+      type: 'asset',
+      get url(): Delay<string> {
+        return page[priv_].memo.memoize(assetURL, page[priv_].root, load)
+      },
+      pathname: assetPathname
     }
   }
   addRoute(dir, 'fileNameMap', filePath, asset)
@@ -330,7 +342,7 @@ interface NewArg<ModuleType, This = never> {
 interface ModuleArg<ModuleType, This> extends NewArg<ModuleType, This> {
   pages?: Tuples<() => Awaitable<ModuleType>, This> | Null
   substPath?: ((this: This, path: string) => Awaitable<string>) | Null
-  assets?: Tuples<() => Awaitable<string>, This> | Null
+  assets?: Tuples<(() => Awaitable<AssetModule>) | string | Null, This> | Null
 }
 
 interface PaginateArg<ModuleType, This, X> extends NewArg<ModuleType, This> {
@@ -398,7 +410,9 @@ const moduleDirectory = async <
     }
   }
   if (arg?.assets != null) {
-    for await (const [rawPath, load] of iterateTuples(arg.assets, page)) {
+    for await (const [rawPath, rawLoad] of iterateTuples(arg.assets, page)) {
+      const load =
+        rawLoad ?? (await arg?.substPath?.call(page, rawPath)) ?? rawPath
       createAsset(page, dir, normalizePath(rawPath), load)
     }
   }

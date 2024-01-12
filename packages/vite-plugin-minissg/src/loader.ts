@@ -250,4 +250,5 @@ const libModule = `
   const storage = /*#__PURE__*/ new AsyncLocalStorage()
   export const add = id => storage.getStore()?.add(id)
   export const run = storage.run.bind(storage)
-  export const peek = f => storage.run({ add: () => void 0 }, f)`
+  const fn = (f, a) => async () => await (typeof f === 'function' ? f(...a) : f)
+  export const peek = (f, ...a) => storage.run({ add: () => void 0 }, fn(f, a))`

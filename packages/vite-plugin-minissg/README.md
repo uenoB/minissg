@@ -1103,12 +1103,16 @@ with the following signature:
 
 ```typescript
 declare module 'virtual:minissg/control' {
-  export const peek: <X>(f: () => X) => X
+  export const peek: <Ret, Args extends readonly unknown[]>(
+    f: ((...args: Args) => Ret | PromiseLike<Ret>) | Ret | PromiseLike<Ret>,
+    ...args: Args
+  ) => Promise<Ret>
 }
 ```
 
-The `peek` function just executes the given function but, during its
-execution, any asset offered by dynamic imports are ignored.
+The `peek` function executes the given function or wait for the given
+promise fulfilled, but during its execution, any asset offered by
+dynamic imports are ignored.
 
 ### Debugging Server-side Code
 
