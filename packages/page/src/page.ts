@@ -410,7 +410,6 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     inherit(this, 'render', arg, parent)
     inherit(this, 'paginatePath', arg, parent)
     const root = parent?.[priv_].root
-    root?.[priv_].memo.forget() // tree structure has been changed
     const priv: PagePrivate<ModuleType, this> = {
       content: undefined,
       fileName: parent?.[priv_].fileName ?? '',
