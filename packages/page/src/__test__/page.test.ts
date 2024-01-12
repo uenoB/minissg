@@ -112,7 +112,7 @@ test.each([
 
 test('new without argument', () => {
   const p = new Page()
-  expect(p.url).toBe('file:///')
+  expect(p.url.value).toBe('file:///')
   expect(p.fileName).toBe('')
   expect(p.variant).toBe('')
   expect(p.moduleName.path).toBe('')
@@ -123,7 +123,7 @@ test('new without argument', () => {
 
 test('new with url', () => {
   const p = new Page({ url: 'http://example.com/foo/' })
-  expect(p.url).toBe('http://example.com/foo/')
+  expect(p.url.value).toBe('http://example.com/foo/')
 })
 
 test('page as context', () => {

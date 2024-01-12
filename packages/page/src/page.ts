@@ -5,7 +5,7 @@ import { Trie } from './trie'
 import { dirPath, normalizePath, safeDefineProperty } from './util'
 import type { BivarianceFunc } from './util'
 import { type Tuples, type Items, iterateTuples, listItems } from './items'
-import { type Delay, type Delayable, delay } from './delay'
+import { type Delay, type Delayable, delay, dummyDelay } from './delay'
 import { Memo } from './memo'
 
 type EntriesModule = Extract<minissg.Module, { entries: unknown }>
@@ -49,8 +49,8 @@ const variantsMemo = { memo: 'variants' } as const
 export interface Asset {
   [priv_]?: never
   type: 'asset'
-  url: string
-  getURL: () => Delay<string>
+  url: Delay<string>
+  pathname: (path?: string | Null) => string
 }
 
 interface PageIndexEntry<SomePage> {
@@ -118,7 +118,7 @@ const derefPage = <
 >(
   page: SomePage
 ): Delay<SomePage | undefined> => {
-  if (page[priv_] == null) return delay(Promise.resolve(undefined))
+  if (page[priv_] == null) return dummyDelay(undefined)
   return page[priv_].memo.memoize([page, derefPageMemo], async () => {
     if (typeof page[priv_].content !== 'function') return undefined
     const moduleName = page[priv_].moduleName
@@ -245,6 +245,12 @@ const inherit = <SomePage extends Page, Key extends keyof SomePage>(
   }
 }
 
+const pathname = (url: string | URL, query: string | Null): string => {
+  if (query != null && !/^[?#]/.test(query)) query = '?' + query
+  const u = query != null ? new URL(query, url) : new URL(url)
+  return u.href.slice(u.origin.length)
+}
+
 const createAsset = <SomePage extends PageBase<SomePage>>(
   page: SomePage,
   dir: Directory<SomePage>,
@@ -253,14 +259,14 @@ const createAsset = <SomePage extends PageBase<SomePage>>(
 ): Asset => {
   const asset: Asset = {
     type: 'asset',
-    getURL(): Delay<string> {
+    get url(): Delay<string> {
       return page[priv_].memo.memoize([this], async () => {
         const origin = new URL(page[priv_].root[priv_].url).origin
         return new URL(await load(), origin).href
       })
     },
-    get url(): string {
-      return this.getURL().value
+    pathname(query?: string | Null): string {
+      return pathname(this.url.value, query)
     }
   }
   addRoute(dir, 'fileNameMap', filePath, asset)
@@ -457,12 +463,12 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
     return this[priv_].memo.memoize([this, ...key], value)
   }
 
-  get url(): string {
-    return this[priv_].url
+  get url(): Delay<string> {
+    return dummyDelay(this[priv_].url)
   }
 
-  getURL(): Delay<string> {
-    return delay(() => this[priv_].url)
+  pathname(query?: string | Null): string {
+    return pathname(this[priv_].url, query)
   }
 
   get fileName(): string {
