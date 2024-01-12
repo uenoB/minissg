@@ -18,7 +18,7 @@ export const lazy = <X>(f: () => Awaitable<X>): PromiseLike<X> => {
   return { then: (r, e) => (p ??= Promise.resolve(f())).then(r, e) }
 }
 
-const raise = (e: unknown): never => {
+export const raise = (e: unknown): never => {
   throw e
 }
 

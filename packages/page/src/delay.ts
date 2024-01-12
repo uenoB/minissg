@@ -1,36 +1,47 @@
-export type Delayable<X> = (() => X | PromiseLike<X>) | PromiseLike<X>
+import { raise } from '../../vite-plugin-minissg/src/util'
+import { safeDefineProperty } from './util'
 
-export interface Delay<X> extends PromiseLike<X> {
-  readonly value: X
+export type Delayable<X> = (() => X | PromiseLike<X>) | PromiseLike<X>
+export type Delay<X> = PromiseLike<X> & { value: X }
+
+interface State<X> {
+  p: PromiseLike<X>
+  e: unknown
+  r?: X
 }
 
-export const delay = <X>(load: Delayable<X>): Delay<X> => {
-  let promise: PromiseLike<X> | undefined
-  const result: { r?: X; e?: unknown } = {}
-  const boot = (): PromiseLike<X> => {
-    if (promise != null) return promise
+const delayAsync = <X>(load: Delayable<X>): Delay<X> => {
+  let state: State<X> | undefined
+  const boot = (): State<X> => {
+    if (state != null) return state
     const src = typeof load === 'function' ? Promise.resolve(load()) : load
-    promise = result.e = src.then(
-      x => (result.r = x),
-      x => {
-        throw (result.e = x)
-      }
+    const p: PromiseLike<X> = src.then(
+      x => (s.r = x),
+      x => raise((s.e = x))
     )
-    return promise
+    const s: State<X> = { p, e: p }
+    return (state = s)
   }
   return {
-    then(resolve, reject) {
-      return boot().then(resolve, reject)
+    then(...a) {
+      return boot().p.then(...a)
     },
     get value() {
-      void boot()
-      if ('r' in result) return result.r
-      throw result.e
+      const s = boot()
+      if ('r' in s) return s.r
+      throw s.e
     }
   }
 }
 
-export const dummyDelay = <X>(value: Awaited<X>): Delay<Awaited<X>> => {
+const delayDummy = <X>(value: Awaited<X>): Delay<Awaited<X>> => {
   const p = Promise.resolve(value)
   return { then: p.then.bind(p), value }
 }
+
+export const delay = delayAsync as {
+  <X>(load: Delayable<X>): Delay<X>
+  dummy: <X>(value: Awaited<X>) => Delay<Awaited<X>>
+}
+
+safeDefineProperty(delay, 'dummy', { value: delayDummy })

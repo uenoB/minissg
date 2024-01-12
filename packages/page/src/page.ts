@@ -3,9 +3,9 @@ import { ModuleName } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
 import { Trie } from './trie'
 import { dirPath, normalizePath, safeDefineProperty } from './util'
-import type { BivarianceFunc } from './util'
+import type { BivarianceFunc, Never } from './util'
 import { type Tuples, type Items, iterateTuples, listItems } from './items'
-import { type Delay, type Delayable, delay, dummyDelay } from './delay'
+import { type Delay, type Delayable, delay } from './delay'
 import { Memo } from './memo'
 
 type EntriesModule = Extract<minissg.Module, { entries: unknown }>
@@ -92,7 +92,6 @@ export interface PagePrivate<ModuleType, SomePage> {
 interface PageBase<SomePage = unknown> extends minissg.Context {
   [priv_]: PagePrivate<unknown, SomePage>
 }
-type Never<X> = { [K in keyof X]+?: never }
 
 const isSameClass = <SomePage extends NonNullable<object>>(
   page: SomePage,
@@ -118,7 +117,7 @@ const derefPage = <
 >(
   page: SomePage
 ): Delay<SomePage | undefined> => {
-  if (page[priv_] == null) return dummyDelay(undefined)
+  if (page[priv_] == null) return delay.dummy(undefined)
   return page[priv_].memo.memoize([page, derefPageMemo], async () => {
     if (typeof page[priv_].content !== 'function') return undefined
     const moduleName = page[priv_].moduleName
@@ -464,7 +463,7 @@ export class Page<ModuleType = unknown> implements EntriesModule, PageContext {
   }
 
   get url(): Delay<string> {
-    return dummyDelay(this[priv_].url)
+    return delay.dummy(this[priv_].url)
   }
 
   pathname(query?: string | Null): string {

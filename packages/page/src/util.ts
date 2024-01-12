@@ -3,6 +3,8 @@ export type BivarianceFunc<This, Args extends readonly unknown[], Ret> = {
   bivarianceHack(this: This, ...args: Args): Ret
 }['bivarianceHack']
 
+export type Never<X> = { [K in keyof X]+?: never }
+
 export const dirName = (path: string): string =>
   path.replace(/(?:^|\/)[^/]+$/, '')
 
