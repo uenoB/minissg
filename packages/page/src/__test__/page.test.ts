@@ -19,7 +19,10 @@ const tree = async (): Promise<Pages> => {
     entries: context =>
       (barPage ??= Page.module({
         context,
-        pages: { 'foo/bar.en.js': () => 'bar1', 'foo/bar.ja.js': () => 'bar2' },
+        pages: {
+          'foo/bar.en.js': (): unknown => 'bar1',
+          'foo/bar.ja.js': (): unknown => 'bar2'
+        },
         substPath: s => s.slice('foo/'.length)
       }))
   })
@@ -28,8 +31,8 @@ const tree = async (): Promise<Pages> => {
       (bazPage ??= Page.module({
         context,
         pages: {
-          'index.html..en.js': () => 'baz1',
-          'index.html..ja.js': () => 'baz2'
+          'index.html..en.js': (): unknown => 'baz1',
+          'index.html..ja.js': (): unknown => 'baz2'
         }
       }))
   })
@@ -38,10 +41,10 @@ const tree = async (): Promise<Pages> => {
       (quxPage ??= Page.module({
         context,
         pages: {
-          '': () => 'qux0',
-          'index.html..js': () => 'qux1',
-          'foo.js': () => 'qux2',
-          'bar.html..js': () => 'qux3'
+          '': (): unknown => 'qux0',
+          'index.html..js': (): unknown => 'qux1',
+          'foo.js': (): unknown => 'qux2',
+          'bar.html..js': (): unknown => 'qux3'
         }
       }))
   })
@@ -52,7 +55,7 @@ const tree = async (): Promise<Pages> => {
         pages: {
           'bar/bar.js': bar,
           'baz.js': baz,
-          'foo/index.html..js': () => 'foo',
+          'foo/index.html..js': (): unknown => 'foo',
           'qux/qux.txt..js': qux
         },
         substPath: s => s.replace(/^(?:foo|qux)\//, '')
@@ -60,7 +63,7 @@ const tree = async (): Promise<Pages> => {
   })
   const p = Page.module<unknown>({
     url: 'http://example.com',
-    pages: { 'foo.js': foo, 'index.html..js': () => 'root' }
+    pages: { 'foo.js': foo, 'index.html..js': (): unknown => 'root' }
   })
   return {
     root: p,
@@ -110,8 +113,8 @@ test.each([
   expect(pathSteps('foo/bar/')).toStrictEqual(['foo', 'bar', ''])
 })
 
-test('new without argument', () => {
-  const p = new Page()
+test('Page.module without argument', () => {
+  const p = Page.module({})
   expect(p.url.value).toBe('file:///')
   expect(p.fileName).toBe('')
   expect(p.variant).toBe('')
@@ -121,14 +124,14 @@ test('new without argument', () => {
   expect(p.load()).toBeUndefined()
 })
 
-test('new with url', () => {
-  const p = new Page({ url: 'http://example.com/foo/' })
+test('Page.module with url', () => {
+  const p = Page.module({ url: 'http://example.com/foo/' })
   expect(p.url.value).toBe('http://example.com/foo/')
 })
 
 test('page as context', () => {
-  const p1 = new Page()
-  const p2 = new Page({ context: p1 })
+  const p1 = Page.module({})
+  const p2 = Page.module({ context: p1 })
   expect(p2.parent).toBe(p1)
 })
 

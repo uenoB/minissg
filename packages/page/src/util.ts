@@ -1,10 +1,3 @@
-export type BivarianceFunc<This, Args extends readonly unknown[], Ret> = {
-  // eslint-disable-next-line @typescript-eslint/method-signature-style
-  bivarianceHack(this: This, ...args: Args): Ret
-}['bivarianceHack']
-
-export type Never<X> = { [K in keyof X]+?: never }
-
 export const dirName = (path: string): string =>
   path.replace(/(?:^|\/)[^/]+$/, '')
 
@@ -44,9 +37,9 @@ export const safeDefineProperty = <
   obj: Obj,
   key: Key,
   descriptor: Descriptor<Val>
-): Obj => {
-  const desc = Object.assign(Object.create(null), descriptor) as Descriptor<Val>
-  return Object.defineProperty(obj, key, desc)
+): boolean => {
+  const d = Object.assign(Object.create(null), descriptor) as typeof descriptor
+  return Reflect.defineProperty(obj, key, d)
 }
 
 interface SomeMap<K, V> {

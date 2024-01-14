@@ -32,7 +32,7 @@ class MemoMap {
 export class Memo {
   private readonly memoMap = new AsyncLocalStorage<WeakMap<object, MemoMap>>()
 
-  memoize<Args extends readonly unknown[], Ret>(
+  memoize<Args extends unknown[], Ret>(
     func: (...args: Args) => Awaitable<Ret>,
     ...args: Args
   ): Delay<Ret> {
