@@ -22,7 +22,7 @@ export const isAbsURL = (url: string): boolean => {
   }
 }
 
-type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
+export type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
   | { writable?: boolean; value: X; get?: never; set?: never }
   | { writable: boolean; value?: X; get?: never; set?: never }
   | { writable?: never; value?: never; get: () => X; set?: never }

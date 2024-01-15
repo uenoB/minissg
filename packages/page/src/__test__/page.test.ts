@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
 import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
-import { Page, pathSteps, type Asset } from '../page'
+import type { Asset } from '../directory'
+import { type PageArg, Page } from '../page'
 
 const undef = Promise.resolve(undefined)
 
@@ -92,26 +93,6 @@ const tree = async (): Promise<Pages> => {
     'qux/bar.html..js': await p.findByFileName('qux/bar.html..js')
   } as const
 }
-
-test.each([
-  ['', []],
-  ['/', ['']],
-  ['foo', ['foo']],
-  ['/foo', ['foo']],
-  ['foo/', ['foo', '']],
-  ['/foo/', ['foo', '']],
-  ['foo/bar', ['foo', 'bar']],
-  ['foo/bar/', ['foo', 'bar', '']]
-])('pathSteps(%o) must be %o', (input, output) => {
-  expect(pathSteps(input)).toStrictEqual(output)
-  expect(pathSteps('/')).toStrictEqual([''])
-  expect(pathSteps('foo')).toStrictEqual(['foo'])
-  expect(pathSteps('/foo')).toStrictEqual(['foo'])
-  expect(pathSteps('foo/')).toStrictEqual(['foo', ''])
-  expect(pathSteps('/foo/')).toStrictEqual(['foo', ''])
-  expect(pathSteps('foo/bar')).toStrictEqual(['foo', 'bar'])
-  expect(pathSteps('foo/bar/')).toStrictEqual(['foo', 'bar', ''])
-})
 
 test('Page.module without argument', () => {
   const p = Page.module({})
@@ -223,4 +204,28 @@ test.each([
       t[url]?.variants().then(Array.from) ?? undef
     ).resolves.toStrictEqual(urls.map(i => t[i]))
   }
+})
+
+test('subclass', () => {
+  class MyPage extends Page<string, MyPage> {
+    readonly foo: number
+    constructor(arg: PageArg<string, MyPage>, foo: number) {
+      super(arg)
+      this.foo = foo
+    }
+  }
+  const page = MyPage.module({}, 123)
+  expect(page.foo).toBe(123)
+})
+
+test('generic subclass', () => {
+  class MyPage2<X> extends Page<X, MyPage2<X>> {
+    readonly foo: number
+    constructor(arg: PageArg<X, MyPage2<X>>, foo: number) {
+      super(arg)
+      this.foo = foo
+    }
+  }
+  const page = MyPage2.module({}, 123)
+  expect(page.foo).toBe(123)
 })
