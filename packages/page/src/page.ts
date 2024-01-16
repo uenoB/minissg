@@ -377,6 +377,10 @@ export class Page<
     }
   }
 
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<Base> {
+    for (const [, page] of await this[tree_].entries()) yield page
+  }
+
   declare parsePath: (this: Base, path: string) => Readonly<PathInfo>
   declare paginatePath: (this: Base, index: number) => Readonly<PathInfo>
   declare render: (this: Base, module: ModuleType) => Awaitable<minissg.Content>
