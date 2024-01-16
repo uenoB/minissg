@@ -37,11 +37,11 @@ export class Memo {
     ...args: Args
   ): Delay<Ret> {
     const memoMap = this.memoMap.getStore()
-    if (memoMap == null) return delay(() => func(...args))
+    if (memoMap == null) return delay(func, ...args)
     let m = dig(memoMap, func)
     for (const i of args) m = m.dig(i)
     if (m.value != null) return m.value as Delay<Ret>
-    return (m.value = delay(() => func(...args)))
+    return (m.value = delay(func, ...args))
   }
 
   run<R>(f: () => R): R {

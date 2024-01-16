@@ -1,7 +1,6 @@
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
 import { safeDefineProperty } from './util'
 
-export type Delayable<X> = (() => Awaitable<X>) | PromiseLike<X>
 export type Delay<X> = PromiseLike<X> & { value: X }
 
 interface State<X> {
@@ -10,17 +9,21 @@ interface State<X> {
   r?: X
 }
 
-const delayAsync = <X>(load: Delayable<X>): Delay<X> => {
+const delayAsync = <X, A extends unknown[] = []>(
+  load: ((...a: A) => Awaitable<X>) | PromiseLike<X>,
+  ...args: A
+): Delay<X> => {
   let state: State<X> | undefined
   const boot = (): State<X> => {
     if (state != null) return state
-    const src = typeof load === 'function' ? Promise.resolve(load()) : load
-    const p: PromiseLike<X> = src.then(
+    const src =
+      typeof load === 'function' ? Promise.resolve(load(...args)) : load
+    const s: Partial<State<X>> = {}
+    s.p = s.e = src.then(
       x => (s.r = x),
       x => raise((s.e = x))
     )
-    const s: State<X> = { p, e: p }
-    return (state = s)
+    return (state = s as State<X>)
   }
   return {
     then(...a) {
@@ -40,7 +43,10 @@ const delayDummy = <X>(value: Awaited<X>): Delay<Awaited<X>> => {
 }
 
 export const delay = delayAsync as {
-  <X>(load: Delayable<X>): Delay<X>
+  <X, A extends unknown[] = []>(
+    load: ((...a: A) => Awaitable<X>) | PromiseLike<X>,
+    ...args: A
+  ): Delay<X>
   dummy: <X>(value: Awaited<X>) => Delay<Awaited<X>>
 }
 
