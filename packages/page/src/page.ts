@@ -394,6 +394,10 @@ export class Page<
     }
   }
 
+  async subpages(): Promise<Base[]> {
+    return (await this[tree_].entries()).map(([, page]) => page)
+  }
+
   async *[Symbol.asyncIterator](): AsyncIterableIterator<Base> {
     for (const [, page] of await this[tree_].entries()) yield page
   }
