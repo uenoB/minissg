@@ -108,6 +108,27 @@ interface PaginateArg<Item, ModuleType, This> extends NewArg<ModuleType, This> {
   pageSize?: number | Null
 }
 
+const initPage = <ModuleType, Base extends Page<ModuleType, Base>>(
+  page: Base,
+  arg: NewArg<ModuleType, Base>
+): void => {
+  const tree = new Tree<ModuleType, Base>(page, arg)
+  safeDefineProperty(page, tree_, { value: tree, writable: true })
+  const parent = tree.parent?.self
+  if (!Object.hasOwn(page, 'parsePath')) {
+    const f = arg.parsePath ?? parent?.parsePath ?? defaultParsePath
+    if (page.parsePath !== f) page.parsePath = f
+  }
+  if (!Object.hasOwn(page, 'paginatePath')) {
+    const f = arg.paginatePath ?? parent?.paginatePath ?? defaultPaginatePath
+    if (page.paginatePath !== f) page.paginatePath = f
+  }
+  if (!Object.hasOwn(page, 'render')) {
+    const f = arg.render ?? parent?.render ?? defaultRender
+    if (page.render !== f) page.render = f
+  }
+}
+
 export abstract class PageArg<ModuleType, Base extends Page<ModuleType, Base>> {
   abstract [init_](self: Page<ModuleType, Base>): void
 }
@@ -132,17 +153,7 @@ const newPage = <
 ): This => {
   class Init extends PageArg<ModuleType, Base> {
     override [init_](page: Base): void {
-      const tree = new Tree<ModuleType, Base>(arg.context, page, arg.url)
-      safeDefineProperty(page, tree_, { value: tree })
-      const parent = tree.parent
-      const parsePath =
-        arg.parsePath ?? parent?.self.parsePath ?? defaultParsePath
-      const paginatePath =
-        arg.paginatePath ?? parent?.self.paginatePath ?? defaultPaginatePath
-      const render = arg.render ?? parent?.self.render ?? defaultRender
-      if (page.parsePath !== parsePath) page.parsePath = parsePath
-      if (page.paginatePath !== paginatePath) page.paginatePath = paginatePath
-      if (page.render !== render) page.render = render
+      initPage(page, arg)
       if (init != null) init(page)
     }
   }
@@ -359,7 +370,13 @@ export class Page<
     return this[tree_].variants()
   }
 
-  async entries(): Promise<minissg.Module> {
+  async entries(
+    context?: Readonly<minissg.Context> | Null
+  ): Promise<minissg.Module> {
+    if (this[tree_].parent == null && context != null) {
+      const url = this[tree_].url
+      initPage<ModuleType, Base>(this[tree_].self, { context, url })
+    }
     const mod = await this[tree_].load()
     if (mod == null) return await this[tree_].entries()
     if (typeof mod === 'object' && mod != null) {
