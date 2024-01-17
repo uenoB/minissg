@@ -10,13 +10,13 @@ test('linked list', () => {
   expect(t1.value).toBe(2)
   expect(t2.value).toBe(3)
   expect(t3.value).toBe(4)
-  expect(t.get([])).toStrictEqual({ key: [], node: t })
-  expect(t.get(['foo'])).toStrictEqual({ key: [], node: t1 })
-  expect(t.get(['foo', 'bar'])).toStrictEqual({ key: [], node: t2 })
-  expect(t.get(['foo', 'bar', 'baz'])).toStrictEqual({ key: [], node: t3 })
-  expect(t.get(['bar'])).toStrictEqual({ key: ['bar'], node: t })
-  expect(t.get(['foo', 'baz'])).toStrictEqual({ key: ['baz'], node: t1 })
-  expect(t.get(['foo', 'bar', 'foo'])).toStrictEqual({ key: ['foo'], node: t2 })
+  expect(t.get([])).toStrictEqual({ key: [], trie: t })
+  expect(t.get(['foo'])).toStrictEqual({ key: [], trie: t1 })
+  expect(t.get(['foo', 'bar'])).toStrictEqual({ key: [], trie: t2 })
+  expect(t.get(['foo', 'bar', 'baz'])).toStrictEqual({ key: [], trie: t3 })
+  expect(t.get(['bar'])).toStrictEqual({ key: ['bar'], trie: t })
+  expect(t.get(['foo', 'baz'])).toStrictEqual({ key: ['baz'], trie: t1 })
+  expect(t.get(['foo', 'bar', 'foo'])).toStrictEqual({ key: ['foo'], trie: t2 })
 })
 
 test('branch', () => {
@@ -28,13 +28,13 @@ test('branch', () => {
   expect(t1.value).toBe(2)
   expect(t2.value).toBe(3)
   expect(t3.value).toBe(4)
-  expect(t.get([])).toStrictEqual({ key: [], node: t })
-  expect(t.get(['foo'])).toStrictEqual({ key: [], node: t1 })
-  expect(t.get(['foo', 'bar'])).toStrictEqual({ key: [], node: t2 })
-  expect(t.get(['foo', 'baz'])).toStrictEqual({ key: [], node: t3 })
-  expect(t.get(['bar'])).toStrictEqual({ key: ['bar'], node: t })
-  expect(t.get(['foo', 'bar', 'baz'])).toStrictEqual({ key: ['baz'], node: t2 })
-  expect(t.get(['foo', 'baz', 'foo'])).toStrictEqual({ key: ['foo'], node: t3 })
+  expect(t.get([])).toStrictEqual({ key: [], trie: t })
+  expect(t.get(['foo'])).toStrictEqual({ key: [], trie: t1 })
+  expect(t.get(['foo', 'bar'])).toStrictEqual({ key: [], trie: t2 })
+  expect(t.get(['foo', 'baz'])).toStrictEqual({ key: [], trie: t3 })
+  expect(t.get(['bar'])).toStrictEqual({ key: ['bar'], trie: t })
+  expect(t.get(['foo', 'bar', 'baz'])).toStrictEqual({ key: ['baz'], trie: t2 })
+  expect(t.get(['foo', 'baz', 'foo'])).toStrictEqual({ key: ['foo'], trie: t3 })
 })
 
 test('walk', () => {
@@ -43,16 +43,16 @@ test('walk', () => {
   const t2 = t1.set(['bar'], 3)
   const t3 = t1.set(['baz'], 4)
   expect(Array.from(t.walk(['foo', 'bar', 'baz']))).toStrictEqual([
-    { key: ['foo', 'bar', 'baz'], node: t },
-    { key: ['bar', 'baz'], node: t1 },
-    { key: ['baz'], node: t2 }
+    { key: ['foo', 'bar', 'baz'], trie: t },
+    { key: ['bar', 'baz'], trie: t1 },
+    { key: ['baz'], trie: t2 }
   ])
   expect(Array.from(t.walk(['foo', 'baz']))).toStrictEqual([
-    { key: ['foo', 'baz'], node: t },
-    { key: ['baz'], node: t1 },
-    { key: [], node: t3 }
+    { key: ['foo', 'baz'], trie: t },
+    { key: ['baz'], trie: t1 },
+    { key: [], trie: t3 }
   ])
   expect(Array.from(t.walk(['baz', 'bar', 'foo']))).toStrictEqual([
-    { key: ['baz', 'bar', 'foo'], node: t }
+    { key: ['baz', 'bar', 'foo'], trie: t }
   ])
 })

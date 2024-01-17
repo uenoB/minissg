@@ -1,6 +1,6 @@
 interface Get<K, V> {
   key: K[]
-  node: Trie<K, V>
+  trie: Trie<K, V>
 }
 
 export class Trie<K, V> {
@@ -13,38 +13,43 @@ export class Trie<K, V> {
 
   get(key: readonly K[]): Get<K, V> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let node: Trie<K, V> = this
+    let trie: Trie<K, V> = this
     for (let i = 0; i < key.length; i++) {
-      const next = node.children.get(key[i])
-      if (next == null) return { key: key.slice(i), node }
-      node = next
+      const next = trie.children.get(key[i])
+      if (next == null) return { key: key.slice(i), trie }
+      trie = next
     }
-    return { key: [], node }
+    return { key: [], trie }
   }
 
   walk(key: readonly K[]): Array<Get<K, V>> {
     const results: Array<Get<K, V>> = []
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let node: Trie<K, V> = this
+    let trie: Trie<K, V> = this
     for (let i = 0; i < key.length; i++) {
-      results.push({ key: key.slice(i), node })
-      const next = node.children.get(key[i])
+      results.push({ key: key.slice(i), trie })
+      const next = trie.children.get(key[i])
       if (next == null) return results
-      node = next
+      trie = next
     }
-    results.push({ key: [], node })
+    results.push({ key: [], trie })
     return results
   }
 
   set(key: readonly K[], value: V): Trie<K, V> {
     const rest = this.get(key)
-    let node = rest.node
+    let trie = rest.trie
     for (let i = 0; i < rest.key.length; i++) {
       const newNode = new (this.constructor as new () => this)()
-      node.children.set(rest.key[i], newNode)
-      node = newNode
+      trie.children.set(rest.key[i], newNode)
+      trie = newNode
     }
-    node.value = value
-    return node
+    trie.value = value
+    return trie
+  }
+
+  *[Symbol.iterator](): IterableIterator<V> {
+    if (this.value != null) yield this.value
+    for (const [, trie] of this.children) yield* trie
   }
 }

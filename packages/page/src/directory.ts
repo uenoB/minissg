@@ -1,8 +1,10 @@
+import type { Context } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
+import type { PathSteps } from './filename'
 import { Trie } from './trie'
 import type { Delay } from './delay'
 
-export interface Step<Node> {
+interface Step<Node> {
   node: Node
   final?: boolean | undefined
 }
@@ -20,48 +22,39 @@ interface Edge<Node> extends Step<Node> {
   // state.
 }
 
-export const pathSteps = (path: string): string[] => {
-  const key = path.split('/')
-  if (key[0] === '') key.shift()
-  return key
-}
-
 class Transition<Node> extends Trie<string, Array<Edge<Node>>> {
-  addEdge(path: string[], next: Edge<Node>): void {
-    const { key, node } = this.get(path)
-    if (key.length === 0 && node.value != null) {
-      node.value.push(next)
+  addEdge(steps: PathSteps, next: Edge<Node>): void {
+    const { key, trie } = this.get(steps.path)
+    if (key.length === 0 && trie.value != null) {
+      trie.value.push(next)
     } else {
-      node.set(key, [next])
+      trie.set(key, [next])
     }
   }
 
-  addRoute(path: string, node: Node, trim?: number | Null): void {
-    const key = pathSteps(path)
-    this.addEdge(key, { node, final: true })
-    if (trim != null) {
-      this.addEdge(key.slice(0, key.length - trim), { node, final: false })
-    }
+  addRoute(steps: PathSteps, node: Node): void {
+    this.addEdge(steps, { node, final: true })
   }
 }
 
 class PathTransition<Node> extends Transition<Node> {
-  override addRoute(path: string, node: Node): void {
-    super.addRoute(path, node, path.endsWith('/') ? 1 : null)
+  override addRoute(steps: PathSteps, node: Node): void {
+    super.addRoute(steps, node)
     // in the case where `path` ends with `/`, i.e. the last component of
-    // `key` is an empty string, because the page may have an additional
-    // edge to child pages (for example, `/foo/` may have a link to
-    // `/foo/bar`), we need an alternative way to `node` without the last
-    // empty string.
+    // `key` is an empty string, we need an alternative way to `node` without
+    // the last empty string because the page may have an additional edge to
+    // child pages (for example, `/foo/` may have a link to `/foo/bar`).
+    if (steps.last === '') this.addEdge(steps.chop(), { node, final: false })
   }
 }
 
 class FileNameTransition<Node> extends Transition<Node> {
-  override addRoute(path: string, node: Node): void {
-    super.addRoute(path, node, 1)
+  override addRoute(steps: PathSteps, node: Node): void {
+    super.addRoute(steps, node)
     // in fileNameMap, a page may have an edge to different file name in the
     // same directory and therefore we need an alternative way to the page
     // without the file name part of `path` (last component of `key`).
+    if (steps.length > 0) this.addEdge(steps.chop(), { node, final: false })
   }
 }
 
@@ -76,7 +69,7 @@ interface AssetTree {
   self: Asset
 }
 
-interface IndexNode<SomeTree> {
+export interface IndexNode<SomeTree> {
   fileNameMap: SomeTree | AssetTree
   moduleNameMap: SomeTree
   stemMap: SomeTree
@@ -84,29 +77,29 @@ interface IndexNode<SomeTree> {
 
 type MakeIndex<Nodes> = { [K in keyof Nodes]: Transition<Nodes[K]> }
 
-interface AbstractTree<Base, Subtree> {
+interface AbstractTree<Subtree> extends Context {
   content:
     | (() => Awaitable<unknown>)
-    | Promise<MakeIndex<IndexNode<Subtree>>>
+    | PromiseLike<MakeIndex<IndexNode<Subtree>>>
     | undefined
-  self: Base
+  self: unknown
   findChild: () => PromiseLike<Subtree | undefined>
+  instantiate: (context: Context) => Subtree | undefined
 }
 
-export class Directory<Base, SomeTree extends AbstractTree<Base, SomeTree>> {
-  readonly pages: Array<readonly [string, Base]> = []
+export class Directory<SomeTree extends AbstractTree<SomeTree>> {
   readonly fileNameMap = new FileNameTransition<SomeTree | AssetTree>()
   readonly moduleNameMap = new PathTransition<SomeTree>()
   readonly stemMap = new PathTransition<SomeTree>()
 }
 
 export const find = <
-  SomeTree extends AbstractTree<unknown, SomeTree>,
+  SomeTree extends AbstractTree<SomeTree>,
   Key extends keyof IndexNode<SomeTree>
 >(
   { node, final }: Step<IndexNode<SomeTree>[Key]>,
   indexKey: Key,
-  path: string[],
+  path: readonly string[],
   all?: Set<IndexNode<SomeTree>[Key]['self']> | undefined
 ): Awaitable<IndexNode<SomeTree>[Key]['self'] | undefined> => {
   type R = IndexNode<SomeTree>[Key]['self']
@@ -124,9 +117,19 @@ export const find = <
   return node.content.then(index =>
     index[indexKey]
       .walk(path)
-      .reduceRight<PromiseLike<R | undefined>>((z, { key, node }) => {
-        for (const next of node.value ?? []) {
+      .reduceRight<PromiseLike<R | undefined>>((z, { key, trie }) => {
+        for (let next of trie.value ?? []) {
+          // transition occurs only if either
+          //   1. one or more inputs exist, or
+          //   2. an epsilon transition of the same final state exist.
+          // A final state of the next transition is _same_ if either
+          //   1. the final state of the last transition is unspecified, or
+          //   2. it is equal to the final state of the last transition.
           if (path.length !== 0 || final == null || final === next.final) {
+            if (next.node.content != null) {
+              const nextNode = next.node.instantiate(node)
+              if (nextNode != null) next = { node: nextNode, final: next.final }
+            }
             z = z.then(r => r ?? find(next, indexKey, key, all))
           }
         }

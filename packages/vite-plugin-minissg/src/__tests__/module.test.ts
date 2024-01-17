@@ -2,11 +2,19 @@ import { test, expect } from 'vitest'
 import * as M from '../module'
 
 test.each([
+  ['', '', ''],
+  ['', '.', ''],
+  ['', './', ''],
+  ['', 'index.html', ''],
+  ['', './index.html', ''],
   ['foo', '', 'foo'],
   ['foo/bar', '', 'foo/bar'],
   ['foo', 'bar', 'foo/bar'],
   ['index.html', '', ''],
   ['index.html', 'index.html', ''],
+  ['index.html', './index.html', ''],
+  ['./index.html', 'index.html', ''],
+  ['./index.html', './index.html', ''],
   ['foo', 'index.html', 'foo/'],
   ['foo', 'index.html/', 'foo/index.html/'],
   ['foo/index.html', 'bar', 'foo/bar'],

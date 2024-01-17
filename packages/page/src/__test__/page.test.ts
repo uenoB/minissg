@@ -3,8 +3,6 @@ import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
 import type { Asset } from '../directory'
 import { type PageArg, Page } from '../page'
 
-const undef = Promise.resolve(undefined)
-
 interface Pages {
   root: Page
   [k: `/${string}`]: Page | undefined
@@ -12,63 +10,47 @@ interface Pages {
 }
 
 const tree = async (): Promise<Pages> => {
-  let fooPage: Page | undefined
-  let barPage: Page | undefined
-  let bazPage: Page | undefined
-  let quxPage: Page | undefined
-  const bar = (): Module => ({
-    entries: context =>
-      (barPage ??= Page.module({
-        context,
-        pages: {
-          'foo/bar.en.js': (): unknown => 'bar1',
-          'foo/bar.ja.js': (): unknown => 'bar2'
-        },
-        substPath: s => s.slice('foo/'.length)
-      }))
+  const bar = Page.module({
+    pages: {
+      'foo/bar.en.js': (): unknown => 'bar1',
+      'foo/bar.ja.js': (): unknown => 'bar2'
+    },
+    substPath: s => s.slice('foo/'.length)
   })
-  const baz = (): Module => ({
-    entries: context =>
-      (bazPage ??= Page.module({
-        context,
-        pages: {
-          'index.html..en.js': (): unknown => 'baz1',
-          'index.html..ja.js': (): unknown => 'baz2'
-        }
-      }))
+  const baz = Page.module({
+    pages: {
+      'index.html..en.js': (): unknown => 'baz1',
+      'index.html..ja.js': (): unknown => 'baz2'
+    }
   })
-  const qux = (): Module => ({
-    entries: context =>
-      (quxPage ??= Page.module({
-        context,
-        pages: {
-          '': (): unknown => 'qux0',
-          'index.html..js': (): unknown => 'qux1',
-          'foo.js': (): unknown => 'qux2',
-          'bar.html..js': (): unknown => 'qux3'
-        }
-      }))
+  const bazModule = { entries: () => ({ entries: () => baz }) }
+  const qux = Page.module({
+    pages: {
+      '': (): unknown => 'qux0',
+      'index.html..js': (): unknown => 'qux1',
+      'foo.js': (): unknown => 'qux2',
+      'bar.html..js': (): unknown => 'qux3'
+    }
   })
-  const foo = (): Module => ({
-    entries: context =>
-      (fooPage ??= Page.module<unknown>({
-        context,
-        pages: {
-          'bar/bar.js': bar,
-          'baz.js': baz,
-          'foo/index.html..js': (): unknown => 'foo',
-          'qux/qux.txt..js': qux
-        },
-        substPath: s => s.replace(/^(?:foo|qux)\//, '')
-      }))
+  const foo = Page.module({
+    pages: {
+      'bar/bar.js': (): unknown => bar,
+      'baz.js': (): unknown => bazModule,
+      'foo/index.html..js': (): unknown => 'foo',
+      'qux/qux.txt..js': (): unknown => qux
+    },
+    substPath: s => s.replace(/^(?:foo|qux)\//, '')
   })
-  const p = Page.module<unknown>({
+  const p = Page.module({
     url: 'http://example.com',
-    pages: { 'foo.js': foo, 'index.html..js': (): unknown => 'root' }
+    pages: {
+      'foo.js': (): unknown => foo,
+      'index.html..js': (): unknown => 'root'
+    }
   })
   return {
     root: p,
-    '/': await p.findByModuleName(''),
+    '/': await p.findByModuleName('/'),
     '/foo/': await p.findByModuleName('/foo/'),
     '/foo/bar/bar/en/bar/': await p.findByModuleName('/foo/bar/bar/en/bar/'),
     '/foo/bar/bar/ja/bar/': await p.findByModuleName('/foo/bar/bar/ja/bar/'),
@@ -79,12 +61,9 @@ const tree = async (): Promise<Pages> => {
     '/foo/qux.txt/foo/': await p.findByModuleName('/foo/qux.txt/foo/'),
     '/foo/qux.txt/bar.html': await p.findByModuleName('/foo/qux.txt/bar.html'),
     'index.html..js': await p.findByFileName('index.html..js'),
-    'foo.js': fooPage,
     'foo/index.html..js': await p.findByFileName('foo/index.html..js'),
-    'bar/bar.js': barPage,
     'bar/foo/bar.en.js': await p.findByFileName('bar/foo/bar.en.js'),
     'bar/foo/bar.ja.js': await p.findByFileName('bar/foo/bar.ja.js'),
-    'baz.js': bazPage,
     'index.html..en.js': await p.findByFileName('index.html..en.js'),
     'index.html..ja.js': await p.findByFileName('index.html..ja.js'),
     'qux/qux.txt..js': await p.findByFileName('qux/qux.txt..js'),
@@ -108,12 +87,6 @@ test('Page.module without argument', () => {
 test('Page.module with url', () => {
   const p = Page.module({ url: 'http://example.com/foo/' })
   expect(p.url.value).toBe('http://example.com/foo/')
-})
-
-test('page as context', () => {
-  const p1 = Page.module({})
-  const p2 = Page.module({ context: p1 })
-  expect(p2.parent).toBe(p1)
 })
 
 test('tree', async () => {
@@ -189,14 +162,18 @@ test.each([
   const getDefault = async (m: Module): Promise<Content | undefined> =>
     'default' in m ? await m.default : undefined
   const t = await tree()
-  await expect(t[url]?.entries().then(getDefault) ?? undef).resolves.toBe(body)
+  const p = t[url]
+  expect(p).toBeDefined()
+  if (p == null) return
+  const context = { module: p, moduleName: p.moduleName }
+  await expect(p.entries(context).then(getDefault)).resolves.toBe(body)
 })
 
 test.each([
   ['/foo/baz/en/', '/foo/baz/ja/'],
   ['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/'],
   ['/foo/']
-] as const)('%o must have %o as variants', async (...urls) => {
+] as const)('%o must have %o as its variant', async (...urls) => {
   const t = await tree()
   const undef = Promise.resolve(undefined)
   for (const url of urls) {
@@ -229,3 +206,20 @@ test('generic subclass', () => {
   const page = MyPage2.module({}, 123)
   expect(page.foo).toBe(123)
 })
+
+test.each([
+  ['index.html..js', 'index.html..en.js', 'index.html..en.js'],
+  ['index.html..js', 'foo/index.html..js', 'foo/index.html..js'],
+  ['bar/foo/bar.en.js', 'bar.ja.js', 'bar/foo/bar.ja.js'],
+  ['bar/foo/bar.en.js', '../../index.html..js', 'index.html..js'],
+  ['foo/index.html..js', '/index.html..en.js', 'index.html..en.js']
+] as const)(
+  'tree[%o].findByFileName(%o) must be %o',
+  async (path1, path2, output) => {
+    const t = await tree()
+    const p = t[path1]
+    expect(p).toBeInstanceOf(Page)
+    if (!(p instanceof Page)) return
+    await expect(p.findByFileName(path2)).resolves.toBe(t[output])
+  }
+)

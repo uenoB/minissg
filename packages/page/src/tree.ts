@@ -1,45 +1,48 @@
-import type { Module, Context } from '../../vite-plugin-minissg/src/module'
+import type { Context, Module } from '../../vite-plugin-minissg/src/module'
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import { dirPath, normalizePath, isAbsURL } from './util'
+import { isAbsURL } from './util'
 import type { Delay } from './delay'
 import { Memo } from './memo'
-import { type Directory, type Asset, pathSteps, find } from './directory'
+import { FileName, PathSteps } from './filename'
+import { type Directory, type Asset, find } from './directory'
 
 export const tree_: unique symbol = Symbol('tree')
 
-interface AbstractPage<ModuleType, Base extends AbstractPage<ModuleType, Base>>
-  extends Context {
+interface AbstractPage<
+  ModuleType,
+  Base extends AbstractPage<ModuleType, Base>
+> {
   readonly [tree_]: Tree<ModuleType, Base>
+  entries: (context: Readonly<Context>) => Awaitable<Module> // to be a Module
 }
+
+export type PageAllocator<
+  ModuleType,
+  Base extends AbstractPage<ModuleType, Base>,
+  This extends Base = Base
+> = (init: (self: Base) => Tree<ModuleType, Base>) => This
 
 const isPrototypeOf = (x: object | null, y: object): boolean =>
   x != null && Object.prototype.isPrototypeOf.call(x, y)
 
-const isBase = <Base extends AbstractPage<unknown, Base>>(
-  x: object
-): x is Base => tree_ in x
-
-const isChildOf = <ModuleType, Base extends AbstractPage<ModuleType, Base>>(
-  self: Base,
-  other: object
+const isPageOf = <ModuleType, Base extends AbstractPage<ModuleType, Base>>(
+  other: object,
+  tree: Tree<ModuleType, Base>
 ): other is Base =>
-  isBase<Base>(other) &&
-  isPrototypeOf(Reflect.getPrototypeOf(other[tree_].root.self), self)
+  tree_ in other && isPrototypeOf(Reflect.getPrototypeOf(tree.root.self), other)
 
-const isParentOf = <ModuleType, Base extends AbstractPage<ModuleType, Base>>(
-  tree: Tree<ModuleType, Base>,
-  other: object
-): other is Base =>
-  isBase<Base>(other) &&
-  isPrototypeOf(Reflect.getPrototypeOf(tree.root.self), other)
+const isPageInstOf = <ModuleType, Base extends AbstractPage<ModuleType, Base>>(
+  other: object,
+  tree: Tree<ModuleType, Base>
+): other is Base => isPageOf(other, tree) && other[tree_].instances == null
 
 const findParent = <ModuleType, Base extends AbstractPage<ModuleType, Base>>(
-  self: Base,
+  tree: Tree<ModuleType, Base>,
   context: Readonly<Context> | Null
 ): Base | undefined => {
   for (let c = context; c != null; c = c.parent) {
-    if (isChildOf(self, c.module) && self !== c.module) return c.module
+    if (tree.self !== c.module && isPageInstOf(c.module, tree)) return c.module
   }
   return undefined
 }
@@ -53,9 +56,9 @@ const findChild = async <
   if (typeof tree.content !== 'function') return undefined
   const moduleName = tree.moduleName
   let module = (await tree.memo.memoize(tree.content)) as Module
-  let context: Context = tree.self
+  let context: Context = tree
   while (typeof module === 'object' && module != null) {
-    if (isParentOf(tree, module)) return module[tree_]
+    if (isPageOf(module, tree)) return module[tree_].instantiate(context)
     if (!('entries' in module && typeof module.entries === 'function')) break
     context = Object.freeze({ moduleName, module, parent: context })
     module = await module.entries(context)
@@ -63,17 +66,25 @@ const findChild = async <
   return undefined
 }
 
-const findByModuleName = <Base extends AbstractPage<unknown, Base>>(
+const findByModuleName = async <Base extends AbstractPage<unknown, Base>>(
   tree: Tree<unknown, Base>,
   path: string
-): Awaitable<Base | undefined> => {
+): Promise<Base | undefined> => {
   const key = path.startsWith('/')
-    ? normalizePath(path.slice(1))
-    : normalizePath(tree.moduleName.path + '/' + path)
-  return find<Tree<unknown, Base>, 'moduleNameMap'>(
-    { node: tree.root },
+    ? PathSteps.normalize(path.slice(1))
+    : PathSteps.normalize(tree.moduleName.path + '/' + path)
+  const root = tree.root.instantiate(tree.root) ?? tree.root
+  const found = await find<Tree<unknown, Base>, 'moduleNameMap'>(
+    { node: root },
     'moduleNameMap',
-    pathSteps(key)
+    PathSteps.fromRelativeModuleName(key).path
+  )
+  if (found != null || key !== '') return found
+  // in moduleNameMap, root is either "" or "."
+  return await find<Tree<unknown, Base>, 'moduleNameMap'>(
+    { node: root, final: true },
+    'moduleNameMap',
+    ['']
   )
 }
 
@@ -82,12 +93,12 @@ const findByFileName = <Base extends AbstractPage<unknown, Base>>(
   path: string
 ): Awaitable<Base | Asset | undefined> => {
   const key = path.startsWith('/')
-    ? normalizePath(path.slice(1))
-    : normalizePath(dirPath(tree.fileName) + path)
+    ? PathSteps.normalize(path.slice(1))
+    : PathSteps.normalize(tree.fileName.join(path).path)
   return find<Tree<unknown, Base>, 'fileNameMap'>(
-    { node: tree.root },
+    { node: tree.root.instantiate(tree.root) ?? tree.root },
     'fileNameMap',
-    pathSteps(key)
+    PathSteps.fromRelativeModuleName(key).path
   )
 }
 
@@ -104,45 +115,85 @@ const findByAny = <Base extends AbstractPage<unknown, Base>>(
 const variants = async <Base extends AbstractPage<unknown, Base>>(
   tree: Tree<unknown, Base>
 ): Promise<Set<Base>> => {
-  const key = pathSteps(tree.stem.path)
+  const steps = PathSteps.fromRelativeModuleName(tree.stem.path).path
+  const root = tree.root.instantiate(tree.root) ?? tree.root
   const set = new Set<Base>()
-  await find({ node: tree.root }, 'stemMap', key, set)
+  await find({ node: root }, 'stemMap', steps, set)
   return set
 }
 
+export interface RelPath {
+  fileName: PathSteps
+  moduleName: PathSteps
+  stem: PathSteps
+  variant: PathSteps
+}
+
+const concatName = (
+  base: ModuleName | Null,
+  steps: PathSteps | Null
+): ModuleName =>
+  (base ?? ModuleName.root).join(steps?.toRelativeModuleName() ?? '')
+const concatFileName = (
+  base: FileName | Null,
+  steps: PathSteps | Null
+): FileName => (base ?? FileName.root).join(steps?.toRelativeFileName() ?? '')
+
+const rootKey: object = {}
+
 export class Tree<ModuleType, Base extends AbstractPage<ModuleType, Base>> {
-  fileName: string
-  stem: ModuleName
-  variant: ModuleName
-  url: Readonly<URL>
+  readonly instances: WeakMap<object, Base> | undefined
+  readonly alloc: PageAllocator<ModuleType, Base>
+  readonly relPath: Readonly<RelPath> | undefined
   readonly moduleName: ModuleName
+  readonly stem: ModuleName
+  readonly variant: ModuleName
+  readonly fileName: FileName
+  readonly url: Readonly<URL>
+  readonly memo: Memo
   readonly root: Tree<ModuleType, Base>
   readonly parent: Tree<ModuleType, Base> | undefined
   readonly self: Base
-  readonly memo: Memo
-  content:
+  readonly content:
     | (() => Awaitable<ModuleType>)
-    | Promise<Directory<Base, Tree<ModuleType, Base>>>
+    | PromiseLike<Directory<Tree<ModuleType, Base>>>
     | undefined
 
   constructor(
+    parent: Tree<ModuleType, Base> | null | undefined, // null means root
     self: Base,
-    arg: {
-      context?: Readonly<Context> | Null
-      url?: string | URL | Null
-    }
+    arg: Readonly<{
+      alloc: PageAllocator<ModuleType, Base>
+      content?: Tree<ModuleType, Base>['content']
+      relPath?: Tree<ModuleType, Base>['relPath']
+      url?: Readonly<URL> | string | Null
+    }>
   ) {
-    const parent = findParent(self, arg?.context)?.[tree_]
-    this.content = undefined
-    this.moduleName = arg?.context?.moduleName ?? ModuleName.root
-    this.fileName = parent?.fileName ?? ''
-    this.stem = parent?.stem ?? ModuleName.root
-    this.variant = parent?.variant ?? ModuleName.root
-    this.url = parent?.url ?? new URL('.', arg?.url ?? 'file:')
-    this.memo = parent?.memo ?? new Memo()
+    this.instances = parent === undefined ? new WeakMap() : undefined
+    this.alloc = arg.alloc
+    this.content = arg.content
+    this.relPath = arg.relPath
+    this.moduleName = concatName(parent?.moduleName, arg.relPath?.moduleName)
+    this.stem = concatName(parent?.stem, arg.relPath?.stem)
+    this.variant = concatName(parent?.variant, arg.relPath?.variant)
+    this.fileName = concatFileName(parent?.fileName, arg.relPath?.fileName)
+    const baseURL = parent?.root.url ?? arg.url ?? 'file:'
+    this.url = new URL(this.moduleName.path, baseURL)
+    this.memo = parent?.root.memo ?? new Memo()
     this.root = parent?.root ?? this
-    this.parent = parent
+    this.parent = parent ?? undefined
     this.self = self
+  }
+
+  instantiate(context: Readonly<Context>): Tree<ModuleType, Base> | undefined {
+    if (this.instances == null) return undefined
+    const parent = findParent(this, context)?.[tree_] ?? null
+    const cached = this.instances.get(parent ?? rootKey)
+    if (cached != null) return cached[tree_]
+    // ToDo: check this.relPath.moduleName is consistent with context.moduleName
+    const page = this.alloc(self => new Tree(parent, self, this))
+    this.instances.set(parent ?? rootKey, page)
+    return page[tree_]
   }
 
   findChild(): Delay<Tree<ModuleType, Base> | undefined> {
@@ -171,7 +222,20 @@ export class Tree<ModuleType, Base extends AbstractPage<ModuleType, Base>> {
   }
 
   async entries(): Promise<Array<readonly [string, Base]>> {
-    if (typeof this.content === 'function') return []
-    return (await this.content)?.pages ?? []
+    const ret: Array<readonly [string, Base]> = []
+    if (this.content == null || typeof this.content === 'function') return ret
+    for (const edges of (await this.content).moduleNameMap) {
+      for (const { node, final } of edges) {
+        if (!final) continue
+        const path = node.relPath?.moduleName.toRelativeModuleName() ?? ''
+        ret.push([path, node.self])
+      }
+    }
+    return ret
+  }
+
+  // to be a Context
+  get module(): Base {
+    return this.self
   }
 }
