@@ -1,23 +1,25 @@
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 
-export type Tuples<X, This = void> =
+export type Pairs<X, This = void> =
   | readonly [string, X]
-  | Iterable<Tuples<X, This>>
-  | AsyncIterable<Tuples<X, This>>
+  | Iterable<Pairs<X, This>>
+  | AsyncIterable<Pairs<X, This>>
   | Readonly<Record<string, X>>
-  | ((this: This) => Awaitable<Tuples<X, This>>)
+  | ((this: This) => Awaitable<Pairs<X, This>>)
 
-export const iterateTuples = async function* <X, This>(
-  tuples: Tuples<X, This>,
+const isPair = (x: unknown): x is readonly [string, ...unknown[]] =>
+  Array.isArray(x) && typeof x[0] === 'string'
+
+export const iteratePairs = async function* <X, This>(
+  tuples: Pairs<X, This>,
   self: This
 ): AsyncIterable<readonly [string, X]> {
   if (typeof tuples === 'function') {
-    yield* iterateTuples(await tuples.call(self), self)
-  } else if (Array.isArray(tuples) && typeof tuples[0] === 'string') {
+    yield* iteratePairs(await tuples.call(self), self)
+  } else if (isPair(tuples)) {
     yield tuples as [string, X]
   } else if (Symbol.iterator in tuples || Symbol.asyncIterator in tuples) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    for await (const item of tuples) yield* iterateTuples(item, self)
+    for await (const item of tuples) yield* iteratePairs(item, self)
   } else {
     yield* Object.entries(tuples)
   }

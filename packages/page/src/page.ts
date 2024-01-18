@@ -1,7 +1,7 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
 import { safeDefineProperty } from './util'
-import { type Tuples, type Items, iterateTuples, listItems } from './items'
+import { type Pairs, type Items, iteratePairs, listItems } from './items'
 import { type Delay, delay } from './delay'
 import { PathSteps } from './filename'
 import { type Asset, Directory } from './directory'
@@ -119,9 +119,9 @@ interface NewArg<ModuleType, This> {
 }
 
 interface ModuleArg<ModuleType, This> extends NewArg<ModuleType, This> {
-  pages?: Tuples<() => Awaitable<ModuleType>, This> | Null
+  pages?: Pairs<() => Awaitable<ModuleType>, This> | Null
   substPath?: ((this: This, path: string) => Awaitable<string>) | Null
-  assets?: Tuples<(() => Awaitable<AssetModule>) | string | Null, This> | Null
+  assets?: Pairs<(() => Awaitable<AssetModule>) | string | Null, This> | Null
 }
 
 interface PaginateArg<Item, ModuleType, This> extends NewArg<ModuleType, This> {
@@ -189,13 +189,13 @@ const moduleDirectory = async <ModuleType, Base extends Page<ModuleType, Base>>(
   const substPath = (path: string): Awaitable<string> =>
     arg.substPath == null ? path : Reflect.apply(arg.substPath, page, [path])
   if (arg.pages != null) {
-    for await (const [rawPath, load] of iterateTuples(arg.pages, page)) {
+    for await (const [rawPath, load] of iteratePairs(arg.pages, page)) {
       const info = page.parsePath(PathSteps.normalize(await substPath(rawPath)))
       createSubpage(tree, dir, load, makeRelPath(rawPath, info))
     }
   }
   if (arg.assets != null) {
-    for await (const [rawPath, rawLoad] of iterateTuples(arg.assets, page)) {
+    for await (const [rawPath, rawLoad] of iteratePairs(arg.assets, page)) {
       const load = rawLoad ?? (await substPath(rawPath))
       createAsset(tree, dir, load, PathSteps.fromRelativeFileName(rawPath))
     }
