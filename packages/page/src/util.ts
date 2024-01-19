@@ -17,11 +17,12 @@ export type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
 export const safeDefineProperty = <
   Key extends string | symbol | number,
   Val,
-  Obj extends { [P in Key]?: Val }
+  Obj extends { [P in Key]?: Val },
+  Desc extends Descriptor<Val>
 >(
   obj: Obj,
   key: Key,
-  descriptor: Descriptor<Val>
+  descriptor: Desc
 ): boolean => {
   const d = Object.assign(Object.create(null), descriptor) as typeof descriptor
   return Reflect.defineProperty(obj, key, d)

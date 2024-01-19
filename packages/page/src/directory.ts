@@ -1,16 +1,16 @@
 import type { Context } from '../../vite-plugin-minissg/src/module'
-import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
+import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import type { PathSteps } from './filename'
 import { Trie } from './trie'
 import type { Delay } from './delay'
 
 interface Step<Node> {
-  node: Node
-  final?: boolean | undefined
+  readonly node: Node
+  readonly final?: boolean | undefined
 }
 
 interface Edge<Node> extends Step<Node> {
-  final: boolean
+  readonly final: boolean
   // Edge represents an edge in the nondeterministic finite automaton
   // constituted by PageIndex.
   // `final` means whether or not `node` is a final state.
@@ -58,67 +58,72 @@ class FileNameTransition<Node> extends Transition<Node> {
   }
 }
 
+export type AssetModule = Readonly<{ default: string }>
+
 export interface Asset {
-  type: 'asset'
-  url: Delay<string>
-  pathname: (path?: string | Null) => string
+  readonly type: 'asset'
+  readonly url: Delay<string>
 }
 
 interface AssetTree {
-  content?: never // distinct from Tree
-  self: Asset
+  readonly content?: never // distinct from AbstractTree
+  readonly self: Asset
+  readonly instantiate: AbstractTree<AssetTree>['instantiate']
 }
 
 export interface IndexNode<SomeTree> {
-  fileNameMap: SomeTree | AssetTree
-  moduleNameMap: SomeTree
-  stemMap: SomeTree
+  readonly fileNameMap: SomeTree | AssetTree
+  readonly moduleNameMap: SomeTree
+  readonly stemMap: SomeTree
 }
 
 type MakeIndex<Nodes> = { [K in keyof Nodes]: Transition<Nodes[K]> }
 
 interface AbstractTree<Subtree> extends Context {
-  content:
-    | (() => Awaitable<unknown>)
+  readonly content:
+    | ((...args: never) => unknown)
     | PromiseLike<MakeIndex<IndexNode<Subtree>>>
-    | undefined
-  self: unknown
-  findChild: () => PromiseLike<Subtree | undefined>
-  instantiate: (context: Context) => Subtree | undefined
+  readonly self: unknown
+  readonly findChild: () => PromiseLike<Subtree | undefined>
+  readonly instantiate: (context: Context) => Subtree | undefined
 }
 
-export class Directory<SomeTree extends AbstractTree<SomeTree>> {
-  readonly fileNameMap = new FileNameTransition<SomeTree | AssetTree>()
-  readonly moduleNameMap = new PathTransition<SomeTree>()
-  readonly stemMap = new PathTransition<SomeTree>()
+export class Directory<
+  SomeTree extends AbstractTree<SomeTree>,
+  ThisTree extends SomeTree = SomeTree
+> {
+  readonly fileNameMap = new FileNameTransition<ThisTree | AssetTree>()
+  readonly moduleNameMap = new PathTransition<ThisTree>()
+  readonly stemMap = new PathTransition<ThisTree>()
 }
 
 export const find = <
   SomeTree extends AbstractTree<SomeTree>,
   Key extends keyof IndexNode<SomeTree>
 >(
-  { node, final }: Step<IndexNode<SomeTree>[Key]>,
+  { node, final }: Step<SomeTree>,
   indexKey: Key,
   path: readonly string[],
   all?: Set<IndexNode<SomeTree>[Key]['self']> | undefined
 ): Awaitable<IndexNode<SomeTree>[Key]['self'] | undefined> => {
-  type R = IndexNode<SomeTree>[Key]['self']
-  if (node.content == null) {
-    return path.length === 0 && final === true ? node.self : undefined
+  type T = IndexNode<SomeTree>[Key]
+  const found = (t: T): T['self'] | undefined => {
+    if (path.length !== 0 || final !== true) return undefined
+    if (all != null) all.add(t.self)
+    return all != null ? undefined : t.self
   }
   if (typeof node.content === 'function') {
     return node.findChild().then(n => {
-      if (n != null) return find({ node: n, final }, indexKey, path, all)
-      if (path.length !== 0 || final !== true) return undefined
-      if (all != null) all.add(node.self)
-      return all != null ? undefined : node.self
+      return n != null
+        ? find({ node: n, final }, indexKey, path, all)
+        : found(node)
     })
   }
   return node.content.then(index =>
     index[indexKey]
       .walk(path)
-      .reduceRight<PromiseLike<R | undefined>>((z, { key, trie }) => {
-        for (let next of trie.value ?? []) {
+      .reduceRight<PromiseLike<T['self'] | undefined>>((z, { key, trie }) => {
+        for (const next of trie.value ?? []) {
           // transition occurs only if either
           //   1. one or more inputs exist, or
           //   2. an epsilon transition of the same final state exist.
@@ -126,11 +131,13 @@ export const find = <
           //   1. the final state of the last transition is unspecified, or
           //   2. it is equal to the final state of the last transition.
           if (path.length !== 0 || final == null || final === next.final) {
-            if (next.node.content != null) {
-              const nextNode = next.node.instantiate(node)
-              if (nextNode != null) next = { node: nextNode, final: next.final }
-            }
-            z = z.then(r => r ?? find(next, indexKey, key, all))
+            z = z.then(r => {
+              if (r != null) return r
+              const inst = next.node.instantiate(node) ?? next.node
+              return inst.content != null
+                ? find({ ...next, node: inst }, indexKey, key, all)
+                : found(node)
+            })
           }
         }
         return z
