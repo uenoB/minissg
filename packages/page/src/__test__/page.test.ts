@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
-import type { Asset } from '../directory'
+import type { Asset } from '../asset'
 import { type PageArg, Page } from '../page'
 
 interface Pages {
