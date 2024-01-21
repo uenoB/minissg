@@ -9,68 +9,115 @@ export interface AssetModule {
   readonly default: string
 }
 
-interface SomeTreeInternal {
-  findParent: (context: Readonly<Context>) => SomeTree | undefined
-  root: SomeTreeInternal
+interface SomeFactoryInternal {
   memo: Memo
-  url: Readonly<URL>
+  findParent: (context: Readonly<Context>) => SomeInstanceInternal | undefined
 }
 
-interface SomeTree {
-  [tree_]: SomeTreeInternal
+interface SomeInstanceInternal {
+  memo: Memo
+  root: SomeInstanceInternal
+  url: Readonly<URL>
 }
 
 interface AssetInternal {
   readonly findChild: () => PromiseLike<undefined>
-  readonly instantiate: (context: Readonly<Context>) => Asset | undefined
+  readonly instantiate: (context: Readonly<Context>) => AssetImpl
   readonly content: undefined
-  readonly parent: SomeTreeInternal
-  readonly load: (() => Awaitable<AssetModule>) | string
 }
 
-const instantiate =
-  (asset: Asset) =>
-  (context: Readonly<Context>): Asset | undefined => {
-    const parent = asset[tree_].parent.findParent(context)
-    if (parent == null) return undefined
-    return new Asset(parent[tree_], asset[tree_].load)
+interface AssetFactoryInternal extends AssetInternal {
+  readonly parent: SomeFactoryInternal
+  readonly load: (() => Awaitable<AssetModule>) | string
+  readonly instances: WeakMap<object, AssetImpl>
+}
+
+abstract class AssetImpl {
+  declare readonly [tree_]: AssetInternal
+  declare readonly url: Delay<string>
+  declare type: 'asset'
+
+  constructor() {
+    safeDefineProperty(this, tree_, {
+      configurable: true,
+      writable: true,
+      value: {
+        content: undefined,
+        findChild: (): PromiseLike<undefined> => Promise.resolve(undefined),
+        instantiate: () => this
+      }
+    })
   }
 
-const assetURL = async (
-  asset: AssetInternal,
-  load: () => Awaitable<AssetModule>,
-  origin: URL
-): Promise<string> =>
-  new URL((await asset.parent.memo.memoize(load)).default, origin).href
+  static {
+    safeDefineProperty(this.prototype, 'type', {
+      configurable: true,
+      writable: true,
+      value: 'asset'
+    })
+    safeDefineProperty(this.prototype, 'url', {
+      configurable: true,
+      writable: true,
+      value: delay.dummy('file:///')
+    })
+  }
+}
+export type { AssetImpl }
 
-export class Asset {
-  declare readonly [tree_]: AssetInternal
-  readonly url: Delay<string>
+export type Asset = Pick<AssetImpl, 'url' | 'type'>
+
+const assetURL = async (
+  origin: Readonly<URL>,
+  load: Delay<AssetModule>
+): Promise<string> => new URL((await load).default, origin).href
+
+class AssetInstance extends AssetImpl {
+  override readonly url: Delay<string>
 
   constructor(
-    parent: SomeTreeInternal,
-    load: (() => Awaitable<AssetModule>) | string
+    origin: Readonly<URL>,
+    load: (() => Awaitable<AssetModule>) | string,
+    memo: Memo
   ) {
-    const tree: AssetInternal = {
-      findChild: () => delay.dummy(undefined),
-      instantiate: instantiate(this),
-      content: undefined,
-      parent,
-      load
-    }
-    safeDefineProperty(this, tree_, { value: tree })
-    const origin = new URL('/', parent.root.url)
+    super()
     this.url =
       typeof load === 'string'
         ? delay.dummy(new URL(load, origin).href)
-        : delay(async () => await assetURL(this[tree_], load, origin))
+        : delay(() => memo.memoize(assetURL, origin, memo.memoize(load)))
   }
-
-  declare type: 'asset'
 }
 
-safeDefineProperty(Asset.prototype, 'type', {
-  writable: true,
-  configurable: true,
-  value: 'asset' as const
-})
+const instantiate = function (
+  this: AssetFactory,
+  context: Readonly<Context>
+): AssetImpl {
+  const tree = this[tree_]
+  const parent = tree.parent.findParent(context)
+  if (parent == null) throw Error('orphan asset')
+  const cached = tree.instances.get(parent)
+  if (cached != null) return cached
+  const origin = new URL('/', parent.root.url)
+  const inst = new AssetInstance(origin, tree.load, parent.memo)
+  tree.instances.set(parent, inst)
+  return inst
+}
+
+export class AssetFactory extends AssetImpl {
+  declare readonly [tree_]: AssetFactoryInternal
+
+  constructor(
+    parent: SomeFactoryInternal,
+    load: (() => Awaitable<AssetModule>) | string
+  ) {
+    super()
+    const tree = {
+      findChild: () => delay.dummy(undefined),
+      instantiate: instantiate.bind(this),
+      content: undefined,
+      parent,
+      load,
+      instances: new WeakMap()
+    }
+    safeDefineProperty(this, tree_, { value: tree })
+  }
+}

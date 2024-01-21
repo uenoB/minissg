@@ -1,4 +1,5 @@
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
+import type { Null } from '../../vite-plugin-minissg/src/util'
 
 const dirPath = (path: string): string => path.replace(/(^|\/)[^/]+$/, '$1')
 
@@ -18,9 +19,11 @@ export class PathSteps {
     this.path = path
   }
 
-  static fromRelativeModuleName(name: string): PathSteps {
-    if (name === '') return new PathSteps([])
-    const { path } = ModuleName.root.join(name)
+  static fromRelativeModuleName(path: string): PathSteps {
+    if (path === '') return new PathSteps([])
+    try {
+      path = ModuleName.root.join('./' + path).path
+    } catch {}
     return new PathSteps(path === '' ? [''] : path.split('/'))
   }
 
@@ -71,3 +74,34 @@ export class FileName {
     return new FileName(dirPath(this.path))
   }
 }
+
+export interface RelPath {
+  fileName: PathSteps
+  moduleName: PathSteps
+  stem: PathSteps
+  variant: PathSteps
+}
+
+export const concatName = (
+  base: ModuleName | Null,
+  steps: PathSteps | Null
+): ModuleName =>
+  (base ?? ModuleName.root).join(steps?.toRelativeModuleName() ?? '')
+
+export const concatFileName = (
+  base: FileName | Null,
+  steps: PathSteps | Null
+): FileName => (base ?? FileName.root).join(steps?.toRelativeFileName() ?? '')
+
+export interface PathInfo {
+  stem: string
+  variant: string
+  relURL: string
+}
+
+export const makeRelPath = (fileName: string, pathInfo: PathInfo): RelPath => ({
+  fileName: PathSteps.fromRelativeFileName(fileName),
+  moduleName: PathSteps.fromRelativeModuleName(pathInfo.relURL),
+  stem: PathSteps.fromRelativeModuleName(pathInfo.stem),
+  variant: PathSteps.fromRelativeModuleName(pathInfo.variant)
+})

@@ -11,6 +11,10 @@ export class Trie<K, V> {
     this.value = value
   }
 
+  isEmpty(): boolean {
+    return this.value === undefined && this.children.size === 0
+  }
+
   get(key: readonly K[]): Get<K, V> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let trie: Trie<K, V> = this

@@ -1,7 +1,6 @@
 import { test, expect } from 'vitest'
 import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
-import type { Asset } from '../asset'
-import { type PageArg, Page } from '../page'
+import { type PageArg, type Asset, Page } from '../index'
 
 interface Pages {
   root: Page
@@ -15,7 +14,7 @@ const tree = async (): Promise<Pages> => {
       'foo/bar.en.js': (): unknown => 'bar1',
       'foo/bar.ja.js': (): unknown => 'bar2'
     },
-    substPath: s => s.slice('foo/'.length)
+    substitutePath: s => s.slice('foo/'.length)
   })
   const baz = Page.module({
     pages: {
@@ -24,6 +23,21 @@ const tree = async (): Promise<Pages> => {
     }
   })
   const bazModule = { entries: () => ({ entries: () => baz }) }
+  const garply = Page.module({
+    pages: {
+      'garply.js': (): unknown => 'garply0'
+    }
+  })
+  const grault = Page.module()
+  grault.entries = () => garply
+  const corge = Page.module({
+    pages: {
+      '': (): unknown => 'corge0',
+      'corge.js': (): unknown => 'corge1'
+    }
+  })
+  const quux = Page.module()
+  quux.entries = () => corge
   const qux = Page.module({
     pages: {
       '': (): unknown => 'qux0',
@@ -37,9 +51,11 @@ const tree = async (): Promise<Pages> => {
       'bar/bar.js': (): unknown => bar,
       'baz.js': (): unknown => bazModule,
       'foo/index.html..js': (): unknown => 'foo',
-      'qux/qux.txt..js': (): unknown => qux
+      'qux/qux.txt..js': (): unknown => qux,
+      'quux/index.html..js': (): unknown => quux,
+      'grault/index.html..js': (): unknown => grault
     },
-    substPath: s => s.replace(/^(?:foo|qux)\//, '')
+    substitutePath: s => s.replace(/^(?:foo|qux)\//, '')
   })
   const p = Page.module({
     url: 'http://example.com',
@@ -60,6 +76,9 @@ const tree = async (): Promise<Pages> => {
     '/foo/qux.txt/': await p.findByModuleName('/foo/qux.txt/'),
     '/foo/qux.txt/foo/': await p.findByModuleName('/foo/qux.txt/foo/'),
     '/foo/qux.txt/bar.html': await p.findByModuleName('/foo/qux.txt/bar.html'),
+    '/foo/quux/': await p.findByModuleName('/foo/quux/'),
+    '/foo/quux/corge/': await p.findByModuleName('/foo/quux/corge/'),
+    '/foo/grault/garply/': await p.findByModuleName('/foo/grault/garply/'),
     'index.html..js': await p.findByFileName('index.html..js'),
     'foo/index.html..js': await p.findByFileName('foo/index.html..js'),
     'bar/foo/bar.en.js': await p.findByFileName('bar/foo/bar.en.js'),
@@ -69,7 +88,10 @@ const tree = async (): Promise<Pages> => {
     'qux/qux.txt..js': await p.findByFileName('qux/qux.txt..js'),
     'qux/index.html..js': await p.findByFileName('qux/index.html..js'),
     'qux/foo.js': await p.findByFileName('qux/foo.js'),
-    'qux/bar.html..js': await p.findByFileName('qux/bar.html..js')
+    'qux/bar.html..js': await p.findByFileName('qux/bar.html..js'),
+    'quux/index.html..js': await p.findByFileName('quux/index.html..js'),
+    'quux/corge.js': await p.findByFileName('quux/corge.js'),
+    'grault/garply.js': await p.findByFileName('grault/garply.js')
   } as const
 }
 
@@ -80,7 +102,6 @@ test('Page.module without argument', () => {
   expect(p.variant).toBe('')
   expect(p.moduleName.path).toBe('')
   expect(p.parent).toBeUndefined()
-  expect(p.root).toBe(p)
   expect(p.load()).toBeUndefined()
 })
 
@@ -95,13 +116,12 @@ test('tree', async () => {
     Object.fromEntries(
       Object.entries(t).map(([k]) => {
         const pat: Record<string, unknown> = {}
-        pat['root'] = t.root
         if (k === 'root') {
           pat['fileName'] = ''
           pat['moduleName'] = expect.objectContaining({ path: '' })
         } else if (k.startsWith('/')) {
           pat['moduleName'] = expect.objectContaining({ path: k.slice(1) })
-        } else {
+        } else if (k.endsWith('.js')) {
           pat['fileName'] = k
         }
         return [k, expect.objectContaining(pat)]
@@ -125,11 +145,24 @@ test.each([
   ['/foo/baz'],
   ['/foo/baz/'],
   ['/foo/baz/en'],
-  ['/foo/baz/ja']
-])('page %s must be undefined', async url => {
+  ['/foo/baz/ja'],
+  ['/foo/quux'],
+  ['/foo/quux/corge'],
+  ['/foo/grault'],
+  ['/foo/grault/'],
+  ['/foo/grault/garply']
+])('intermediate name %s must be undefined', async url => {
   const t = await tree()
   await expect(t.root.findByModuleName(url)).resolves.toBeUndefined()
 })
+
+test.each([['foo.js'], ['bar/bar.js'], ['baz.js'], ['grault/index.html..js']])(
+  'intermediate file %s must be undefined',
+  async path => {
+    const t = await tree()
+    await expect(t.root.findByFileName(path)).resolves.toBeUndefined()
+  }
+)
 
 test.each([
   ['/', 'index.html..js'],
@@ -141,7 +174,10 @@ test.each([
   ['/foo/qux.txt', 'qux/qux.txt..js'],
   ['/foo/qux.txt/', 'qux/index.html..js'],
   ['/foo/qux.txt/foo/', 'qux/foo.js'],
-  ['/foo/qux.txt/bar.html', 'qux/bar.html..js']
+  ['/foo/qux.txt/bar.html', 'qux/bar.html..js'],
+  ['/foo/quux/', 'quux/index.html..js'],
+  ['/foo/quux/corge/', 'quux/corge.js'],
+  ['/foo/grault/garply/', 'grault/garply.js']
 ] as const)('page %s and %s must be identical', async (url, fileName) => {
   const t = await tree()
   expect(t[url]).toBe(t[fileName])
@@ -157,7 +193,10 @@ test.each([
   ['/foo/qux.txt', 'qux0'],
   ['/foo/qux.txt/', 'qux1'],
   ['/foo/qux.txt/foo/', 'qux2'],
-  ['/foo/qux.txt/bar.html', 'qux3']
+  ['/foo/qux.txt/bar.html', 'qux3'],
+  ['/foo/quux/', 'corge0'],
+  ['/foo/quux/corge/', 'corge1'],
+  ['/foo/grault/garply/', 'garply0']
 ] as const)('page %o must have %o as its contents', async (url, body) => {
   const getDefault = async (m: Module): Promise<Content | undefined> =>
     'default' in m ? await m.default : undefined
@@ -166,7 +205,8 @@ test.each([
   expect(p).toBeDefined()
   if (p == null) return
   const context = { module: p, moduleName: p.moduleName }
-  await expect(p.entries(context).then(getDefault)).resolves.toBe(body)
+  const m = p.entries(context)
+  await expect(Promise.resolve(m).then(getDefault)).resolves.toBe(body)
 })
 
 test.each([
@@ -185,6 +225,7 @@ test.each([
 
 test('subclass', () => {
   class MyPage extends Page<string, MyPage> {
+    static override Base = this
     readonly foo: number
     constructor(arg: PageArg<string, MyPage>, foo: number) {
       super(arg)
@@ -197,6 +238,7 @@ test('subclass', () => {
 
 test('generic subclass', () => {
   class MyPage2<X> extends Page<X, MyPage2<X>> {
+    static override Base = this
     readonly foo: number
     constructor(arg: PageArg<X, MyPage2<X>>, foo: number) {
       super(arg)
@@ -212,7 +254,10 @@ test.each([
   ['index.html..js', 'foo/index.html..js', 'foo/index.html..js'],
   ['bar/foo/bar.en.js', 'bar.ja.js', 'bar/foo/bar.ja.js'],
   ['bar/foo/bar.en.js', '../../index.html..js', 'index.html..js'],
-  ['foo/index.html..js', '/index.html..en.js', 'index.html..en.js']
+  ['foo/index.html..js', '/index.html..en.js', 'index.html..en.js'],
+  ['index.html..en.js', 'index.html..ja.js', 'index.html..ja.js'],
+  ['quux/corge.js', '../grault/garply.js', 'grault/garply.js'],
+  ['grault/garply.js', '../quux/corge.js', 'quux/corge.js']
 ] as const)(
   'tree[%o].findByFileName(%o) must be %o',
   async (path1, path2, output) => {

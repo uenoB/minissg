@@ -9,8 +9,10 @@ interface State<X> {
   r?: X
 }
 
-const delayAsync = <X, A extends unknown[] = []>(
-  load: ((...a: A) => Awaitable<X>) | PromiseLike<X>,
+type Load<A extends unknown[], X> = ((...a: A) => Awaitable<X>) | PromiseLike<X>
+
+const delayAsync = <X, A extends unknown[] = never>(
+  load: Load<A, X>,
   ...args: A
 ): Delay<X> => {
   let state: State<X> | undefined
@@ -25,28 +27,29 @@ const delayAsync = <X, A extends unknown[] = []>(
     )
     return (state = s as State<X>)
   }
-  return {
-    then(...a) {
-      return boot().p.then(...a)
-    },
+  const delay: Delay<X> = {
+    then: (...a) => boot().p.then(...a),
     get value() {
       const s = boot()
       if ('r' in s) return s.r
       throw s.e
     }
   }
+  // prevent from calling `value` by deep clone
+  return Object.create(delay) as typeof delay
 }
 
 const delayDummy = <X>(value: Awaited<X>): Delay<Awaited<X>> => {
-  const p = Promise.resolve(value)
-  return { then: p.then.bind(p), value }
+  const delay: Delay<Awaited<X>> = {
+    // eslint-disable-next-line @typescript-eslint/promise-function-async
+    then: (...a) => Promise.resolve(value).then(...a),
+    value
+  }
+  return Object.create(delay) as typeof delay
 }
 
 export const delay = delayAsync as {
-  <X, A extends unknown[] = []>(
-    load: ((...a: A) => Awaitable<X>) | PromiseLike<X>,
-    ...args: A
-  ): Delay<X>
+  <X, A extends unknown[] = never>(load: Load<A, X>, ...args: A): Delay<X>
   dummy: <X>(value: Awaited<X>) => Delay<Awaited<X>>
 }
 

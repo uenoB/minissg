@@ -64,7 +64,7 @@ export const tree_: unique symbol = Symbol('tree')
 interface SomeTree<Subtree, Content, Ext = Context> {
   [tree_]: {
     readonly findChild: () => PromiseLike<Subtree | undefined>
-    readonly instantiate: (context: Readonly<Context>) => Subtree | undefined
+    readonly instantiate: (context: Readonly<Context>) => Subtree
     readonly content: Content
   } & Ext
 }
@@ -94,18 +94,17 @@ export const find = <
 ): Awaitable<Base | SomeAsset | undefined> => {
   type Item = Base | SomeAsset
   const tree = node[tree_]
-  if (tree.content == null || typeof tree.content === 'function') {
-    return tree.findChild().then(n => {
-      if (n != null) return find({ node: n, final }, indexKey, path, all)
+  const deref = (): PromiseLike<Item | undefined> =>
+    tree.findChild().then(next => {
+      if (next != null) return find({ node: next, final }, indexKey, path, all)
       if (path.length !== 0 || final !== true) return undefined
       if (all != null) all.add(node)
       return all != null ? undefined : node
     })
-  }
+  if (tree.content == null || typeof tree.content === 'function') return deref()
   return tree.content.then(index =>
-    index[indexKey]
-      .walk(path)
-      .reduceRight<PromiseLike<Item | undefined>>((z, { key, trie }) => {
+    index[indexKey].walk(path).reduceRight<PromiseLike<Item | undefined>>(
+      (z, { key, trie }) => {
         for (const next of trie.value ?? []) {
           // transition occurs only if either
           //   1. one or more inputs exist, or
@@ -116,12 +115,14 @@ export const find = <
           if (path.length !== 0 || final == null || final === next.final) {
             z = z.then((r: Item | undefined): Awaitable<Item | undefined> => {
               if (r != null) return r
-              const inst = next.node[tree_].instantiate(tree) ?? next.node
+              const inst = next.node[tree_].instantiate(tree)
               return find({ node: inst, final: next.final }, indexKey, key, all)
             })
           }
         }
         return z
-      }, Promise.resolve(undefined))
+      },
+      index[indexKey].isEmpty() ? deref() : Promise.resolve(undefined)
+    )
   )
 }

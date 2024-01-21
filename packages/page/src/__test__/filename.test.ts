@@ -38,7 +38,9 @@ test.each([
   ['./foo/bar', ['foo', 'bar']],
   ['foo/./bar', ['foo', 'bar']],
   ['foo/bar/.', ['foo', 'bar', '']],
-  ['foo/bar/index.html', ['foo', 'bar', '']]
+  ['foo/bar/index.html', ['foo', 'bar', '']],
+  ['foo/../bar', ['foo', '..', 'bar']],
+  ['foo/../bar/index.html', ['foo', '..', 'bar', 'index.html']]
 ])('PathSteps.fromRelativeModuleName(%o) must be %o', (input, output) => {
   expect(PathSteps.fromRelativeModuleName(input).path).toStrictEqual(output)
 })
@@ -61,7 +63,9 @@ test.each([
   ['./foo/bar', ['foo', 'bar']],
   ['foo/./bar', ['foo', 'bar']],
   ['foo/bar/.', ['foo', 'bar', '']],
-  ['foo/bar/index.html', ['foo', 'bar', 'index.html']]
+  ['foo/bar/index.html', ['foo', 'bar', 'index.html']],
+  ['foo/../bar', ['bar']],
+  ['foo/../bar/index.html', ['bar', 'index.html']]
 ])('PathSteps.fromRelativeFileName(%o) must be %o', (input, output) => {
   expect(PathSteps.fromRelativeFileName(input).path).toStrictEqual(output)
 })
