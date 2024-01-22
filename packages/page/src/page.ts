@@ -237,8 +237,8 @@ export class Page<
     return this[tree_].memo.memoize(func, ...args)
   }
 
-  get url(): Delay<string> {
-    return delay.dummy(this[tree_].url?.href ?? 'file:///')
+  get url(): Delay<Readonly<URL>> {
+    return delay.dummy(this[tree_].url ?? Object.freeze(new URL('file:')))
   }
 
   get fileName(): string {

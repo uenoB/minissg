@@ -97,7 +97,7 @@ const tree = async (): Promise<Pages> => {
 
 test('Page.module without argument', () => {
   const p = Page.module({})
-  expect(p.url.value).toBe('file:///')
+  expect(p.url.value.href).toBe('file:///')
   expect(p.fileName).toBe('')
   expect(p.variant).toBe('')
   expect(p.moduleName.path).toBe('')
@@ -107,7 +107,7 @@ test('Page.module without argument', () => {
 
 test('Page.module with url', () => {
   const p = Page.module({ url: 'http://example.com/foo/' })
-  expect(p.url.value).toBe('http://example.com/foo/')
+  expect(p.url.value.href).toBe('http://example.com/foo/')
 })
 
 test('tree', async () => {

@@ -34,7 +34,7 @@ interface AssetFactoryInternal extends AssetInternal {
 
 abstract class AssetImpl {
   declare readonly [tree_]: AssetInternal
-  declare readonly url: Delay<string>
+  declare readonly url: Delay<Readonly<URL>>
   declare type: 'asset'
 
   constructor() {
@@ -58,7 +58,7 @@ abstract class AssetImpl {
     safeDefineProperty(this.prototype, 'url', {
       configurable: true,
       writable: true,
-      value: delay.dummy('file:///')
+      value: delay.dummy(Object.freeze(new URL('file:///')))
     })
   }
 }
@@ -69,10 +69,11 @@ export type Asset = Pick<AssetImpl, 'url' | 'type'>
 const assetURL = async (
   origin: Readonly<URL>,
   load: Delay<AssetModule>
-): Promise<string> => new URL((await load).default, origin).href
+): Promise<Readonly<URL>> =>
+  Object.freeze(new URL((await load).default, origin))
 
 class AssetInstance extends AssetImpl {
-  override readonly url: Delay<string>
+  override readonly url: Delay<Readonly<URL>>
 
   constructor(
     origin: Readonly<URL>,
@@ -82,7 +83,7 @@ class AssetInstance extends AssetImpl {
     super()
     this.url =
       typeof load === 'string'
-        ? delay.dummy(new URL(load, origin).href)
+        ? delay.dummy(Object.freeze(new URL(load, origin)))
         : delay(() => memo.memoize(assetURL, origin, memo.memoize(load)))
   }
 }

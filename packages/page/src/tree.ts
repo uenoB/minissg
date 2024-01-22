@@ -249,7 +249,7 @@ class TreeInstanceInternal<
     this.stem = concatName(parent?.stem, arg.relPath?.stem)
     this.variant = concatName(parent?.variant, arg.relPath?.variant)
     this.fileName = concatFileName(parent?.fileName, arg.relPath?.fileName)
-    this.url = new URL(this.moduleName.path, url)
+    this.url = Object.freeze(new URL(this.moduleName.path, url))
     this.parent = parent
     this.module = module
     this.memo = parent?.memo ?? new Memo()
@@ -324,7 +324,7 @@ class TreeFactoryInternal<
   constructor(arg: TreeFactoryArg<ModuleType, Base, This>, self: unknown) {
     super(arg)
     this.relPath = arg.relPath
-    this.url = arg.url != null ? new URL(arg.url) : undefined
+    this.url = arg.url != null ? Object.freeze(new URL(arg.url)) : undefined
     this.content = arg.content
     this.instances = new WeakMap()
     this.arg = arg
