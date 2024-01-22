@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
 import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
-import { type PageArg, type Asset, Page } from '../index'
+import { ModuleName } from '../../../vite-plugin-minissg/src/module'
+import { type Asset, Page } from '../index'
 
 interface Pages {
   root: Page
@@ -57,13 +58,14 @@ const tree = async (): Promise<Pages> => {
     },
     substitutePath: s => s.replace(/^(?:foo|qux)\//, '')
   })
-  const p = Page.module({
+  const root = Page.module<unknown>({
     url: 'http://example.com',
     pages: {
       'foo.js': (): unknown => foo,
       'index.html..js': (): unknown => 'root'
     }
   })
+  const p = root.root()
   return {
     root: p,
     '/': await p.findByModuleName('/'),
@@ -96,18 +98,33 @@ const tree = async (): Promise<Pages> => {
 }
 
 test('Page.module without argument', () => {
-  const p = Page.module({})
+  const p = Page.module()
   expect(p.url.value.href).toBe('file:///')
   expect(p.fileName).toBe('')
   expect(p.variant).toBe('')
   expect(p.moduleName.path).toBe('')
   expect(p.parent).toBeUndefined()
-  expect(p.load()).toBeUndefined()
+  expect(p.load().value).toBeUndefined()
 })
 
 test('Page.module with url', () => {
   const p = Page.module({ url: 'http://example.com/foo/' })
   expect(p.url.value.href).toBe('http://example.com/foo/')
+})
+
+test('new Page', () => {
+  const p = new Page()
+  expect(p.url.value.href).toBe('file:///')
+  expect(p.fileName).toBe('')
+  expect(p.variant).toBe('')
+  expect(p.moduleName.path).toBe('')
+  expect(p.parent).toBeUndefined()
+  expect(p.load().value).toBeUndefined()
+  expect(p.find('').value).toBeUndefined()
+  expect(p.subpages().value).toStrictEqual([])
+  expect(() => p.root()).toThrowError('cannot instantiate')
+  const dummyContext = { moduleName: ModuleName.root, module: {} }
+  expect(() => p.main(dummyContext)).toThrowError('cannot instantiate')
 })
 
 test('tree', async () => {
@@ -224,15 +241,19 @@ test.each([
 })
 
 test('subclass', () => {
-  class MyPage extends Page<string, MyPage> {
+  type M = Readonly<{ default?: string }>
+  class MyPage1 extends Page<M, MyPage1> {
     static override Base = this
     readonly foo: number
-    constructor(arg: PageArg<string, MyPage>, foo: number) {
-      super(arg)
+    constructor(foo: number) {
+      super()
       this.foo = foo
     }
   }
-  const page = MyPage.module({}, 123)
+  const page = MyPage1.module(
+    { pages: { foo: () => ({ default: 'bar' }) } },
+    123
+  )
   expect(page.foo).toBe(123)
 })
 
@@ -240,8 +261,8 @@ test('generic subclass', () => {
   class MyPage2<X> extends Page<X, MyPage2<X>> {
     static override Base = this
     readonly foo: number
-    constructor(arg: PageArg<X, MyPage2<X>>, foo: number) {
-      super(arg)
+    constructor(foo: number) {
+      super()
       this.foo = foo
     }
   }

@@ -1,13 +1,19 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
+import { raise } from '../../vite-plugin-minissg/src/util'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import { isAbsURL, hasMinissgMain, safeDefineProperty } from './util'
+import { isAbsURL, safeDefineProperty } from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
-import { FileName, PathSteps, concatName, concatFileName } from './filename'
-import type { RelPath, PathInfo } from './filename'
+import { PathSteps, concatName, concatFileName } from './filename'
+import type { FileName, RelPath, PathInfo } from './filename'
 import { type Directory, tree_, find } from './directory'
 import type { AssetImpl } from './asset'
+
+export type MainModule = Readonly<{ main: minissg.Main }>
+
+export const hasMinissgMain = (x: object): x is MainModule =>
+  !(Symbol.iterator in x) && 'main' in x && typeof x.main === 'function'
 
 const findByModuleName = async <
   ModuleType,
@@ -48,7 +54,7 @@ const findByFileName = async <ModuleType, Base extends Tree<ModuleType, Base>>(
 }
 
 const findByBoth = async <ModuleType, Base extends Tree<ModuleType, Base>>(
-  self: TreeInternal<ModuleType, Base>,
+  self: TreeInstanceInternal<ModuleType, Base>,
   path: string
 ): Promise<Base | AssetImpl | undefined> => {
   if (isAbsURL(path)) return undefined
@@ -68,7 +74,7 @@ const variants = async <ModuleType, Base extends Tree<ModuleType, Base>>(
 
 const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
   self: TreeInstanceInternal<ModuleType, Base>
-): Promise<Base | undefined> => {
+): Promise<TreeInstance<ModuleType, Base> | undefined> => {
   let mod: unknown =
     typeof self.content === 'function'
       ? await self.memo.memoize(self.content)
@@ -76,7 +82,7 @@ const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
   const moduleName = self.moduleName
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
-    if (mod instanceof self.Base) return mod[tree_].instantiate(self)
+    if (mod instanceof self.BaseFn) return mod[tree_].instantiate(self)
     if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
     mod = await mod.main(context)
@@ -84,22 +90,46 @@ const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
   return undefined
 }
 
+const load = async <
+  ModuleType,
+  Base extends Tree<ModuleType, Base>,
+  This extends Base
+>(
+  self: TreeInstanceInternal<ModuleType, Base, This>
+): Promise<ModuleType | undefined> => {
+  if (typeof self.content !== 'function') return undefined
+  const m = await self.memo.memoize(self.content)
+  return typeof m === 'object' && m != null && hasMinissgMain(m) ? undefined : m
+}
+
 const subpages = async <
   ModuleType,
   Base extends Tree<ModuleType, Base>,
   This extends Base
 >(
-  self: TreeInternal<ModuleType, Base, This>
-): Promise<Iterable<This>> => {
-  const items =
-    typeof self.content === 'function' ? [] : (await self.content).moduleNameMap
-  function* subpages(): Iterable<This> {
+  self: TreeInstanceInternal<ModuleType, Base, This>
+): Promise<Iterable<[string, TreeInstance<ModuleType, Base, This>]>> => {
+  type T = TreeInstance<ModuleType, Base, This>
+  if (typeof self.content === 'function') return [][Symbol.iterator]()
+  const items = (await self.content).moduleNameMap
+  function* subpages(): Iterable<[string, T]> {
     for (const edges of items) {
-      for (const { node, final } of edges) if (final) yield node
+      for (const { node, final } of edges) {
+        if (!final) continue
+        const name = node[tree_].relPath?.moduleName.toRelativeModuleName()
+        yield [name ?? '', node[tree_].instantiate(self)] as const
+      }
     }
   }
   return subpages()
 }
+
+export type Loaded<ModuleType> = Awaitable<ModuleType | MainModule>
+type TreeDirectory<
+  ModuleType,
+  Base extends Tree<ModuleType, Base>,
+  This extends Base = Base
+> = Directory<Base, AssetImpl, TreeFactory<ModuleType, Base, This>>
 
 export interface TreeFactoryArg<
   ModuleType,
@@ -113,7 +143,7 @@ export interface TreeFactoryArg<
   }
   readonly content:
     | ((...args: never) => unknown)
-    | PromiseLike<Directory<Base, AssetImpl, This>>
+    | PromiseLike<TreeDirectory<ModuleType, Base, This>>
   readonly createInstance: (
     self: unknown,
     parent: TreeInstanceInternal<ModuleType, Base> | undefined
@@ -130,19 +160,19 @@ export class TreeFactoryArgImpl<
     readonly url: TreeFactoryArg<ModuleType, Base, This>['url'],
     readonly This: TreeFactoryArg<ModuleType, Base, This>['This'],
     readonly content:
-      | ((self: TreeInstance<ModuleType, Base, This>) => Awaitable<ModuleType>)
-      | PromiseLike<Directory<Base, AssetImpl, This>>
+      | ((self: TreeInstance<ModuleType, Base, This>) => Loaded<ModuleType>)
+      | PromiseLike<TreeDirectory<ModuleType, Base, This>>
   ) {}
 
   createInstance(
     self: unknown,
     parent: TreeInstanceInternal<ModuleType, Base> | undefined
   ): TreeInstance<ModuleType, Base, This> {
-    if (!(self instanceof this.This)) throw Error('improper call')
-    const con = this.content
+    const c = this.content
+    if (c == null || !(self instanceof this.This)) throw Error('improper call')
     type T = TreeInstance<ModuleType, Base, This>
     const inst: This & T = Object.create(self) as typeof self & T
-    const content = typeof con === 'function' ? () => con(inst) : con
+    const content = typeof c === 'function' ? () => c(inst) : c
     const init = { parent, module: inst, content }
     const tree = new TreeInstanceInternal<ModuleType, Base, This>(this, init)
     safeDefineProperty(inst, tree_, { value: tree })
@@ -169,49 +199,52 @@ abstract class TreeInternal<
   Base extends Tree<ModuleType, Base>,
   This extends Base = Base
 > {
-  readonly Base: abstract new (...args: never) => Base
-  abstract readonly relPath: Readonly<RelPath> | undefined
-  abstract readonly moduleName: ModuleName
-  abstract readonly stem: ModuleName
-  abstract readonly variant: ModuleName
-  abstract readonly fileName: FileName
-  abstract readonly url: Readonly<URL> | undefined
-  abstract readonly parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  abstract readonly module: minissg.Module
-  abstract readonly memo: Memo
+  readonly moduleName: ModuleName = ModuleName.root
+  readonly stem: ModuleName | undefined
+  readonly variant: ModuleName | undefined
+  readonly fileName: FileName | undefined
+  readonly relPath: Readonly<RelPath> | undefined
+  readonly url: Readonly<URL> | undefined
+  readonly parent: TreeInstanceInternal<ModuleType, Base> | undefined
+  readonly root: TreeInstanceInternal<ModuleType, Base> | undefined
+  readonly memo: Memo | undefined
+  readonly module: minissg.Module = {}
   abstract readonly content: TreeFactoryArg<ModuleType, Base, This>['content']
-  abstract findByModuleName(path: string): Delay<Base | undefined>
-  abstract findByFileName(path: string): Delay<Base | AssetImpl | undefined>
-  abstract variants(): Delay<Set<Base>>
-  abstract load(): Delay<ModuleType> | undefined
+
+  findByModuleName(_path: string): Delay<Base | undefined> {
+    return delay.dummy(undefined)
+  }
+
+  findByFileName(_path: string): Delay<Base | AssetImpl | undefined> {
+    return delay.dummy(undefined)
+  }
+
+  find(_path: string): Delay<Base | AssetImpl | undefined> {
+    return delay.dummy(undefined)
+  }
+
+  variants(): Delay<Set<Base>> {
+    return delay.dummy(new Set<Base>())
+  }
+
+  load(): Delay<ModuleType | undefined> {
+    return delay.dummy(undefined)
+  }
+
+  subpages(): Delay<Iterable<[string, This]>> {
+    return delay.dummy([])
+  }
+
+  findChild(): Delay<TreeInstance<ModuleType, Base> | undefined> {
+    return delay.dummy(undefined)
+  }
+
   abstract instantiate(
-    context: Readonly<minissg.Context> | undefined
+    _context?: Readonly<minissg.Context> | undefined
   ): TreeInstance<ModuleType, Base, This>
-  abstract findChild(): PromiseLike<Base | undefined>
-  abstract main(context: Readonly<minissg.Context>): Awaitable<minissg.Module>
 
-  constructor(arg: TreeFactoryArg<ModuleType, Base>) {
-    this.Base = arg.This.Base
-  }
-
-  find(path: string): Delay<Base | AssetImpl | undefined> {
-    return this.memo.memoize(findByBoth, this, path)
-  }
-
-  findParent(
-    context: Readonly<minissg.Context> | Null
-  ): TreeInstanceInternal<ModuleType, Base> | undefined {
-    for (let c = context; c != null; c = c.parent) {
-      if (this.module !== c.module && c.module instanceof this.Base) {
-        const tree = c.module[tree_]
-        if (tree instanceof TreeInstanceInternal) return tree
-      }
-    }
-    return undefined
-  }
-
-  subpages(): Delay<Iterable<This>> {
-    return this.memo.memoize(subpages, this)
+  main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
+    return this.instantiate(context)
   }
 }
 
@@ -220,20 +253,20 @@ class TreeInstanceInternal<
   Base extends Tree<ModuleType, Base>,
   This extends Base = Base
 > extends TreeInternal<ModuleType, Base> {
-  override readonly relPath: undefined
   override readonly moduleName: ModuleName
   override readonly stem: ModuleName
   override readonly variant: ModuleName
   override readonly fileName: FileName
   override readonly url: Readonly<URL>
   override readonly parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  override readonly module: TreeInstance<ModuleType, Base, This>
+  override readonly root: TreeInstanceInternal<ModuleType, Base>
   override readonly memo: Memo
+  override readonly module: TreeInstance<ModuleType, Base, This>
   override readonly content:
-    | (() => Awaitable<ModuleType>)
-    | PromiseLike<Directory<Base, AssetImpl, This>>
+    | (() => Loaded<ModuleType>)
+    | PromiseLike<TreeDirectory<ModuleType, Base, This>>
 
-  readonly root: TreeInstanceInternal<ModuleType, Base>
+  readonly BaseFn: abstract new (...args: never) => Base
 
   constructor(
     arg: TreeFactoryArg<ModuleType, Base>,
@@ -242,7 +275,7 @@ class TreeInstanceInternal<
       'parent' | 'module' | 'content'
     >
   ) {
-    super(arg)
+    super()
     const { parent, module, content } = init
     const url = parent?.root?.url ?? arg.url ?? 'file:'
     this.moduleName = concatName(parent?.moduleName, arg.relPath?.moduleName)
@@ -251,10 +284,11 @@ class TreeInstanceInternal<
     this.fileName = concatFileName(parent?.fileName, arg.relPath?.fileName)
     this.url = Object.freeze(new URL(this.moduleName.path, url))
     this.parent = parent
-    this.module = module
-    this.memo = parent?.memo ?? new Memo()
-    this.content = content
     this.root = parent?.root ?? this
+    this.memo = parent?.memo ?? new Memo()
+    this.module = module
+    this.content = content
+    this.BaseFn = parent?.BaseFn ?? arg.This.Base
   }
 
   override findByModuleName(path: string): Delay<Base | undefined> {
@@ -265,40 +299,37 @@ class TreeInstanceInternal<
     return this.memo.memoize(findByFileName, this, path)
   }
 
+  override find(path: string): Delay<Base | AssetImpl | undefined> {
+    return this.memo.memoize(findByBoth, this, path)
+  }
+
   override variants(): Delay<Set<Base>> {
     return this.memo.memoize(variants, this)
   }
 
-  override load(): Delay<ModuleType> | undefined {
-    if (typeof this.content !== 'function') return undefined
-    return this.memo.memoize(this.content)
+  override load(): Delay<ModuleType | undefined> {
+    return this.memo.memoize(load, this)
+  }
+
+  override subpages(): Delay<Iterable<[string, This]>> {
+    return this.memo.memoize(subpages, this)
+  }
+
+  override findChild(): Delay<TreeInstance<ModuleType, Base> | undefined> {
+    return this.memo.memoize(findChild, this)
   }
 
   override instantiate(): TreeInstance<ModuleType, Base, This> {
     return this.module
   }
 
-  override findChild(): Delay<Base | undefined> {
-    return this.memo.memoize(findChild, this)
-  }
-
   override async main(): Promise<minissg.Module> {
-    const mod = await this.load()
-    if (mod == null) {
-      return Array.from(await this.subpages(), tree => {
-        const name = tree[tree_].relPath?.moduleName.toRelativeModuleName()
-        return [name ?? '', tree] as const
-      })
-    } else if (typeof mod === 'object' && hasMinissgMain(mod)) {
-      return mod
-    } else {
-      return {
-        default: delay(
-          async () =>
-            await this.memo.run(async () => await this.module.render(mod))
-        )
-      }
-    }
+    if (typeof this.content !== 'function') return await subpages(this)
+    const m = await this.memo.memoize(this.content)
+    if (typeof m === 'object' && m != null && hasMinissgMain(m)) return m
+    const render = async (): Promise<minissg.Content> =>
+      await this.module.render(m)
+    return { default: delay(async () => await this.memo.run(render)) }
   }
 }
 
@@ -308,54 +339,27 @@ class TreeFactoryInternal<
   This extends Base = Base
 > extends TreeInternal<ModuleType, Base, This> {
   override readonly relPath: Readonly<RelPath> | undefined
-  override readonly moduleName = ModuleName.root
-  override readonly stem = ModuleName.root
-  override readonly variant = ModuleName.root
-  override readonly fileName = FileName.root
   override readonly url: Readonly<URL> | undefined
-  override readonly parent: undefined
   override readonly module = this
-  override readonly memo = new Memo()
   override readonly content: TreeInternal<ModuleType, Base, This>['content']
+  readonly BaseFn: abstract new (...args: never) => Base
   readonly instances: WeakMap<object, TreeInstance<ModuleType, Base, This>>
   readonly arg: TreeFactoryArg<ModuleType, Base, This>
   readonly self: unknown
 
   constructor(arg: TreeFactoryArg<ModuleType, Base, This>, self: unknown) {
-    super(arg)
+    super()
     this.relPath = arg.relPath
     this.url = arg.url != null ? Object.freeze(new URL(arg.url)) : undefined
     this.content = arg.content
+    this.BaseFn = arg.This.Base
     this.instances = new WeakMap()
     this.arg = arg
     this.self = self
   }
 
-  findByModuleName(path: string): Delay<Base | undefined> {
-    const found = this.instantiate(this)[tree_].findByModuleName(path)
-    return found ?? delay.dummy(undefined)
-  }
-
-  findByFileName(path: string): Delay<Base | AssetImpl | undefined> {
-    const found = this.instantiate(this)[tree_].findByFileName(path)
-    return found ?? delay.dummy(undefined)
-  }
-
-  variants(): Delay<Set<Base>> {
-    const found = this.instantiate(this)[tree_].variants()
-    return found ?? delay.dummy(new Set<Base>())
-  }
-
-  load(): undefined {
-    return undefined
-  }
-
-  findChild(): Delay<undefined> {
-    return delay.dummy(undefined)
-  }
-
-  instantiate(
-    context: Readonly<minissg.Context> | undefined
+  override instantiate(
+    context?: Readonly<minissg.Context> | undefined
   ): TreeInstance<ModuleType, Base, This> {
     const parent = this.findParent(context)
     const cached = this.instances.get(parent ?? this.instances)
@@ -365,8 +369,16 @@ class TreeFactoryInternal<
     return inst
   }
 
-  main(context: Readonly<minissg.Context>): minissg.Module {
-    return this.instantiate(context) ?? {}
+  findParent(
+    context: Readonly<minissg.Context> | Null
+  ): TreeInstanceInternal<ModuleType, Base> | undefined {
+    for (let c = context; c != null; c = c.parent) {
+      if (this.module !== c.module && c.module instanceof this.BaseFn) {
+        const tree = c.module[tree_]
+        if (tree instanceof TreeInstanceInternal) return tree
+      }
+    }
+    return undefined
   }
 }
 
@@ -386,6 +398,12 @@ export type TreeFactory<
   readonly [tree_]: TreeFactoryInternal<ModuleType, Base, This>
 } & This
 
+class TreeNullInternal extends TreeInternal<never, never, never> {
+  static instance = new this()
+  override readonly content = (): never => raise(Error('cannot instantiate'))
+  override readonly instantiate = this.content
+}
+
 export abstract class Tree<
   ModuleType,
   Base extends Tree<ModuleType, Base>,
@@ -393,9 +411,8 @@ export abstract class Tree<
 > {
   declare readonly [tree_]: TreeInternal<ModuleType, Base, This>
 
-  constructor(arg: TreeFactoryArg<ModuleType, Base, This>) {
-    const tree = new TreeFactoryInternal(arg, this)
-    safeDefineProperty(this, tree_, { value: tree })
+  constructor() {
+    safeDefineProperty(this, tree_, { value: TreeNullInternal.instance })
   }
 
   main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
@@ -415,6 +432,6 @@ export abstract class Tree<
 
   initialize(): void {}
 
-  abstract parsePath(path: string): Readonly<PathInfo>
-  abstract paginatePath(index: number): Readonly<PathInfo>
+  abstract parsePath(path: string): Readonly<PathInfo> | Null
+  abstract paginatePath(index: number): Readonly<PathInfo> | Null
 }

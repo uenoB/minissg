@@ -10,7 +10,6 @@ export interface AssetModule {
 }
 
 interface SomeFactoryInternal {
-  memo: Memo
   findParent: (context: Readonly<Context>) => SomeInstanceInternal | undefined
 }
 

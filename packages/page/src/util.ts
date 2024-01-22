@@ -1,5 +1,3 @@
-import type { Main } from '../../vite-plugin-minissg/src/module'
-
 export const isAbsURL = (url: string): boolean => {
   try {
     void new URL(url)
@@ -8,11 +6,6 @@ export const isAbsURL = (url: string): boolean => {
     return false
   }
 }
-
-export type MainModule = Readonly<{ main: Main }>
-
-export const hasMinissgMain = (x: object): x is MainModule =>
-  !(Symbol.iterator in x) && 'main' in x && typeof x.main === 'function'
 
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
   | { writable?: boolean; value: X; get?: never; set?: never }

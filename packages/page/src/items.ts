@@ -26,19 +26,18 @@ export const iteratePairs = async function* <X, This>(
 }
 
 export type Items<X, This = void> =
-  | Iterable<X>
-  | AsyncIterable<X>
-  | ((this: This) => Awaitable<Items<X, This>>)
+  | Awaitable<Iterable<X>>
+  | Awaitable<AsyncIterable<X>>
+  | Awaitable<(this: This) => Items<X, This>>
 
 export const listItems = async <X, This>(
   items: Items<X, This>,
   self: This
 ): Promise<X[]> => {
-  while (typeof items === 'function') items = await items.call(self)
-  if (Symbol.asyncIterator in items) {
-    const a: X[] = []
-    for await (const i of items) a.push(i)
-    return a
-  }
-  return Array.from(items)
+  let v = await items
+  while (typeof v === 'function') v = await Reflect.apply(v, self, [])
+  if (!(Symbol.asyncIterator in v)) return Array.from(v)
+  const a: X[] = []
+  for await (const i of v) a.push(i)
+  return a
 }

@@ -19,6 +19,8 @@ export class PathSteps {
     this.path = path
   }
 
+  static empty = new PathSteps([])
+
   static fromRelativeModuleName(path: string): PathSteps {
     if (path === '') return new PathSteps([])
     try {
@@ -99,9 +101,15 @@ export interface PathInfo {
   relURL: string
 }
 
-export const makeRelPath = (fileName: string, pathInfo: PathInfo): RelPath => ({
-  fileName: PathSteps.fromRelativeFileName(fileName),
-  moduleName: PathSteps.fromRelativeModuleName(pathInfo.relURL),
-  stem: PathSteps.fromRelativeModuleName(pathInfo.stem),
-  variant: PathSteps.fromRelativeModuleName(pathInfo.variant)
-})
+export const makeRelPath = (
+  fileName: string,
+  pathInfo: Readonly<PathInfo> | Null
+): RelPath | undefined =>
+  pathInfo == null
+    ? undefined
+    : {
+        fileName: PathSteps.fromRelativeFileName(fileName),
+        moduleName: PathSteps.fromRelativeModuleName(pathInfo.relURL),
+        stem: PathSteps.fromRelativeModuleName(pathInfo.stem),
+        variant: PathSteps.fromRelativeModuleName(pathInfo.variant)
+      }
