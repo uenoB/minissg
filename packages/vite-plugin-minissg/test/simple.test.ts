@@ -53,7 +53,7 @@ test('README: Multiple Page Generation 2', async () => {
   await expect(
     build({
       'index.html.js': `
-        export const entries = () => ({
+        export const main = () => ({
           'index.html':
             {
               default: \`<!DOCTYPE html>

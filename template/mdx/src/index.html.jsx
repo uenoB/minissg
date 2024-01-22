@@ -8,11 +8,11 @@ const a = ({ href, ...props }) => (
   <a href={hrefMap.get(href) ?? href} {...props} />
 )
 
-export const entries = ({ moduleName }) =>
+export const main = ({ moduleName }) =>
   Object.entries(pages).map(([path, load]) => {
     const relPath = path.replace(/(?:\/index)?\.mdx?$/, '/')
     hrefMap.set(path, import.meta.env.BASE_URL + moduleName.join(relPath).path)
-    const entries = async () => {
+    const main = async () => {
       const md = await load()
       const title = md.frontmatter?.title ?? path
       const root = () => (
@@ -22,5 +22,5 @@ export const entries = ({ moduleName }) =>
       )
       return { default: render(root) }
     }
-    return [relPath, { entries }]
+    return [relPath, { main }]
   })

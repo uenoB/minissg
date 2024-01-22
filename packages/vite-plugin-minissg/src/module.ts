@@ -64,19 +64,19 @@ export interface Context {
 
 const pathOf = (c: Context): string => {
   const toSelector = (i: string | undefined): string =>
-    i == null ? '.entries()' : format('[%o]', i)
+    i == null ? '.main()' : format('[%o]', i)
   const selectors: string[] = []
   for (; c.parent != null; c = c.parent) selectors.push(toSelector(c.path))
   return 'root' + selectors.reverse().join('')
 }
 
-export type Entries = (context: Readonly<Context>) => Awaitable<Module>
+export type Main = (context: Readonly<Context>) => Awaitable<Module>
 
 export type Module =
   | Iterable<readonly [string, Awaitable<Module>]>
-  | { entries: Entries }
-  | { entries?: never; default: Awaitable<Content> }
-  | { entries?: never; default?: never; [k: string]: Awaitable<Module> }
+  | { main: Main }
+  | { main?: never; default: Awaitable<Content> }
+  | { main?: never; default?: never; [k: string]: Awaitable<Module> }
 
 export type Body = PromiseLike<string | Uint8Array> | Null
 export type Page = PromiseLike<{ loaded: Iterable<string>; body: Body }>
@@ -94,10 +94,10 @@ export const run = async (
       let routes
       if (Symbol.iterator in con.module) {
         routes = con.module
-      } else if (typeof con.module.entries === 'function') {
+      } else if (typeof con.module.main === 'function') {
         const mod = con.module
-        site?.debug.module?.('await %s.entries()', pathOf(con))
-        const module = await run(loaded, () => mod.entries(con))
+        site?.debug.module?.('await %s.main()', pathOf(con))
+        const module = await run(loaded, () => mod.main(con))
         const context = { ...con, module, path: undefined, parent: con }
         return [{ context: Object.freeze(context), loaded }]
       } else if ('default' in con.module) {

@@ -22,14 +22,14 @@ const tree = async (): Promise<Pages> => {
       'index.html..ja.js': (): unknown => 'baz2'
     }
   })
-  const bazModule = { entries: () => ({ entries: () => baz }) }
+  const bazModule = { main: () => ({ main: () => baz }) }
   const garply = Page.module({
     pages: {
       'garply.js': (): unknown => 'garply0'
     }
   })
   const grault = Page.module()
-  grault.entries = () => garply
+  grault.main = () => garply
   const corge = Page.module({
     pages: {
       '': (): unknown => 'corge0',
@@ -37,7 +37,7 @@ const tree = async (): Promise<Pages> => {
     }
   })
   const quux = Page.module()
-  quux.entries = () => corge
+  quux.main = () => corge
   const qux = Page.module({
     pages: {
       '': (): unknown => 'qux0',
@@ -205,7 +205,7 @@ test.each([
   expect(p).toBeDefined()
   if (p == null) return
   const context = { module: p, moduleName: p.moduleName }
-  const m = p.entries(context)
+  const m = p.main(context)
   await expect(Promise.resolve(m).then(getDefault)).resolves.toBe(body)
 })
 

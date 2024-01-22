@@ -25,7 +25,7 @@ const loadLib = (server: ViteDevServer): PromiseLike<LibModule> =>
 
 const setupRoot = (server: ViteDevServer, site: Site): Context => {
   const module = Array.from(site.entries(), ([key, id]) => {
-    const entries = async (): Promise<Module> => {
+    const main = async (): Promise<Module> => {
       const plugin = server.pluginContainer
       const r = await plugin.resolveId(id, undefined, { ssr: true })
       if (r == null) return { default: null }
@@ -35,7 +35,7 @@ const setupRoot = (server: ViteDevServer, site: Site): Context => {
       if (node?.id != null) (await loadLib(server)).add(node.id)
       return module
     }
-    return [key, { entries }] as const
+    return [key, { main }] as const
   })
   return Object.freeze({ moduleName: ModuleName.root, module })
 }

@@ -7,9 +7,9 @@ test('shared image used to yielded an empty chunk', async () => {
   await expect(
     build({
       'index.html.js': `
-        export const entries = () =>
-          Object.entries(import.meta.glob('./page*.js')).map(([path, load]) =>
-            [path.replace(/\\.js$/, '.html'), { entries: load }])`,
+        export const main = () =>
+          Object.entries(import.meta.glob('./page*.js')).map(([path, main]) =>
+            [path.replace(/\\.js$/, '.html'), { main }])`,
       'page1.js': `
         import svg from './favicon.svg'
         export default \`<img src="\${svg}">\``,
@@ -37,9 +37,9 @@ test('css module yields an empty chunk', async () => {
   await expect(
     build({
       'index.html.js': `
-        export const entries = () =>
-          Object.entries(import.meta.glob('./page*.js')).map(([path, load]) =>
-          [path.replace(/\\.js$/, '.html'), { entries: load }])`,
+        export const main = () =>
+          Object.entries(import.meta.glob('./page*.js')).map(([path, main]) =>
+          [path.replace(/\\.js$/, '.html'), { main }])`,
       'page1.js': `
         import { hi } from './style.module.css'
         export default \`<p class=\${hi}>hello</p>\``,
@@ -73,9 +73,9 @@ test('single reference to css module yields no empty chunk', async () => {
   await expect(
     build({
       'index.html.js': `
-        export const entries = () =>
-          Object.entries(import.meta.glob('./page*.js')).map(([path, load]) =>
-          [path.replace(/\\.js$/, '.html'), { entries: load }])`,
+        export const main = () =>
+          Object.entries(import.meta.glob('./page*.js')).map(([path, main]) =>
+          [path.replace(/\\.js$/, '.html'), { main }])`,
       'page1.js': `
         import { hi } from './style.module.css'
         export default \`<p class=\${hi}>hello</p>\``,

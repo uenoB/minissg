@@ -1,7 +1,7 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { ModuleName } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import { isAbsURL, hasMinissgEntries, safeDefineProperty } from './util'
+import { isAbsURL, hasMinissgMain, safeDefineProperty } from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
 import { FileName, PathSteps, concatName, concatFileName } from './filename'
@@ -72,14 +72,14 @@ const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
   let mod: unknown =
     typeof self.content === 'function'
       ? await self.memo.memoize(self.content)
-      : await self.module.entries(self)
+      : await self.module.main(self)
   const moduleName = self.moduleName
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
     if (mod instanceof self.Base) return mod[tree_].instantiate(self)
-    if (!hasMinissgEntries(mod)) break
+    if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
-    mod = await mod.entries(context)
+    mod = await mod.main(context)
   }
   return undefined
 }
@@ -188,9 +188,7 @@ abstract class TreeInternal<
     context: Readonly<minissg.Context> | undefined
   ): TreeInstance<ModuleType, Base, This>
   abstract findChild(): PromiseLike<Base | undefined>
-  abstract entries(
-    context: Readonly<minissg.Context>
-  ): Awaitable<minissg.Module>
+  abstract main(context: Readonly<minissg.Context>): Awaitable<minissg.Module>
 
   constructor(arg: TreeFactoryArg<ModuleType, Base>) {
     this.Base = arg.This.Base
@@ -284,14 +282,14 @@ class TreeInstanceInternal<
     return this.memo.memoize(findChild, this)
   }
 
-  override async entries(): Promise<minissg.Module> {
+  override async main(): Promise<minissg.Module> {
     const mod = await this.load()
     if (mod == null) {
       return Array.from(await this.subpages(), tree => {
         const name = tree[tree_].relPath?.moduleName.toRelativeModuleName()
         return [name ?? '', tree] as const
       })
-    } else if (typeof mod === 'object' && hasMinissgEntries(mod)) {
+    } else if (typeof mod === 'object' && hasMinissgMain(mod)) {
       return mod
     } else {
       return {
@@ -367,7 +365,7 @@ class TreeFactoryInternal<
     return inst
   }
 
-  entries(context: Readonly<minissg.Context>): minissg.Module {
+  main(context: Readonly<minissg.Context>): minissg.Module {
     return this.instantiate(context) ?? {}
   }
 }
@@ -400,8 +398,8 @@ export abstract class Tree<
     safeDefineProperty(this, tree_, { value: tree })
   }
 
-  entries(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
-    return this[tree_].entries(context)
+  main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
+    return this[tree_].main(context)
   }
 
   render(module: ModuleType): Awaitable<minissg.Content> {

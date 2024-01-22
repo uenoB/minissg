@@ -1,4 +1,4 @@
-import type { Entries } from '../../vite-plugin-minissg/src/module'
+import type { Main } from '../../vite-plugin-minissg/src/module'
 
 export const isAbsURL = (url: string): boolean => {
   try {
@@ -9,10 +9,10 @@ export const isAbsURL = (url: string): boolean => {
   }
 }
 
-export type EntriesModule = Readonly<{ entries: Entries }>
+export type MainModule = Readonly<{ main: Main }>
 
-export const hasMinissgEntries = (x: object): x is EntriesModule =>
-  !(Symbol.iterator in x) && 'entries' in x && typeof x.entries === 'function'
+export const hasMinissgMain = (x: object): x is MainModule =>
+  !(Symbol.iterator in x) && 'main' in x && typeof x.main === 'function'
 
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
   | { writable?: boolean; value: X; get?: never; set?: never }

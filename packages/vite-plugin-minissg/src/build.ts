@@ -28,9 +28,9 @@ const setupRoot = (
     if (chunk == null) return [k, { default: null }]
     const fileName = resolve(outDir, chunk.fileName)
     const module = util.lazy((): PromiseLike<Module> => import(fileName))
-    const entries = (): PromiseLike<Module> =>
+    const main = (): PromiseLike<Module> =>
       lib.then(m => m.add(r.id)).then(() => module)
-    return [k, { entries }]
+    return [k, { main }]
   })
   return Object.freeze({ moduleName: ModuleName.root, module })
 }

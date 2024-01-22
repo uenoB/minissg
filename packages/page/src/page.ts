@@ -168,9 +168,10 @@ class PageFactory<
       const itemIndex = pageIndex * pageSize
       const items = allItems.slice(itemIndex, itemIndex + pageSize)
       const pathInfo = this.page.paginatePath(pageIndex)
-      const relPath = makeRelPath('', pathInfo)
+      const filePath = pageIndex === 0 ? '' : `./${pageIndex + 1}`
+      const relPath = makeRelPath(filePath, pathInfo)
       const load = (inst: Inst): Awaitable<ModuleType> => {
-        const pagi = instantiate(inst, itemIndex)
+        const pagi = instantiate(inst, pageIndex)
         return Reflect.apply(loadFn, pagi.page, [pagi])
       }
       const page = this.createSubpage(dir, load, relPath)

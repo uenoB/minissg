@@ -61,10 +61,10 @@ The typical usage of the `Page` class is as follows:
   For example, the URL of `./page/index.html..js` is `index.html`,
   which is interpreted as `/` by Minissg.
 
-3. Export the root page through `entries`:
+3. Export the root page through `main`:
 
   ```javascript
-  export entries = () => root;
+  export main = () => root;
   ```
 
   Then, Minissg recognizes all the pages added to `root`.
@@ -191,7 +191,7 @@ class Page<ModuleType = unknown> {
   load(): PromiseLike<ModuleType> | undefined;
   parsePath(path: string): PathInfo; // can be overriden
   render(module: YourModule): Content | PromiseLike<Content>; // can be overriden
-  entries: Entries
+  main: Main
 }
 ```
 

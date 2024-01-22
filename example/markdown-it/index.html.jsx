@@ -11,8 +11,8 @@ const compile = ({ default: code }) => {
 const sources = import.meta.glob('./posts/**/*.md', { query: { raw: '' } })
 
 const posts = Object.entries(sources).map(([filename, load]) => {
-  const entries = async () => compile(await load())
-  return [filename.replace(/\.md$/, '/'), { entries }]
+  const main = async () => compile(await load())
+  return [filename.replace(/\.md$/, '/'), { main }]
 })
 
-export const entries = () => posts
+export const main = () => posts
