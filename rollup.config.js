@@ -15,7 +15,7 @@ const toRelPath = url => relative(fileURLToPath(baseURL), fileURLToPath(url))
 
 const terser = () =>
   terserPlugin({
-    ecma: '2020',
+    ecma: '2022',
     compress: {
       join_vars: false,
       sequences: false,
@@ -65,7 +65,7 @@ const build = pkg => {
   return [
     {
       external: [...external, /^node:/],
-      plugins: [cleanup(outDir), esbuild(), terser()],
+      plugins: [cleanup(outDir), esbuild({ target: 'es2022' }), terser()],
       input,
       output: [
         { ...esmOutput, dir: outDir },
