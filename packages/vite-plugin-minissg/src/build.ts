@@ -129,10 +129,13 @@ export const buildPlugin = (
       order: 'pre',
       handler(config) {
         baseConfig = config
+        const build = config.build
         return {
           build: {
             // the first pass is for SSR
             ...(bodys == null ? { ssr: true } : null),
+            // server-side code runs on the server side
+            ...(bodys == null ? { target: build?.target ?? 'esnext' } : null),
             // copyPublicDir will be done in the second pass
             ...(bodys == null ? { copyPublicDir: false } : null),
             // SSR chunks are never gzipped
