@@ -30,21 +30,21 @@ class MemoMap {
 }
 
 export class Memo {
-  private readonly memoMap = new AsyncLocalStorage<WeakMap<object, MemoMap>>()
+  readonly #memoMaps = new AsyncLocalStorage<WeakMap<object, MemoMap>>()
 
   memoize<Args extends unknown[], Ret>(
     func: (...args: Args) => Awaitable<Ret>,
     ...args: Args
   ): Delay<Ret> {
-    const memoMap = this.memoMap.getStore()
-    if (memoMap == null) return delay(func, ...args)
-    let m = dig(memoMap, func)
+    const memoMaps = this.#memoMaps.getStore()
+    if (memoMaps == null) return delay(func, ...args)
+    let m = dig(memoMaps, func)
     for (const i of args) m = m.dig(i)
     if (m.value != null) return m.value as Delay<Ret>
     return (m.value = delay(func, ...args))
   }
 
   run<R>(f: () => R): R {
-    return this.memoMap.run(new WeakMap(), f)
+    return this.#memoMaps.run(new WeakMap(), f)
   }
 }

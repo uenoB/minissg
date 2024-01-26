@@ -1,88 +1,141 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type * as minissg from '../../vite-plugin-minissg/src/module'
-import { ModuleName } from '../../vite-plugin-minissg/src/module'
-import { raise } from '../../vite-plugin-minissg/src/util'
-import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import { isAbsURL, safeDefineProperty } from './util'
+import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
+import { isAbsURL, defineProperty, createObject } from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
-import { PathSteps, concatName, concatFileName } from './filename'
-import type { FileName, RelPath, PathInfo } from './filename'
-import { type Directory, tree_, find } from './directory'
-import type { AssetImpl } from './asset'
+import { PathSteps, FileName, concatName, concatFileName } from './filename'
+import type { RelPath } from './filename'
+import { type PathPair, Indices, find } from './find'
+import type { Asset, AssetNode, AssetLeaf } from './asset'
+import { Ref } from './ref'
 
 export type MainModule = Readonly<{ main: minissg.Main }>
+export type Loaded<Impl> = Awaitable<Impl | MainModule>
 
 export const hasMinissgMain = (x: object): x is MainModule =>
   !(Symbol.iterator in x) && 'main' in x && typeof x.main === 'function'
+export const isMinissgMainModule = (x: unknown): x is MainModule =>
+  typeof x === 'object' && x != null && hasMinissgMain(x)
 
-const findByModuleName = async <
-  ModuleType,
-  Base extends Tree<ModuleType, Base>
->(
-  self: TreeInstanceInternal<ModuleType, Base>,
+export type Inst<Base, This = Base> = This & NodeProps<Base>
+
+type TreeImpl<Base, This extends Base, Impl> =
+  | TreeNodeImpl<Base, This, Impl>
+  | TreeLeafImpl<Base, This, Impl>
+
+const currentNode = new AsyncLocalStorage<TreeNode<unknown>>()
+const internal = new WeakMap<object, TreeNode<unknown> | TreeLeaf<unknown>>()
+
+const setTree = <Base, This extends Base, Impl>(
+  tree: TreeImpl<Base, This, Impl>,
+  obj: Base & object
+): unknown => internal.set(obj, tree)
+
+const getTree = (
+  obj: object
+): TreeNode<unknown> | TreeLeaf<unknown> | undefined => internal.get(obj)
+
+const isTreeNodeOf = <Base>(
+  x: TreeNode<unknown>,
+  Base_: abstract new (...a: never) => Base
+): x is TreeNode<Base> => x.module instanceof Base_
+
+const isTreeLeafOf = <Base>(
+  x: TreeLeaf<unknown>,
+  Base_: abstract new (...a: never) => Base
+): x is TreeLeaf<Base> => x.basis instanceof Base_
+
+const getTreeImpl = <Base, This extends Base, Impl>(
+  obj: Tree<Base, This, Impl>
+): TreeImpl<Base, This, Impl> | undefined =>
+  internal.get(obj) as TreeImpl<Base, This, Impl> | undefined
+
+const unavailable = (): never => raise(Error('not available'))
+
+const getTreeNodeImpl = <Base, This extends Base, Impl>(
+  x: Tree<Base, This, Impl>
+): TreeNodeImpl<Base, This, Impl> => {
+  const tree = getTreeImpl(x)
+  return tree?.memo != null ? tree : unavailable()
+}
+
+const findByModuleName = async <Base>(
+  self: TreeNode<Base>,
   path: string
-): Promise<Base | undefined> => {
-  const key = path.startsWith('/')
-    ? PathSteps.normalize(path.slice(1))
-    : PathSteps.normalize(self.moduleName.path + '/' + path)
-  const found = await find<'moduleNameMap', Base, never>(
-    { node: self.root.module },
+): Promise<Inst<Base> | undefined> => {
+  const key =
+    path === '/'
+      ? '.'
+      : path.startsWith('/')
+        ? PathSteps.normalize(path)
+        : PathSteps.normalize(self.moduleName.path + '/' + path)
+  return await find<'moduleNameMap', typeof self, never>(
     'moduleNameMap',
-    PathSteps.fromRelativeModuleName(key).path
-  )
-  if (found != null || key !== '') return found
-  // in moduleNameMap, root is either "" or "."
-  return await find<'moduleNameMap', Base, never>(
-    { node: self.root.module, final: true },
-    'moduleNameMap',
-    ['']
+    PathSteps.fromRelativeModuleName(key).path,
+    { node: self.root }
   )
 }
 
-const findByFileName = async <ModuleType, Base extends Tree<ModuleType, Base>>(
-  self: TreeInstanceInternal<ModuleType, Base>,
+const findByFileName = async <Base>(
+  self: TreeNode<Base>,
   path: string
-): Promise<Base | AssetImpl | undefined> => {
+): Promise<Inst<Base> | Asset | undefined> => {
   const key = path.startsWith('/')
     ? PathSteps.normalize(path.slice(1))
     : PathSteps.normalize(self.fileName.join(path).path)
-  return await find<'fileNameMap', Base, AssetImpl>(
-    { node: self.root.module },
+  return await find<'fileNameMap', typeof self, AssetNode>(
     'fileNameMap',
-    PathSteps.fromRelativeFileName(key).path
+    PathSteps.fromRelativeFileName(key).path,
+    { node: self.root }
   )
 }
 
-const findByBoth = async <ModuleType, Base extends Tree<ModuleType, Base>>(
-  self: TreeInstanceInternal<ModuleType, Base>,
+const findByBoth = async <Base>(
+  self: TreeNode<Base>,
   path: string
-): Promise<Base | AssetImpl | undefined> => {
+): Promise<Inst<Base> | Asset | undefined> => {
   if (isAbsURL(path)) return undefined
-  const found = await self.findByModuleName(path)
-  return found ?? (await self.findByFileName(path))
+  return (
+    (await self.memo.memoize(findByModuleName, self, path)) ??
+    (await self.memo.memoize(findByFileName, self, path))
+  )
 }
 
-const variants = async <ModuleType, Base extends Tree<ModuleType, Base>>(
-  self: TreeInstanceInternal<ModuleType, Base>
-): Promise<Set<Base>> => {
-  const set = new Set<Base>()
+const variants = async <Base>(
+  self: TreeNode<Base>
+): Promise<Set<Inst<Base>>> => {
+  const set = new Set<Inst<Base>>()
   const steps = PathSteps.fromRelativeModuleName(self.stem.path).path
-  const root = self.root.module
-  await find<'stemMap', Base, never>({ node: root }, 'stemMap', steps, set)
+  const root = self.root
+  await find('stemMap', steps, { node: root }, set)
   return set
 }
 
-const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
-  self: TreeInstanceInternal<ModuleType, Base>
-): Promise<TreeInstance<ModuleType, Base> | undefined> => {
-  let mod: unknown =
+const load = async <Base, This extends Base, Impl>(
+  self: TreeNodeImpl<Base, This, Impl>
+): Promise<Impl | undefined> => {
+  const mod = await currentNode.run(self, async () =>
     typeof self.content === 'function'
-      ? await self.memo.memoize(self.content)
+      ? await self.memo.memoize(self.content, self.module)
+      : undefined
+  )
+  return isMinissgMainModule(mod) ? undefined : mod
+}
+
+const findChild = async <Base, This extends Base, Impl>(
+  self: TreeNodeImpl<Base, This, Impl>
+): Promise<TreeNode<Base> | undefined> => {
+  let mod: unknown = await currentNode.run(self, async () =>
+    typeof self.content === 'function'
+      ? await self.memo.memoize(self.content, self.module)
       : await self.module.main(self)
+  )
   const moduleName = self.moduleName
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
-    if (mod instanceof self.BaseFn) return mod[tree_].instantiate(self)
+    const tree = self._leaf.getTreeLeaf(mod)
+    if (tree != null) return tree.instantiate(self)
     if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
     mod = await mod.main(context)
@@ -90,336 +143,319 @@ const findChild = async <ModuleType, Base extends Tree<ModuleType, Base>>(
   return undefined
 }
 
-const load = async <
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base
->(
-  self: TreeInstanceInternal<ModuleType, Base, This>
-): Promise<ModuleType | undefined> => {
-  if (typeof self.content !== 'function') return undefined
-  const m = await self.memo.memoize(self.content)
-  return typeof m === 'object' && m != null && hasMinissgMain(m) ? undefined : m
+const children = async <Base>(
+  self: TreeNode<Base> | TreeLeaf<Base>
+): Promise<Iterable<PathPair<Base>>> => {
+  if (typeof self.content === 'function') return []
+  const routes = (await self.content).moduleNameMap.routes()
+  return (function* iterator(): Iterable<PathPair<Base>> {
+    for (const [relPath, leaf] of routes) yield [relPath, leaf.basis]
+  })()
 }
 
-const subpages = async <
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base
->(
-  self: TreeInstanceInternal<ModuleType, Base, This>
-): Promise<Iterable<[string, TreeInstance<ModuleType, Base, This>]>> => {
-  type T = TreeInstance<ModuleType, Base, This>
-  if (typeof self.content === 'function') return [][Symbol.iterator]()
-  const items = (await self.content).moduleNameMap
-  function* subpages(): Iterable<[string, T]> {
-    for (const edges of items) {
-      for (const { node, final } of edges) {
-        if (!final) continue
-        const name = node[tree_].relPath?.moduleName.toRelativeModuleName()
-        yield [name ?? '', node[tree_].instantiate(self)] as const
-      }
+const entries = async <Base>(self: TreeNode<Base>): Promise<minissg.Module> => {
+  if (typeof self.content === 'function') return []
+  const routes = (await self.content).moduleNameMap.routes()
+  return (function* iterator(): Iterable<[string, Awaitable<minissg.Module>]> {
+    for (const [relPath, leaf] of routes) {
+      const mod = delay(() => leaf.instantiate(self, relPath).module)
+      yield [relPath?.moduleName ?? '', mod]
     }
-  }
-  return subpages()
+  })()
 }
 
-export type Loaded<ModuleType> = Awaitable<ModuleType | MainModule>
-type TreeDirectory<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> = Directory<Base, AssetImpl, TreeFactory<ModuleType, Base, This>>
+export type Dir<Base> = Indices<TreeLeaf<Base>, AssetLeaf<TreeNode<Base>>>
 
-export interface TreeFactoryArg<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> {
-  readonly relPath: Readonly<RelPath> | undefined
-  readonly url: Readonly<URL> | string | Null
-  readonly This: (abstract new (...args: never) => This) & {
-    Base: abstract new (...args: never) => Base
-  }
-  readonly content:
-    | ((...args: never) => unknown)
-    | PromiseLike<TreeDirectory<ModuleType, Base, This>>
-  readonly createInstance: (
-    self: unknown,
-    parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  ) => TreeInstance<ModuleType, Base, This>
+// these are private in each node and therefore safely hidden from other nodes.
+type Public<X> = Omit<X, 'content' | 'module' | 'basis' | `_${string}`>
+
+export interface TreeNode<Base>
+  extends Public<TreeNodeImpl<Base, Base, unknown>> {
+  readonly module: Base & MainModule & NodeProps<Base>
+  readonly content: ((...a: never) => unknown) | PromiseLike<Dir<Base>>
 }
 
-export class TreeFactoryArgImpl<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> {
-  constructor(
-    readonly relPath: TreeFactoryArg<ModuleType, Base, This>['relPath'],
-    readonly url: TreeFactoryArg<ModuleType, Base, This>['url'],
-    readonly This: TreeFactoryArg<ModuleType, Base, This>['This'],
-    readonly content:
-      | ((self: TreeInstance<ModuleType, Base, This>) => Loaded<ModuleType>)
-      | PromiseLike<TreeDirectory<ModuleType, Base, This>>
-  ) {}
-
-  createInstance(
-    self: unknown,
-    parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  ): TreeInstance<ModuleType, Base, This> {
-    const c = this.content
-    if (c == null || !(self instanceof this.This)) throw Error('improper call')
-    type T = TreeInstance<ModuleType, Base, This>
-    const inst: This & T = Object.create(self) as typeof self & T
-    const content = typeof c === 'function' ? () => c(inst) : c
-    const init = { parent, module: inst, content }
-    const tree = new TreeInstanceInternal<ModuleType, Base, This>(this, init)
-    safeDefineProperty(inst, tree_, { value: tree })
-    inst.initialize()
-    return inst
-  }
-
-  createFactory(
-    self: This,
-    content: TreeFactoryArgImpl<ModuleType, Base, This>['content'],
-    relPath?: TreeFactoryArgImpl<ModuleType, Base, This>['relPath']
-  ): TreeFactory<ModuleType, Base, This> {
-    const arg = new TreeFactoryArgImpl(relPath, this.url, this.This, content)
-    type T = TreeFactory<ModuleType, Base, This>
-    const inst: T & This = Object.create(self) as typeof self & T
-    const tree = new TreeFactoryInternal(arg, inst)
-    safeDefineProperty(inst, tree_, { value: tree })
-    return inst
-  }
+export interface TreeLeaf<Base>
+  extends Public<TreeLeafImpl<Base, Base, unknown>> {
+  readonly basis: Base & MainModule
+  readonly content: ((...a: never) => unknown) | PromiseLike<Dir<Base>>
 }
 
-abstract class TreeInternal<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> {
-  readonly moduleName: ModuleName = ModuleName.root
-  readonly stem: ModuleName | undefined
-  readonly variant: ModuleName | undefined
-  readonly fileName: FileName | undefined
-  readonly relPath: Readonly<RelPath> | undefined
-  readonly url: Readonly<URL> | undefined
-  readonly parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  readonly root: TreeInstanceInternal<ModuleType, Base> | undefined
-  readonly memo: Memo | undefined
-  readonly module: minissg.Module = {}
-  abstract readonly content: TreeFactoryArg<ModuleType, Base, This>['content']
-
-  findByModuleName(_path: string): Delay<Base | undefined> {
-    return delay.dummy(undefined)
-  }
-
-  findByFileName(_path: string): Delay<Base | AssetImpl | undefined> {
-    return delay.dummy(undefined)
-  }
-
-  find(_path: string): Delay<Base | AssetImpl | undefined> {
-    return delay.dummy(undefined)
-  }
-
-  variants(): Delay<Set<Base>> {
-    return delay.dummy(new Set<Base>())
-  }
-
-  load(): Delay<ModuleType | undefined> {
-    return delay.dummy(undefined)
-  }
-
-  subpages(): Delay<Iterable<[string, This]>> {
-    return delay.dummy([])
-  }
-
-  findChild(): Delay<TreeInstance<ModuleType, Base> | undefined> {
-    return delay.dummy(undefined)
-  }
-
-  abstract instantiate(
-    _context?: Readonly<minissg.Context> | undefined
-  ): TreeInstance<ModuleType, Base, This>
-
-  main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
-    return this.instantiate(context)
-  }
+interface NodeMethod<Impl> extends MainModule {
+  render: (module: Impl) => Awaitable<minissg.Content>
+  initialize: () => void
 }
 
-class TreeInstanceInternal<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> extends TreeInternal<ModuleType, Base> {
-  override readonly moduleName: ModuleName
-  override readonly stem: ModuleName
-  override readonly variant: ModuleName
-  override readonly fileName: FileName
-  override readonly url: Readonly<URL>
-  override readonly parent: TreeInstanceInternal<ModuleType, Base> | undefined
-  override readonly root: TreeInstanceInternal<ModuleType, Base>
-  override readonly memo: Memo
-  override readonly module: TreeInstance<ModuleType, Base, This>
-  override readonly content:
-    | (() => Loaded<ModuleType>)
-    | PromiseLike<TreeDirectory<ModuleType, Base, This>>
-
-  readonly BaseFn: abstract new (...args: never) => Base
+class TreeNodeImpl<Base, This extends Base, Impl> {
+  readonly memo: Memo
+  readonly moduleName: minissg.ModuleName
+  readonly stem: minissg.ModuleName
+  readonly variant: minissg.ModuleName
+  readonly fileName: FileName
+  readonly url: Readonly<URL>
+  readonly parent: TreeNode<Base> | undefined
+  readonly root: TreeNode<Base>
+  readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
+  readonly _leaf: TreeLeafImpl<Base, This, Impl>
+  readonly module: This & NodeMethod<Impl> & NodeProps<Base>
 
   constructor(
-    arg: TreeFactoryArg<ModuleType, Base>,
-    init: Pick<
-      TreeInstanceInternal<ModuleType, Base, This>,
-      'parent' | 'module' | 'content'
-    >
+    relPath: Readonly<RelPath> | undefined,
+    arg: Pick<TreeNodeImpl<Base, This, Impl>, '_leaf' | 'content' | 'parent'>
   ) {
-    super()
-    const { parent, module, content } = init
-    const url = parent?.root?.url ?? arg.url ?? 'file:'
-    this.moduleName = concatName(parent?.moduleName, arg.relPath?.moduleName)
-    this.stem = concatName(parent?.stem, arg.relPath?.stem)
-    this.variant = concatName(parent?.variant, arg.relPath?.variant)
-    this.fileName = concatFileName(parent?.fileName, arg.relPath?.fileName)
-    this.url = Object.freeze(new URL(this.moduleName.path, url))
+    const { _leaf, content, parent } = arg
+    const rootURL = parent?.root?.url ?? _leaf.rootURL ?? 'file:'
+    this.memo = parent?.memo ?? new Memo()
+    this.moduleName = concatName(parent?.moduleName, relPath?.moduleName)
+    this.stem = concatName(parent?.stem, relPath?.stem)
+    this.variant = concatName(parent?.variant, relPath?.variant)
+    this.fileName = concatFileName(parent?.fileName, relPath?.fileName)
+    this.url = Object.freeze(new URL(this.moduleName.path, rootURL))
     this.parent = parent
     this.root = parent?.root ?? this
-    this.memo = parent?.memo ?? new Memo()
-    this.module = module
     this.content = content
-    this.BaseFn = parent?.BaseFn ?? arg.This.Base
+    this._leaf = _leaf
+    const inst = createObject(_leaf.basis)
+    setTree(this, inst)
+    const props = {
+      moduleName: this.moduleName.path,
+      stem: this.stem.path,
+      variant: this.variant.path,
+      url: delay.dummy(this.url),
+      parent: this.parent?.module,
+      root: this.root.module
+    }
+    const inst_: NodePropsBase = inst // ToDo: unsafe cast
+    defineProperty(inst_, 'moduleName', { value: props.moduleName })
+    defineProperty(inst_, 'stem', { value: props.stem })
+    defineProperty(inst_, 'variant', { value: props.variant })
+    defineProperty(inst_, 'url', { value: props.url })
+    defineProperty(inst_, 'parent', { value: props.parent })
+    defineProperty(inst_, 'root', { value: props.root })
+    this.module = inst as typeof inst & Readonly<typeof props>
   }
 
-  override findByModuleName(path: string): Delay<Base | undefined> {
-    return this.memo.memoize(findByModuleName, this, path)
+  ref(): Delay<This & NodeProps<Base>> {
+    return delay.dummy(this.module)
   }
 
-  override findByFileName(path: string): Delay<Base | AssetImpl | undefined> {
-    return this.memo.memoize(findByFileName, this, path)
+  children(): Delay<Iterable<PathPair<Base>>> {
+    return this.memo.memoize(children, this)
   }
 
-  override find(path: string): Delay<Base | AssetImpl | undefined> {
-    return this.memo.memoize(findByBoth, this, path)
-  }
-
-  override variants(): Delay<Set<Base>> {
-    return this.memo.memoize(variants, this)
-  }
-
-  override load(): Delay<ModuleType | undefined> {
-    return this.memo.memoize(load, this)
-  }
-
-  override subpages(): Delay<Iterable<[string, This]>> {
-    return this.memo.memoize(subpages, this)
-  }
-
-  override findChild(): Delay<TreeInstance<ModuleType, Base> | undefined> {
+  findChild(): Delay<TreeNode<Base> | undefined> {
     return this.memo.memoize(findChild, this)
   }
 
-  override instantiate(): TreeInstance<ModuleType, Base, This> {
-    return this.module
+  load(): Delay<Impl | undefined> {
+    return this.memo.memoize(load, this)
   }
 
-  override async main(): Promise<minissg.Module> {
-    if (typeof this.content !== 'function') return await subpages(this)
-    const m = await this.memo.memoize(this.content)
-    if (typeof m === 'object' && m != null && hasMinissgMain(m)) return m
-    const render = async (): Promise<minissg.Content> =>
-      await this.module.render(m)
-    return { default: delay(async () => await this.memo.run(render)) }
+  async main(c: Readonly<minissg.Context>): Promise<minissg.Module> {
+    const parent = this._leaf.findParent(c, this.module)
+    if (parent !== this.parent) throw Error('parent page mismatch')
+    if (c.moduleName.path !== this.moduleName.path) throw Error('name mismatch')
+    const content = this.content
+    if (typeof content !== 'function') return await entries(this)
+    const mod = await currentNode.run(this, async () => {
+      return await this.memo.memoize(content, this.module)
+    })
+    if (isMinissgMainModule(mod)) return mod
+    type R = Promise<minissg.Content>
+    const render1 = async (): R => await this.module.render(mod)
+    const render2 = async (): R => await currentNode.run(this, render1)
+    const render3 = async (): R => await this.memo.run(render2)
+    return { default: delay(render3) }
   }
 }
 
-class TreeFactoryInternal<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> extends TreeInternal<ModuleType, Base, This> {
-  override readonly relPath: Readonly<RelPath> | undefined
-  override readonly url: Readonly<URL> | undefined
-  override readonly module = this
-  override readonly content: TreeInternal<ModuleType, Base, This>['content']
-  readonly BaseFn: abstract new (...args: never) => Base
-  readonly instances: WeakMap<object, TreeInstance<ModuleType, Base, This>>
-  readonly arg: TreeFactoryArg<ModuleType, Base, This>
-  readonly self: unknown
+type TreeLeafArg<Base, This extends Base, Impl> = Pick<
+  TreeLeafImpl<Base, This, Impl>,
+  'rootURL' | 'fileName' | 'basis' | 'content' | 'Base'
+>
 
-  constructor(arg: TreeFactoryArg<ModuleType, Base, This>, self: unknown) {
-    super()
-    this.relPath = arg.relPath
-    this.url = arg.url != null ? Object.freeze(new URL(arg.url)) : undefined
+export class TreeLeafImpl<Base, This extends Base, Impl> {
+  readonly rootURL: Readonly<URL> | undefined
+  readonly fileName: FileName
+  readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
+  readonly basis: This & NodeMethod<Impl> & NodePropsBase
+  readonly Base: abstract new (...args: never) => Base
+  readonly _ref = new Ref<
+    TreeNode<unknown>,
+    TreeNode<Base>,
+    TreeNodeImpl<Base, This, Impl>
+  >()
+
+  constructor(arg: TreeLeafArg<Base, This, Impl>) {
+    this.rootURL = arg.rootURL
+    this.fileName = arg.fileName
     this.content = arg.content
-    this.BaseFn = arg.This.Base
-    this.instances = new WeakMap()
-    this.arg = arg
-    this.self = self
+    this.basis = arg.basis
+    this.Base = arg.Base
   }
 
-  override instantiate(
-    context?: Readonly<minissg.Context> | undefined
-  ): TreeInstance<ModuleType, Base, This> {
-    const parent = this.findParent(context)
-    const cached = this.instances.get(parent ?? this.instances)
-    if (cached != null) return cached
-    const inst = this.arg.createInstance(this.self, parent)
-    this.instances.set(parent ?? this.instances, inst)
+  children(): Delay<Iterable<PathPair<Base>>> {
+    return delay(children<Base>, this)
+  }
+
+  ref(): Delay<This & NodeProps<Base>> {
+    return this._ref.ref(currentNode.getStore())
+  }
+
+  instantiate(
+    parent?: TreeNode<Base> | undefined,
+    relPath?: Readonly<RelPath> | undefined
+  ): TreeNode<Base> {
+    const inst = this._ref.instantiate(this, relPath, parent)
+    currentNode.run(inst, () => {
+      inst.module.initialize()
+    })
     return inst
   }
 
+  main(context: Readonly<minissg.Context>): minissg.Module {
+    return this.instantiate(this.findParent(context)).module
+  }
+
+  getTreeNode(x: object): TreeNode<Base> | undefined {
+    const tree = getTree(x)
+    if (typeof tree !== 'object' || tree?.memo == null) return undefined
+    return isTreeNodeOf(tree, this.Base) ? tree : undefined
+  }
+
+  getTreeLeaf(x: object): TreeLeaf<Base> | undefined {
+    const tree = getTree(x)
+    if (typeof tree !== 'object' || tree?.memo != null) return undefined
+    return tree != null && isTreeLeafOf(tree, this.Base) ? tree : undefined
+  }
+
   findParent(
-    context: Readonly<minissg.Context> | Null
-  ): TreeInstanceInternal<ModuleType, Base> | undefined {
+    context: Readonly<minissg.Context> | undefined,
+    except?: MainModule
+  ): TreeNode<Base> | undefined {
     for (let c = context; c != null; c = c.parent) {
-      if (this.module !== c.module && c.module instanceof this.BaseFn) {
-        const tree = c.module[tree_]
-        if (tree instanceof TreeInstanceInternal) return tree
+      if (c.module !== except && c.module instanceof this.Base) {
+        const tree = this.getTreeNode(c.module)
+        if (tree != null) return tree
       }
     }
     return undefined
   }
+
+  load(): Delay<Impl | undefined> {
+    return delay(async () => {
+      if (typeof this.content !== 'function') return undefined
+      const mod = await this.content(this.basis)
+      return isMinissgMainModule(mod) ? undefined : mod
+    })
+  }
+
+  _createInstance(
+    relPath: Readonly<RelPath> | undefined,
+    parent: TreeNode<Base> | undefined
+  ): TreeNodeImpl<Base, This, Impl> {
+    const arg = { _leaf: this, content: this.content, parent }
+    const tree = new TreeNodeImpl(relPath, arg)
+    return tree
+  }
+
+  static decorate<
+    Base,
+    This extends Base & NodeMethod<Impl> & NodePropsBase,
+    Impl
+  >(arg: TreeLeafArg<Base, This, Impl>): TreeLeafImpl<Base, This, Impl> {
+    const node: This = Object.create(arg.basis) as typeof arg.basis
+    const tree = new TreeLeafImpl({ ...arg, basis: node })
+    setTree(tree, node)
+    return tree
+  }
+
+  static currentFileName(): FileName {
+    return currentNode.getStore()?.fileName ?? FileName.root
+  }
+
+  static createDirectory<Base>(): Dir<Base> {
+    return new Indices<TreeLeaf<Base>, AssetLeaf<TreeNode<Base>>>()
+  }
+
+  declare readonly memo: undefined
 }
 
-export type TreeInstance<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> = {
-  readonly [tree_]: TreeInstanceInternal<ModuleType, Base, This>
-} & This
-
-export type TreeFactory<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> = {
-  readonly [tree_]: TreeFactoryInternal<ModuleType, Base, This>
-} & This
-
-class TreeNullInternal extends TreeInternal<never, never, never> {
-  static instance = new this()
-  override readonly content = (): never => raise(Error('cannot instantiate'))
-  override readonly instantiate = this.content
+export interface NodeProps<Base> {
+  readonly moduleName: string
+  readonly stem: string
+  readonly variant: string
+  readonly url: Delay<Readonly<URL>>
+  readonly parent: Base | undefined
+  readonly root: Base
 }
+type NodePropsBase = { [K in keyof NodeProps<unknown>]: unknown }
 
-export abstract class Tree<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
-  This extends Base = Base
-> {
-  declare readonly [tree_]: TreeInternal<ModuleType, Base, This>
+export class Tree<Base, This extends Base, Impl> {
+  declare readonly moduleName: unknown
+  declare readonly stem: unknown
+  declare readonly variant: unknown
+  declare readonly url: unknown
+  declare readonly parent: unknown
+  declare readonly root: unknown
+  static {
+    defineProperty(this.prototype, 'moduleName', { get: unavailable })
+    defineProperty(this.prototype, 'stem', { get: unavailable })
+    defineProperty(this.prototype, 'variant', { get: unavailable })
+    defineProperty(this.prototype, 'url', { get: unavailable })
+    defineProperty(this.prototype, 'parent', { get: unavailable })
+    defineProperty(this.prototype, 'root', { get: unavailable })
+  }
 
-  constructor() {
-    safeDefineProperty(this, tree_, { value: TreeNullInternal.instance })
+  get fileName(): string {
+    return getTreeImpl(this)?.fileName.path ?? ''
+  }
+
+  get ref(): Delay<This & NodeProps<Base>> {
+    return (getTreeImpl(this) ?? unavailable()).ref()
+  }
+
+  get children(): Delay<Iterable<PathPair<Base>>> {
+    return (getTreeImpl(this) ?? unavailable()).children()
+  }
+
+  findByModuleName(path: string): Delay<Inst<Base> | undefined> {
+    const tree = getTreeNodeImpl(this)
+    return tree.memo.memoize(findByModuleName, tree, path)
+  }
+
+  findByFileName(path: string): Delay<Inst<Base> | Asset | undefined> {
+    const tree = getTreeNodeImpl(this)
+    return tree.memo.memoize(findByFileName, tree, path)
+  }
+
+  find(path: string): Delay<Inst<Base> | Asset | undefined> {
+    const tree = getTreeNodeImpl(this)
+    return tree.memo.memoize(findByBoth, tree, path)
+  }
+
+  variants(): Delay<Set<Inst<Base>>> {
+    const tree = getTreeNodeImpl(this)
+    return tree.memo.memoize(variants, tree)
+  }
+
+  load(): Delay<Impl | undefined> {
+    return getTreeImpl(this)?.load() ?? unavailable()
+  }
+
+  memoize<Args extends readonly unknown[], Ret>(
+    func: (this: void, ...args: Args) => Awaitable<Ret>,
+    ...args: Args
+  ): Delay<Ret> {
+    const memo = getTreeImpl(this)?.memo
+    return memo == null ? delay(func, ...args) : memo.memoize(func, ...args)
   }
 
   main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
-    return this[tree_].main(context)
+    return getTreeImpl(this)?.main(context) ?? unavailable()
   }
 
-  render(module: ModuleType): Awaitable<minissg.Content> {
+  render(this: Inst<Base, This>, module: Impl): Awaitable<minissg.Content> {
     const mod: unknown = module
     if (mod == null) return mod
     if (typeof mod === 'string') return mod
@@ -430,8 +466,5 @@ export abstract class Tree<
     return Reflect.apply(Object.prototype.toString, mod, [])
   }
 
-  initialize(): void {}
-
-  abstract parsePath(path: string): Readonly<PathInfo> | Null
-  abstract paginatePath(index: number): Readonly<PathInfo> | Null
+  initialize(this: Inst<Base, This>): void {}
 }

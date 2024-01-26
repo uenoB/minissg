@@ -1,46 +1,47 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
-import { ModuleName } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import { safeDefineProperty } from './util'
-import { type Pairs, type Items, iteratePairs, listItems } from './items'
+import { type Pairs, type List, iteratePairs, listItems } from './items'
+import { constProp } from './util'
 import { type Delay, delay } from './delay'
-import { type PathInfo, type RelPath, PathSteps, makeRelPath } from './filename'
-import { AssetFactory } from './asset'
-import type { AssetModule, Asset, AssetImpl } from './asset'
-import { Directory, tree_ } from './directory'
-import { Tree, TreeFactoryArgImpl } from './tree'
-import type { MainModule, TreeInstance, TreeFactory, Loaded } from './tree'
+import { type RelPath, PathSteps, concatFileName } from './filename'
+import { type Asset, type AssetModule, AssetLeaf } from './asset'
+import type { Loaded, MainModule, Dir, TreeNode, Inst } from './tree'
+import { Tree, TreeLeafImpl } from './tree'
 
 export interface Paginate<Item = unknown, This = Page> {
-  pages: Array<Paginate<Item, This>>
+  pages: ReadonlyArray<Paginate<Item, This>>
   page: This
   pageIndex: number // starts from 0
   itemIndex: number // starts from 0
-  items: Item[] // up to `pageSize` items
+  items: readonly Item[] // up to `pageSize` items
   numAllItems: number
 }
 
-interface NewArg<ModuleType, This> {
-  url?: URL | string | Null
-  render?:
-    | ((this: This, module: ModuleType) => Awaitable<minissg.Content>)
-    | Null
-  parsePath?: ((this: This, path: string) => Readonly<PathInfo> | Null) | Null
+interface NewArg<Base, This, Impl> {
+  url?: Readonly<URL> | string | Null
+  parsePath?: ((this: This, path: string) => Readonly<RelPath> | Null) | Null
   paginatePath?:
-    | ((this: This, index: number) => Readonly<PathInfo> | Null)
+    | ((this: This, index: number) => Readonly<RelPath> | Null)
     | Null
-  initialize?: ((this: This) => void) | Null
+  initialize?: ((this: Inst<Base, This>) => void) | Null
+  render?:
+    | ((this: Inst<Base, This>, module: Impl) => Awaitable<minissg.Content>)
+    | Null
 }
 
-interface ModuleArg<ModuleType, This> extends NewArg<ModuleType, This> {
-  pages?: Pairs<((page: This) => Loaded<ModuleType>) | MainModule, This> | Null
+type PairKey = string | RelPath | Null
+type Load<This, Impl> = (page: This) => Loaded<Impl>
+type LoadAsset = () => Awaitable<AssetModule>
+
+interface ModuleArg<Base, This, Impl> extends NewArg<Base, This, Impl> {
+  pages?: Pairs<PairKey, Load<This, Impl> | MainModule, This> | Null
   substitutePath?: ((this: This, path: string) => Awaitable<string>) | Null
-  assets?: Pairs<(() => Awaitable<AssetModule>) | string | Null, This> | Null
+  assets?: Pairs<string, LoadAsset | string | Null, This> | Null
 }
 
-interface PaginateArg<Item, ModuleType, This> extends NewArg<ModuleType, This> {
-  items: Items<Item, This>
-  load: (this: This, paginate: Paginate<Item, This>) => Loaded<ModuleType>
+interface PaginateArg<Item, Base, This, Impl> extends NewArg<Base, This, Impl> {
+  items: List<Item, This>
+  load: (this: This, paginate: Paginate<Item, This>) => Loaded<Impl>
   pageSize?: number | Null
 }
 
@@ -49,253 +50,206 @@ interface PageConstructor<Base, This, Args extends unknown[]> {
   new (...args: Args): This
 }
 
-const copy = <Dest extends object, Key extends keyof Dest>(
-  dest: Dest,
-  key: Key,
-  src: { [P in Key]?: Dest[P] | Null }
-): void => {
-  if (src[key] == null) return
-  safeDefineProperty(dest, key, {
-    configurable: true,
-    writable: true,
-    value: src[key]
-  })
-}
-
 class PageFactory<
-  ModuleType,
-  Base extends Tree<ModuleType, Base>,
+  Base extends Page<unknown, Base>,
   This extends Base,
+  Impl,
   Args extends unknown[]
 > {
-  readonly factory: TreeFactoryArgImpl<ModuleType, Base, This>
-  readonly base: This
-  readonly page: TreeFactory<ModuleType, Base, This>
+  readonly basis: This
+  readonly leaf: TreeLeafImpl<Base, This, Impl>
 
   constructor(
     This: PageConstructor<Base, This, Args>,
-    arg: NewArg<ModuleType, This>,
+    arg: NewArg<Base, This, Impl>,
     args: Args,
-    content: TreeFactoryArgImpl<ModuleType, Base, This>['content']
+    content: TreeLeafImpl<Base, This, Impl>['content']
   ) {
-    this.base = new This(...args)
-    copy(this.base, 'render', arg)
-    copy(this.base, 'parsePath', arg)
-    copy(this.base, 'paginatePath', arg)
-    this.factory = new TreeFactoryArgImpl(undefined, arg.url, This, content)
-    this.page = this.factory.createFactory(this.base, content)
-    copy(this.page, 'initialize', arg)
+    this.basis = new This(...args)
+    if (arg.parsePath != null) {
+      constProp(this.basis, 'parsePath', arg.parsePath)
+    }
+    if (arg.paginatePath != null) {
+      constProp(this.basis, 'paginatePath', arg.paginatePath)
+    }
+    if (arg.render != null) {
+      constProp(this.basis, 'render', arg.render)
+    }
+    if (arg.initialize != null) {
+      constProp(this.basis, 'initialize', arg.initialize)
+    }
+    const init = {
+      rootURL: arg.url != null ? new URL(arg.url) : undefined,
+      fileName: TreeLeafImpl.currentFileName(),
+      basis: this.basis,
+      content,
+      Base: This.Base
+    }
+    this.leaf = TreeLeafImpl.decorate<Base, This, Impl>(init)
   }
 
   createSubpage(
-    dir: Directory<Base, AssetImpl, This>,
-    load: (page: TreeInstance<ModuleType, Base, This>) => Loaded<ModuleType>,
-    relPath: Readonly<RelPath> | undefined
-  ): TreeFactory<ModuleType, Base, This> {
-    const page = this.factory.createFactory(this.base, load, relPath)
-    dir.fileNameMap.addRoute(relPath?.fileName ?? PathSteps.empty, page)
-    dir.moduleNameMap.addRoute(relPath?.moduleName ?? PathSteps.empty, page)
-    dir.stemMap.addRoute(relPath?.stem ?? PathSteps.empty, page)
-    return page
+    dir: Dir<Base>,
+    content: TreeLeafImpl<Base, This, Impl>['content'],
+    relPath: Readonly<RelPath> | Null
+  ): TreeLeafImpl<Base, This, Impl> {
+    const arg = {
+      rootURL: this.leaf.rootURL,
+      fileName: concatFileName(this.leaf.fileName, relPath?.fileName),
+      basis: this.basis,
+      content,
+      Base: this.leaf.Base
+    }
+    const leaf = TreeLeafImpl.decorate(arg)
+    dir.addRoute(leaf, relPath)
+    return leaf
   }
 
   async createModuleDirectory(
-    arg: Readonly<ModuleArg<ModuleType, This>>
-  ): Promise<Directory<Base, AssetImpl, TreeFactory<ModuleType, Base, This>>> {
-    type Subpage = TreeFactory<ModuleType, Base, This>
-    const dir = new Directory<Base, AssetImpl, Subpage>()
+    arg: Readonly<ModuleArg<Base, This, Impl>>
+  ): Promise<Dir<Base>> {
+    const dir = TreeLeafImpl.createDirectory<Base>()
     const substPath = (path: string): Awaitable<string> =>
       arg.substitutePath != null
-        ? Reflect.apply(arg.substitutePath, this.page, [path])
+        ? Reflect.apply(arg.substitutePath, this.basis, [path])
         : path
-    const constant = (x: unknown) => () => x as ModuleType
     if (arg.pages != null) {
-      for await (const [rawPath, load] of iteratePairs(arg.pages, this.page)) {
-        const content = typeof load === 'function' ? load : constant(load)
-        const path = PathSteps.normalize(await substPath(rawPath))
-        const pathInfo = this.page.parsePath(path)
-        this.createSubpage(dir, content, makeRelPath(rawPath, pathInfo))
+      for await (const [path, load] of iteratePairs(arg.pages, this.basis)) {
+        let relPath: Readonly<RelPath> | Null
+        if (typeof path !== 'string') {
+          relPath = path
+        } else {
+          const srcPath = PathSteps.normalize(await substPath(path))
+          const parsed = this.basis.parsePath(srcPath)
+          relPath = {
+            stem: parsed?.stem ?? '',
+            variant: parsed?.variant ?? '',
+            moduleName: parsed?.moduleName ?? '',
+            fileName: PathSteps.normalize(path)
+          }
+        }
+        const leaf = this.leaf.getTreeLeaf(load)
+        if (leaf != null) {
+          dir.addRoute(leaf, relPath)
+        } else if (typeof load === 'function') {
+          this.createSubpage(dir, load, relPath)
+        } else {
+          this.createSubpage(dir, () => load, relPath)
+        }
       }
     }
     if (arg.assets != null) {
-      for await (const [rawPath, load] of iteratePairs(arg.assets, this.page)) {
-        const loader = load ?? (await substPath(rawPath))
-        const asset = new AssetFactory(this.page[tree_], loader)
-        dir.fileNameMap.addRoute(PathSteps.fromRelativeFileName(rawPath), asset)
+      for await (const [path, load] of iteratePairs(arg.assets, this.basis)) {
+        const loader = load ?? (await substPath(path))
+        const asset = new AssetLeaf<TreeNode<Base>>(loader)
+        const pair = [undefined, asset] as const
+        dir.fileNameMap.addRoute(PathSteps.fromRelativeFileName(path), pair)
       }
     }
     return dir
   }
 
   async createPaginateDirectory<Item>(
-    arg: Readonly<PaginateArg<Item, ModuleType, This>>
-  ): Promise<Directory<Base, AssetImpl, TreeFactory<ModuleType, Base, This>>> {
-    type Inst = TreeInstance<ModuleType, Base, This>
-    type Subpage = TreeFactory<ModuleType, Base, This>
-    const dir = new Directory<Base, AssetImpl, Subpage>()
-    const pageSize = arg.pageSize ?? 10
-    if (pageSize <= 0) return dir
-    const allItems = await listItems(arg.items, this.page)
-    const loadFn = arg.load
+    arg: Readonly<PaginateArg<Item, Base, This, Impl>>
+  ): Promise<Dir<Base>> {
+    const dir = TreeLeafImpl.createDirectory<Base>()
+    const rawPageSize = arg.pageSize ?? 10
+    const pageSize = rawPageSize >= 1 ? rawPageSize : 1
+    const load = arg.load
+    const allItems = await listItems(arg.items, this.leaf.basis)
     const numAllItems = allItems.length
     const numPages = Math.ceil(numAllItems / pageSize)
-    const subpages: Array<Paginate<Item, Subpage>> = []
-    const instances = new WeakMap<object, Paginate<Item, Inst>>()
-    const instantiate = (inst: Inst, i: number): Paginate<Item, Inst> => {
-      const cached = instances.get(inst)
-      if (cached != null) return cached
-      const pages: Array<Paginate<Item, Inst>> = []
-      for (const origPagi of subpages) {
-        const page = origPagi.page[tree_].instantiate(inst[tree_].parent)
-        const pagi = { ...origPagi, pages, page }
-        instances.set(page, pagi)
-        pages.push(pagi)
-      }
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return pages[i]!
-    }
+    const pages: Array<Paginate<Item, This>> = []
     for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
-      const pages = subpages
       const itemIndex = pageIndex * pageSize
       const items = allItems.slice(itemIndex, itemIndex + pageSize)
-      const pathInfo = this.page.paginatePath(pageIndex)
-      const filePath =
-        pathInfo == null || pageIndex === 0 ? '' : `./${pageIndex + 1}`
-      const relPath = makeRelPath(filePath, pathInfo)
-      const load = (inst: Inst): Awaitable<ModuleType | MainModule> => {
-        const pagi = instantiate(inst, pageIndex)
-        return Reflect.apply(loadFn, pagi.page, [pagi])
-      }
-      const page = this.createSubpage(dir, load, relPath)
-      subpages.push({ pages, page, pageIndex, items, itemIndex, numAllItems })
+      const relPath = this.leaf.basis.paginatePath(pageIndex)
+      const page = undefined as unknown as This // dummy
+      const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
+      const content = (): Loaded<Impl> => Reflect.apply(load, pagi.page, [pagi])
+      pagi.page = this.createSubpage(dir, content, relPath).basis
+      pages.push(pagi)
     }
     return dir
   }
 }
 
-interface PageRec<ModuleType> extends Page<ModuleType, PageRec<ModuleType>> {}
+interface PageRec extends Page<unknown, PageRec> {}
 
 export class Page<
-  ModuleType = unknown,
-  Base extends Page<ModuleType, Base> = PageRec<ModuleType>,
-  This extends Base = Base
-> extends Tree<ModuleType, Base, This> {
-  static Base: abstract new (...args: never) => PageRec<unknown> = this
+  Impl = unknown,
+  Base extends Page<unknown, Base> = PageRec
+> extends Tree<Base, Base, Impl> {
+  static Base: abstract new (...args: never) => PageRec = this
 
   static module<
-    ModuleType,
-    Base extends Page<ModuleType, Base> = PageRec<ModuleType>,
+    Impl,
+    Base extends Page<unknown, Base> = PageRec,
     This extends Base = Base,
     Args extends unknown[] = []
   >(
     // I'm not sure why but `Page<...> & ...` makes type inference better.
-    this: PageConstructor<Base, Page<ModuleType, Base> & This, Args>,
-    arg: Readonly<ModuleArg<ModuleType, This>> = {},
+    this: PageConstructor<Base, Page<Impl, Base> & This, Args>,
+    arg: Readonly<ModuleArg<Base, Page<Impl, Base> & This, Impl>> = {},
     ...args: Args
   ): This {
-    type T = Page<ModuleType, Base> & This
-    type F = PageFactory<ModuleType, Base, T, Args>
+    type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
     const dir = delay(async () => await factory.createModuleDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
-    return factory.page
+    return factory.leaf.basis
   }
 
   static paginate<
     Item,
-    ModuleType,
-    Base extends Page<ModuleType, Base> = PageRec<ModuleType>,
+    Impl,
+    Base extends Page<unknown, Base> = PageRec,
     This extends Base = Base,
     Args extends unknown[] = []
   >(
-    this: PageConstructor<Base, Page<ModuleType, Base> & This, Args>,
-    arg: Readonly<PaginateArg<Item, ModuleType, This>>,
+    this: PageConstructor<Base, Page<Impl, Base> & This, Args>,
+    arg: Readonly<PaginateArg<Item, Base, Page<Impl, Base> & This, Impl>>,
     ...args: Args
   ): This {
-    type T = Page<ModuleType, Base> & This
-    type F = PageFactory<ModuleType, Base, T, Args>
+    type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
     const dir = delay(async () => await factory.createPaginateDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
-    return factory.page
+    return factory.leaf.basis
   }
 
-  memoize<Args extends readonly unknown[], Ret>(
-    func: (...args: Args) => Awaitable<Ret>,
-    ...args: Args
-  ): Delay<Ret> {
-    const memo = this[tree_].memo
-    return memo == null ? delay(func, ...args) : memo.memoize(func, ...args)
-  }
-
-  get url(): Delay<Readonly<URL>> {
-    return delay.dummy(this[tree_].url ?? Object.freeze(new URL('file:')))
-  }
-
-  get fileName(): string {
-    return this[tree_].fileName?.path ?? ''
-  }
-
-  get variant(): string {
-    return (this[tree_].variant ?? ModuleName.root).path
-  }
-
-  get moduleName(): minissg.ModuleName {
-    return this[tree_].moduleName
-  }
-
-  get parent(): Base | undefined {
-    return this[tree_].parent?.module
-  }
-
-  root(): Base {
-    return this[tree_].root?.module ?? this[tree_].instantiate()
-  }
-
-  load(): Delay<ModuleType | undefined> {
-    return this[tree_].load()
-  }
-
-  subpages(): Delay<Iterable<[string, This]>> {
-    return this[tree_].subpages()
-  }
-
-  findByModuleName(path: string): Delay<Base | undefined> {
-    return this[tree_].findByModuleName(path)
-  }
-
-  findByFileName(path: string): Delay<Base | Asset | undefined> {
-    return this[tree_].findByFileName(path)
-  }
-
-  find(path: string): Delay<Base | Asset | undefined> {
-    return this[tree_].find(path)
-  }
-
-  variants(): Delay<Set<Base>> {
-    return this[tree_].variants()
-  }
-
-  override parsePath(path: string): Readonly<PathInfo> | Null {
-    const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(path)
+  parsePath(fileName: string): Readonly<RelPath> | Null {
+    const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(fileName)
     const variant = m?.[1] ?? ''
-    const stemBase = path.slice(0, m?.index ?? path.length)
+    const stemBase = fileName.slice(0, m?.index ?? fileName.length)
     const stem = stemBase + (/(?:^|\/|\.[^./]*)$/.test(stemBase) ? '' : '/')
-    const relURL = variant === '' ? stem : variant + '/' + stem
-    return { stem, variant, relURL }
+    const moduleName = variant === '' ? stem : variant + '/' + stem
+    return { moduleName, stem, variant, fileName }
   }
 
-  override paginatePath(index: number): Readonly<PathInfo> | Null {
-    return index === 0
-      ? { stem: `${index + 1}`, variant: '', relURL: './' }
-      : { stem: `${index + 1}`, variant: '', relURL: `${index + 1}/` }
+  paginatePath(index: number): Readonly<RelPath> | Null {
+    const moduleName = index === 0 ? './' : `${index + 1}/`
+    const fileName = `${index + 1}`
+    return { moduleName, stem: moduleName, variant: '', fileName }
   }
 
   declare readonly type: 'page'
 
   static {
-    safeDefineProperty(this.prototype, 'type', {
-      configurable: true,
-      writable: true,
-      value: 'page'
-    })
+    constProp(this.prototype, 'type', 'page')
   }
+
+  static delay = delay
+}
+
+type AssetTy = Asset
+type DelayTy<X> = Delay<X>
+type RelPathTy = RelPath
+type InstTy<Base, This = Base> = Inst<Base, This>
+type PaginateTy = Paginate
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace Page {
+  export type Asset = AssetTy
+  export type Delay<X> = DelayTy<X>
+  export type RelPath = RelPathTy
+  export type Inst<Base, This = Base> = InstTy<Base, This>
+  export type Paginate = PaginateTy
 }

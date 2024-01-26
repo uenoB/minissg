@@ -7,14 +7,15 @@ export const isAbsURL = (url: string): boolean => {
   }
 }
 
+export const createObject = <X extends object>(x: X): X => Object.create(x) as X
+
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
-  | { writable?: boolean; value: X; get?: never; set?: never }
-  | { writable: boolean; value?: X; get?: never; set?: never }
+  | { writable?: boolean; value?: X; get?: never; set?: never }
   | { writable?: never; value?: never; get: () => X; set?: () => X }
   | { writable?: never; value?: never; get?: () => X; set: () => X }
 )
 
-export const safeDefineProperty = <Obj extends object, Key extends keyof Obj>(
+export const defineProperty = <Obj extends object, Key extends keyof Obj>(
   obj: Obj,
   key: Key,
   descriptor: Descriptor<Obj[Key]>
@@ -22,3 +23,10 @@ export const safeDefineProperty = <Obj extends object, Key extends keyof Obj>(
   const d = Object.assign(Object.create(null), descriptor) as typeof descriptor
   return Reflect.defineProperty(obj, key, d)
 }
+
+export const constProp = <Obj extends object, Key extends keyof Obj>(
+  obj: Obj,
+  key: Key,
+  value: Obj[Key]
+): boolean =>
+  defineProperty(obj, key, { configurable: true, writable: true, value })

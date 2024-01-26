@@ -26,18 +26,16 @@ export class Trie<K, V> {
     return { key: [], trie }
   }
 
-  walk(key: readonly K[]): Array<Get<K, V>> {
-    const results: Array<Get<K, V>> = []
+  *walk(key: readonly K[]): Iterable<Get<K, V>> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let trie: Trie<K, V> = this
     for (let i = 0; i < key.length; i++) {
-      results.push({ key: key.slice(i), trie })
+      yield { key: key.slice(i), trie }
       const next = trie.children.get(key[i])
-      if (next == null) return results
+      if (next == null) return
       trie = next
     }
-    results.push({ key: [], trie })
-    return results
+    yield { key: [], trie }
   }
 
   set(key: readonly K[], value: V): Trie<K, V> {

@@ -3,7 +3,9 @@ import { FileName, PathSteps } from '../filename'
 
 test.each([
   ['', ''],
+  ['/', ''],
   ['foo', 'foo'],
+  ['/foo', 'foo'],
   ['foo/.', 'foo/'],
   ['foo/bar', 'foo/bar'],
   ['foo//bar', 'foo/bar'],
@@ -68,38 +70,6 @@ test.each([
   ['foo/../bar/index.html', ['bar', 'index.html']]
 ])('PathSteps.fromRelativeFileName(%o) must be %o', (input, output) => {
   expect(PathSteps.fromRelativeFileName(input).path).toStrictEqual(output)
-})
-
-test.each([
-  ['', ''],
-  ['.', '.'],
-  ['./', '.'],
-  ['index.html', '.'],
-  ['foo', 'foo'],
-  ['foo/', 'foo/'],
-  ['foo/index.html', 'foo/'],
-  ['foo/bar', 'foo/bar'],
-  ['foo/bar/', 'foo/bar/']
-])('PathSteps(%o).toRelativeModuleName() must be %o', (input, output) => {
-  expect(PathSteps.fromRelativeModuleName(input).toRelativeModuleName()).toBe(
-    output
-  )
-})
-
-test.each([
-  ['', ''],
-  ['.', ''],
-  ['./', ''],
-  ['index.html', 'index.html'],
-  ['foo', 'foo'],
-  ['foo/', 'foo/'],
-  ['foo/index.html', 'foo/index.html'],
-  ['foo/bar', 'foo/bar'],
-  ['foo/bar/', 'foo/bar/']
-])('PathSteps(%o).toRelativeFileName() must be %o', (input, output) => {
-  expect(PathSteps.fromRelativeFileName(input).toRelativeFileName()).toBe(
-    output
-  )
 })
 
 test.each([

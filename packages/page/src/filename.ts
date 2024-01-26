@@ -21,29 +21,17 @@ export class PathSteps {
 
   static empty = new PathSteps([])
 
-  static fromRelativeModuleName(path: string): PathSteps {
-    if (path === '') return new PathSteps([])
+  static fromRelativeModuleName(path: string | Null): PathSteps {
+    if (path == null || path === '') return new PathSteps([])
     try {
       path = ModuleName.root.join('./' + path).path
     } catch {}
     return new PathSteps(path === '' ? [''] : path.split('/'))
   }
 
-  static fromRelativeFileName(name: string): PathSteps {
-    const path = PathSteps.normalize(name)
+  static fromRelativeFileName(name: string | Null): PathSteps {
+    const path = PathSteps.normalize(name ?? '')
     return new PathSteps(path === '' ? [] : path.split('/'))
-  }
-
-  toRelativeModuleName(): string {
-    return this.path.length === 1 && this.path[0] === ''
-      ? '.'
-      : this.path.join('/')
-  }
-
-  toRelativeFileName(): string {
-    return this.path.length === 1 && this.path[0] === ''
-      ? ''
-      : this.path.join('/')
   }
 
   get length(): number {
@@ -78,38 +66,18 @@ export class FileName {
 }
 
 export interface RelPath {
-  fileName: PathSteps
-  moduleName: PathSteps
-  stem: PathSteps
-  variant: PathSteps
+  moduleName?: string | Null
+  stem?: string | Null
+  variant?: string | Null
+  fileName?: string | Null
 }
 
 export const concatName = (
   base: ModuleName | Null,
-  steps: PathSteps | Null
-): ModuleName =>
-  (base ?? ModuleName.root).join(steps?.toRelativeModuleName() ?? '')
+  path: string | Null
+): ModuleName => (base ?? ModuleName.root).join(path ?? '')
 
 export const concatFileName = (
   base: FileName | Null,
-  steps: PathSteps | Null
-): FileName => (base ?? FileName.root).join(steps?.toRelativeFileName() ?? '')
-
-export interface PathInfo {
-  stem: string
-  variant: string
-  relURL: string
-}
-
-export const makeRelPath = (
-  fileName: string,
-  pathInfo: Readonly<PathInfo> | Null
-): RelPath | undefined =>
-  pathInfo == null
-    ? undefined
-    : {
-        fileName: PathSteps.fromRelativeFileName(fileName),
-        moduleName: PathSteps.fromRelativeModuleName(pathInfo.relURL),
-        stem: PathSteps.fromRelativeModuleName(pathInfo.stem),
-        variant: PathSteps.fromRelativeModuleName(pathInfo.variant)
-      }
+  path: string | Null
+): FileName => (base ?? FileName.root).join(path ?? '')
