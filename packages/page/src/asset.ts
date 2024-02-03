@@ -63,8 +63,9 @@ export type { Asset, AssetNode }
 export class AssetLeaf<Base extends SomeInternal> {
   constructor(readonly load: (() => Awaitable<AssetModule>) | string) {}
 
-  instantiate(parent: Base): AssetNode {
+  instantiate(parent: Base): PromiseLike<AssetNode> {
     const origin = new URL('/', parent.root.url).href
-    return new AssetNode(new Asset(origin, this.load, parent.memo))
+    const node = new AssetNode(new Asset(origin, this.load, parent.memo))
+    return Promise.resolve(node)
   }
 }

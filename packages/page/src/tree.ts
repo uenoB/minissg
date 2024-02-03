@@ -135,7 +135,7 @@ const findChild = async <Base, This extends Base, Impl>(
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
     const tree = self._leaf.getTreeLeaf(mod)
-    if (tree != null) return tree.instantiate(self)
+    if (tree != null) return await tree.instantiate(self)
     if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
     mod = await mod.main(context)
@@ -158,8 +158,9 @@ const entries = async <Base>(self: TreeNode<Base>): Promise<minissg.Module> => {
   const routes = (await self.content).moduleNameMap.routes()
   return (function* iterator(): Iterable<[string, Awaitable<minissg.Module>]> {
     for (const [relPath, leaf] of routes) {
-      const mod = delay(() => leaf.instantiate(self, relPath).module)
-      yield [relPath?.moduleName ?? '', mod]
+      const mod = async (): Promise<MainModule> =>
+        (await leaf.instantiate(self, relPath)).module
+      yield [relPath?.moduleName ?? '', delay(mod)]
     }
   })()
 }
@@ -183,7 +184,7 @@ export interface TreeLeaf<Base>
 
 interface NodeMethod<Impl> extends MainModule {
   render: (module: Impl) => Awaitable<minissg.Content>
-  initialize: () => void
+  initialize: () => Awaitable<void>
 }
 
 class TreeNodeImpl<Base, This extends Base, Impl> {
@@ -302,19 +303,19 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     return this._ref.ref(currentNode.getStore())
   }
 
-  instantiate(
+  async instantiate(
     parent?: TreeNode<Base> | undefined,
     relPath?: Readonly<RelPath> | undefined
-  ): TreeNode<Base> {
+  ): Promise<TreeNode<Base>> {
     const inst = this._ref.instantiate(this, relPath, parent)
-    currentNode.run(inst, () => {
-      inst.module.initialize()
+    await currentNode.run(inst, async () => {
+      await inst.module.initialize()
     })
     return inst
   }
 
-  main(context: Readonly<minissg.Context>): minissg.Module {
-    return this.instantiate(this.findParent(context)).module
+  async main(context: Readonly<minissg.Context>): Promise<minissg.Module> {
+    return (await this.instantiate(this.findParent(context))).module
   }
 
   getTreeNode(x: object): TreeNode<Base> | undefined {
@@ -466,5 +467,5 @@ export class Tree<Base, This extends Base, Impl> {
     return Reflect.apply(Object.prototype.toString, mod, [])
   }
 
-  initialize(this: Inst<Base, This>): void {}
+  initialize(this: Inst<Base, This>): Awaitable<void> {}
 }

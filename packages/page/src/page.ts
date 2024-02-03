@@ -23,7 +23,7 @@ interface NewArg<Base, This, Impl> {
   paginatePath?:
     | ((this: This, index: number) => Readonly<RelPath> | Null)
     | Null
-  initialize?: ((this: Inst<Base, This>) => void) | Null
+  initialize?: ((this: Inst<Base, This>) => Awaitable<void>) | Null
   render?:
     | ((this: Inst<Base, This>, module: Impl) => Awaitable<minissg.Content>)
     | Null

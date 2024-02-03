@@ -81,7 +81,7 @@ export class Indices<Leaf, Asst> {
 }
 
 export interface TreeLeaf<Tree, Inst = Tree> {
-  readonly instantiate: (parent: Tree, path: Path) => Inst
+  readonly instantiate: (parent: Tree, path: Path) => PromiseLike<Inst>
 }
 
 interface TreeNode<Tree, Content> {
@@ -128,12 +128,12 @@ export const find = <
           //      1. exactly same final state as the last one, or
           //      2. one of the states is undefined.
           return key.length < path.length || (final ?? fin) === (fin ?? final)
-            ? (r: Result): Awaitable<Result> => {
-                if (r != null) return r
-                const inst = next[1].instantiate(node, next[0])
-                const edge = { node: inst, final: fin ?? final }
-                return find(indexKey, key, edge, all).then(inner)
-              }
+            ? (r: Result): Awaitable<Result> =>
+                r ??
+                next[1].instantiate(node, next[0]).then(inst => {
+                  const edge = { node: inst, final: fin ?? final }
+                  return find(indexKey, key, edge, all).then(inner)
+                })
             : inner
         }, outer) ?? outer,
       r => r ?? deref(index[indexKey].isEmpty())

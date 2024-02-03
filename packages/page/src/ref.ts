@@ -118,8 +118,9 @@ const descendants = <Tree extends TreeNode<Tree>, Inst extends SomeNode>(
     const k = (i: number): Awaitable<void> => {
       const pair = branches[i]
       if (pair == null) return skip.then(last).then(cont)
-      const node = pair[1].instantiate(tree, pair[0])
-      return descendants(node, wait, except, queue, () => k(i + 1))
+      return pair[1]
+        .instantiate(tree, pair[0])
+        .then(node => descendants(node, wait, except, queue, () => k(i + 1)))
     }
     return k(0)
   })
