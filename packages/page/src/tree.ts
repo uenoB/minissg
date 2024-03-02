@@ -450,6 +450,11 @@ export class Tree<Base, This extends Base, Impl> {
     return getTreeImpl(this)?.load() ?? unavailable()
   }
 
+  isLoadable(): boolean {
+    const tree = getTreeImpl(this)
+    return tree != null && typeof tree.content === 'function'
+  }
+
   memoize<Args extends readonly unknown[], Ret>(
     func: (this: void, ...args: Args) => Awaitable<Ret>,
     ...args: Args
