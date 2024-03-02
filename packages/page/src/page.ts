@@ -218,7 +218,7 @@ export class Page<
 
   parsePath(fileName: string): Readonly<RelPath> | Null {
     const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(fileName)
-    const variant = m?.[1] ?? ''
+    const variant = (m?.[1] ?? '').replace(/\./g, '/')
     const stemBase = fileName.slice(0, m?.index ?? fileName.length)
     const stem = stemBase + (/(?:^|\/|\.[^./]*)$/.test(stemBase) ? '' : '/')
     const moduleName = variant === '' ? stem : variant + '/' + stem
