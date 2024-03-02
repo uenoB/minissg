@@ -102,11 +102,12 @@ const findByBoth = async <Base>(
   )
 }
 
-const variants = async <Base>(
-  self: TreeNode<Base>
+const findByStem = async <Base>(
+  self: TreeNode<Base>,
+  stem: string
 ): Promise<Set<Inst<Base>>> => {
   const set = new Set<Inst<Base>>()
-  const steps = PathSteps.fromRelativeModuleName(self.stem.path).path
+  const steps = PathSteps.fromRelativeModuleName(stem).path
   const root = self.root
   await find('stemMap', steps, { node: root }, set)
   return set
@@ -435,9 +436,14 @@ export class Tree<Base, This extends Base, Impl> {
     return tree.memo.memoize(findByBoth, tree, path)
   }
 
+  findByStem(stem: string): Delay<Set<Inst<Base>>> {
+    const tree = getTreeNodeImpl(this)
+    return tree.memo.memoize(findByStem, tree, stem)
+  }
+
   variants(): Delay<Set<Inst<Base>>> {
     const tree = getTreeNodeImpl(this)
-    return tree.memo.memoize(variants, tree)
+    return tree.memo.memoize(findByStem, tree, tree.stem.path)
   }
 
   load(): Delay<Impl | undefined> {

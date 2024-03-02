@@ -323,6 +323,18 @@ test.each([
   }
 })
 
+test.each([
+  ['', ['/']],
+  ['foo/', ['/foo/', 'foo.js']],
+  ['foo/bar/bar/', ['/foo/bar/bar/']],
+  ['foo/bar/bar/bar/', ['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/']],
+  ['foo/baz/', ['/foo/baz/', '/foo/baz/en/', '/foo/baz/ja/']]
+] as const)('stem %o matches with %o', async (stem, urls) => {
+  const t = await tree()
+  const set = t.root.findByStem(stem).then(Array.from)
+  await expect(set).resolves.toStrictEqual(urls.map(i => t[i]))
+})
+
 test('subclass', () => {
   type M = Readonly<{ default?: string }>
   class MyPage1 extends Page<M, MyPage1> {
