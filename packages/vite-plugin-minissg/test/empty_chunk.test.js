@@ -56,16 +56,16 @@ test('css module yields an empty chunk', async () => {
         .hi { color: red }`
     })
   ).resolves.toStrictEqual({
-    'assets/style-buOcvEww.css': '._hi_1cqqp_1{color:red}\n',
-    'assets/style.module-cXDODbZU.js': '\n',
+    'assets/style-Bu45y8TD.css': '._hi_1cqqp_1{color:red}\n',
+    'assets/style.module-6SzpDZAL.js': '\n',
     'page1.html':
-      '<script async type="module" crossorigin src="/assets/style.module-cXDODbZU.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-buOcvEww.css">\n<p class=_hi_1cqqp_1>hello</p>',
+      '<script async type="module" crossorigin src="/assets/style.module-6SzpDZAL.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-Bu45y8TD.css">\n<p class=_hi_1cqqp_1>hello</p>',
     'page2.html':
-      '<script async type="module" crossorigin src="/assets/style.module-cXDODbZU.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-buOcvEww.css">\n<p class=_hi_1cqqp_1>hello</p>',
+      '<script async type="module" crossorigin src="/assets/style.module-6SzpDZAL.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-Bu45y8TD.css">\n<p class=_hi_1cqqp_1>hello</p>',
     'page3.html':
-      '<script async type="module" crossorigin src="/assets/style.module-cXDODbZU.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-buOcvEww.css">\n<p class=_hi_1cqqp_1>hello</p>',
+      '<script async type="module" crossorigin src="/assets/style.module-6SzpDZAL.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-Bu45y8TD.css">\n<p class=_hi_1cqqp_1>hello</p>',
     'page4.html':
-      '<script async type="module" crossorigin src="/assets/style.module-cXDODbZU.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-buOcvEww.css">\n<p class=_hi_1cqqp_1>hello</p>'
+      '<script async type="module" crossorigin src="/assets/style.module-6SzpDZAL.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/style-Bu45y8TD.css">\n<p class=_hi_1cqqp_1>hello</p>'
   })
 })
 
@@ -85,9 +85,9 @@ test('single reference to css module yields no empty chunk', async () => {
         .hi { color: red }`
     })
   ).resolves.toStrictEqual({
-    'assets/page1-buOcvEww.css': '._hi_1cqqp_1{color:red}\n',
+    'assets/page1-Bu45y8TD.css': '._hi_1cqqp_1{color:red}\n',
     'page1.html':
-      '<link rel="stylesheet" crossorigin href="/assets/page1-buOcvEww.css">\n<p class=_hi_1cqqp_1>hello</p>',
+      '<link rel="stylesheet" crossorigin href="/assets/page1-Bu45y8TD.css">\n<p class=_hi_1cqqp_1>hello</p>',
     'page2.html': '<p>hello</p>'
   })
 })
