@@ -6,7 +6,7 @@ import { type Delay, delay } from './delay'
 import { Memo } from './memo'
 import { PathSteps, FileName, concatName, concatFileName } from './filename'
 import type { RelPath } from './filename'
-import { type PathPair, Indices, find } from './find'
+import { type Next, Indices, find } from './find'
 import type { Asset, AssetNode, AssetLeaf } from './asset'
 import { Ref } from './ref'
 
@@ -146,10 +146,10 @@ const findChild = async <Base, This extends Base, Impl>(
 
 const children = async <Base>(
   self: TreeNode<Base> | TreeLeaf<Base>
-): Promise<Iterable<PathPair<Base>>> => {
+): Promise<Iterable<Next<Base>>> => {
   if (typeof self.content === 'function') return []
   const routes = (await self.content).moduleNameMap.routes()
-  return (function* iterator(): Iterable<PathPair<Base>> {
+  return (function* iterator(): Iterable<Next<Base>> {
     for (const [relPath, leaf] of routes) yield [relPath, leaf.basis]
   })()
 }
@@ -241,7 +241,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     return delay.dummy(this.module)
   }
 
-  children(): Delay<Iterable<PathPair<Base>>> {
+  children(): Delay<Iterable<Next<Base>>> {
     return this.memo.memoize(children, this)
   }
 
@@ -296,7 +296,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     this.Base = arg.Base
   }
 
-  children(): Delay<Iterable<PathPair<Base>>> {
+  children(): Delay<Iterable<Next<Base>>> {
     return delay(children<Base>, this)
   }
 
@@ -417,7 +417,7 @@ export class Tree<Base, This extends Base, Impl> {
     return (getTreeImpl(this) ?? unavailable()).ref()
   }
 
-  get children(): Delay<Iterable<PathPair<Base>>> {
+  get children(): Delay<Iterable<Next<Base>>> {
     return (getTreeImpl(this) ?? unavailable()).children()
   }
 

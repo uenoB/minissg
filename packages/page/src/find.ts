@@ -60,14 +60,13 @@ class FileNameTransition<Node> extends Transition<Node> {
 }
 
 export type { Transition }
-
-type Path = Readonly<RelPath> | undefined
-export type PathPair<Next> = readonly [Path, Next]
+type NextPath = Readonly<RelPath> | undefined
+export type Next<Node> = readonly [NextPath, Node]
 
 export class Indices<Leaf, Asst> {
-  readonly fileNameMap = new FileNameTransition<PathPair<Leaf | Asst>>()
-  readonly moduleNameMap = new PathTransition<PathPair<Leaf>>()
-  readonly stemMap = new PathTransition<PathPair<Leaf>>()
+  readonly fileNameMap = new FileNameTransition<Next<Leaf | Asst>>()
+  readonly moduleNameMap = new PathTransition<Next<Leaf>>()
+  readonly stemMap = new PathTransition<Next<Leaf>>()
 
   addRoute(leaf: Leaf, relPath?: Readonly<RelPath> | Null): void {
     const pair = [relPath ?? undefined, leaf] as const
@@ -81,7 +80,7 @@ export class Indices<Leaf, Asst> {
 }
 
 export interface TreeLeaf<Tree, Inst = Tree> {
-  readonly instantiate: (parent: Tree, path: Path) => PromiseLike<Inst>
+  readonly instantiate: (parent: Tree, path: NextPath) => PromiseLike<Inst>
 }
 
 interface TreeNode<Tree, Content> {
@@ -90,13 +89,13 @@ interface TreeNode<Tree, Content> {
   readonly findChild: () => PromiseLike<Tree | undefined>
 }
 
-type Next<Tree, Inst, Key extends string> =
+type Content<Tree, Inst, Key extends string> =
   | ((...a: never) => unknown)
-  | PromiseLike<{ [P in Key]: Transition<PathPair<TreeLeaf<Tree, Inst>>> }>
+  | PromiseLike<{ [P in Key]: Transition<Next<TreeLeaf<Tree, Inst>>> }>
 
 export const find = <
   Key extends string,
-  Tree extends TreeNode<Tree, Next<Tree, Asst | Tree, Key>>,
+  Tree extends TreeNode<Tree, Content<Tree, Asst | Tree, Key>>,
   Asst extends TreeNode<Tree, undefined>
 >(
   indexKey: Key,
