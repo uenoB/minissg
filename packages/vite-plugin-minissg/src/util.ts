@@ -1,6 +1,8 @@
 export type Awaitable<X> = X | PromiseLike<X>
 export type Null = null | undefined
 export const isNotNull = <X>(x: X): x is NonNullable<X> => x != null
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+export type Void = Null | void
 
 // eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
 export type JsonObj = Readonly<{ [k: string]: Json }>
@@ -27,10 +29,8 @@ export const mapReduce = <X, Y, Z>(arg: {
   readonly destination: Z
   readonly fork?: (x: X) => Awaitable<readonly X[] | null>
   readonly map: (x: X) => Awaitable<Y>
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-  readonly reduce?: (y: Y, z: Z) => Awaitable<Z | Null | void>
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-  readonly catch?: (e: unknown, x: X, z: Z) => Awaitable<Z | Null | void>
+  readonly reduce?: (y: Y, z: Z) => Awaitable<Z | Void>
+  readonly catch?: (e: unknown, x: X, z: Z) => Awaitable<Z | Void>
 }): PromiseLike<Z> => {
   const fork = arg.fork ?? (() => null)
   const reduce = arg.reduce ?? ((_, z) => z)
