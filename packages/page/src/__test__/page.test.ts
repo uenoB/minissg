@@ -309,9 +309,9 @@ test.each([
 })
 
 test.each([
-  [['/foo/baz/en/', '/foo/baz/ja/', '/foo/baz/']],
+  [['/foo/baz/en/', '/foo/baz/ja/']],
   [['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/']],
-  [['/foo/', 'foo/index.html..js']]
+  [['/foo/']]
 ] as const)('%o are variants of each other', async urls => {
   const t = await tree()
   for (const url of urls) {
@@ -325,10 +325,10 @@ test.each([
 
 test.each([
   ['', ['/']],
-  ['foo/', ['/foo/', 'foo.js']],
+  ['foo/', ['/foo/']],
   ['foo/bar/bar/', ['/foo/bar/bar/']],
   ['foo/bar/bar/bar/', ['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/']],
-  ['foo/baz/', ['/foo/baz/', '/foo/baz/en/', '/foo/baz/ja/']]
+  ['foo/baz/', ['/foo/baz/']]
 ] as const)('stem %o matches with %o', async (stem, urls) => {
   const t = await tree()
   const set = t.root.findByStem(stem).then(Array.from)

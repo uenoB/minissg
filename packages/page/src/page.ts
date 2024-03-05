@@ -222,8 +222,9 @@ export class Page<
     const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(fileName)
     const variant = (m?.[1] ?? '').replace(/\./g, '/')
     const stemBase = fileName.slice(0, m?.index ?? fileName.length)
-    const stem = stemBase + (/(?:^|\/|\.[^./]*)$/.test(stemBase) ? '' : '/')
-    const moduleName = variant === '' ? stem : variant + '/' + stem
+    const stem = stemBase === '' ? stemBase : stemBase + '/'
+    const name = /(?:^|\/|\.[^./]*)$/.test(stemBase) ? stemBase : stem
+    const moduleName = variant === '' ? name : variant + '/' + name
     return { moduleName, stem, variant }
   }
 
