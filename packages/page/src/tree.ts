@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
-import { isAbsURL, defineProperty, createObject } from './util'
+import { isAbsURL, defineProperty, createObject, objectAssign } from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
 import { PathSteps, FileName, concatName, concatFileName } from './filename'
@@ -17,8 +17,6 @@ export const hasMinissgMain = (x: object): x is MainModule =>
   !(Symbol.iterator in x) && 'main' in x && typeof x.main === 'function'
 export const isMinissgMainModule = (x: unknown): x is MainModule =>
   typeof x === 'object' && x != null && hasMinissgMain(x)
-
-export type Inst<Base, This = Base> = This & NodeProps<Base>
 
 type TreeImpl<Base, This extends Base, Impl> =
   | TreeNodeImpl<Base, This, Impl>
@@ -173,7 +171,7 @@ type Public<X> = Omit<X, 'content' | 'module' | 'basis' | `_${string}`>
 
 export interface TreeNode<Base>
   extends Public<TreeNodeImpl<Base, Base, unknown>> {
-  readonly module: Base & MainModule & NodeProps<Base>
+  readonly module: Base & MainModule & InstProps<Base>
   readonly content: ((...a: never) => unknown) | PromiseLike<Dir<Base>>
 }
 
@@ -199,7 +197,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   readonly root: TreeNode<Base>
   readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
   readonly _leaf: TreeLeafImpl<Base, This, Impl>
-  readonly module: This & NodeMethod<Impl> & NodeProps<Base>
+  readonly module: This & NodeMethod<Impl> & InstProps<Base>
 
   constructor(
     relPath: Readonly<RelPath> | undefined,
@@ -219,7 +217,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     this._leaf = _leaf
     const inst = createObject(_leaf.basis)
     setTree(this, inst)
-    const props = {
+    const props: InstProps<Base> = {
       moduleName: this.moduleName.path,
       stem: this.stem.path,
       variant: this.variant.path,
@@ -227,17 +225,10 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
       parent: this.parent?.module,
       root: this.root.module
     }
-    const inst_: NodePropsBase = inst // ToDo: unsafe cast
-    defineProperty(inst_, 'moduleName', { value: props.moduleName })
-    defineProperty(inst_, 'stem', { value: props.stem })
-    defineProperty(inst_, 'variant', { value: props.variant })
-    defineProperty(inst_, 'url', { value: props.url })
-    defineProperty(inst_, 'parent', { value: props.parent })
-    defineProperty(inst_, 'root', { value: props.root })
-    this.module = inst as typeof inst & Readonly<typeof props>
+    this.module = objectAssign(inst, props)
   }
 
-  ref(): Delay<This & NodeProps<Base>> {
+  ref(): Delay<Inst<Base, This>> {
     return delay.dummy(this.module)
   }
 
@@ -280,7 +271,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   readonly rootURL: Readonly<URL> | undefined
   readonly fileName: FileName
   readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
-  readonly basis: This & NodeMethod<Impl> & NodePropsBase
+  readonly basis: This & NodeMethod<Impl> & NodeProps
   readonly Base: abstract new (...args: never) => Base
   readonly _ref = new Ref<
     TreeNode<unknown>,
@@ -300,7 +291,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     return delay(children<Base>, this)
   }
 
-  ref(): Delay<This & NodeProps<Base>> {
+  ref(): Delay<Inst<Base, This>> {
     return this._ref.ref(currentNode.getStore())
   }
 
@@ -361,11 +352,9 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     return tree
   }
 
-  static decorate<
-    Base,
-    This extends Base & NodeMethod<Impl> & NodePropsBase,
-    Impl
-  >(arg: TreeLeafArg<Base, This, Impl>): TreeLeafImpl<Base, This, Impl> {
+  static decorate<Base, This extends Base & NodeMethod<Impl> & NodeProps, Impl>(
+    arg: TreeLeafArg<Base, This, Impl>
+  ): TreeLeafImpl<Base, This, Impl> {
     const node: This = Object.create(arg.basis) as typeof arg.basis
     const tree = new TreeLeafImpl({ ...arg, basis: node })
     setTree(tree, node)
@@ -383,7 +372,11 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   declare readonly memo: undefined
 }
 
-export interface NodeProps<Base> {
+export type Inst<Base, This = Base> = This & InstProps<Base>
+type NodeProps = { [K in keyof InstProps<unknown>]: unknown }
+
+interface InstProps<Base> {
+  // these properties are defined only by TreeNodeImpl.
   readonly moduleName: string
   readonly stem: string
   readonly variant: string
@@ -391,9 +384,8 @@ export interface NodeProps<Base> {
   readonly parent: Base | undefined
   readonly root: Base
 }
-type NodePropsBase = { [K in keyof NodeProps<unknown>]: unknown }
 
-export class Tree<Base, This extends Base, Impl> {
+export class Tree<Base, This extends Base, Impl> implements NodeProps {
   declare readonly moduleName: unknown
   declare readonly stem: unknown
   declare readonly variant: unknown
@@ -413,7 +405,7 @@ export class Tree<Base, This extends Base, Impl> {
     return getTreeImpl(this)?.fileName.path ?? ''
   }
 
-  get ref(): Delay<This & NodeProps<Base>> {
+  get ref(): Delay<Inst<Base, This>> {
     return (getTreeImpl(this) ?? unavailable()).ref()
   }
 
