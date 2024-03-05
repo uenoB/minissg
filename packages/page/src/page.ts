@@ -124,9 +124,9 @@ class PageFactory<
           const srcPath = PathSteps.normalize(await substPath(path))
           const parsed = this.basis.parsePath(srcPath)
           relPath = {
+            moduleName: parsed?.moduleName ?? '',
             stem: parsed?.stem ?? '',
             variant: parsed?.variant ?? '',
-            moduleName: parsed?.moduleName ?? '',
             fileName: PathSteps.normalize(path)
           }
         }
