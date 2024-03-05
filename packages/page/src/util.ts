@@ -30,3 +30,12 @@ export const constProp = <Obj extends object, Key extends keyof Obj>(
   value: Obj[Key]
 ): boolean =>
   defineProperty(obj, key, { configurable: true, writable: true, value })
+
+export const objectAssign = <X extends object, Y extends object>(
+  obj: X,
+  src: Y
+): X & Y => {
+  const dst: X & Y = obj as X & Y
+  for (const k in src) defineProperty(dst, k, { value: src[k] })
+  return dst
+}
