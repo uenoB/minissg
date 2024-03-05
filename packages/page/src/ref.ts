@@ -35,19 +35,19 @@ export class Ref<
   instantiate(
     factory: {
       readonly _createInstance: (
-        relPath: Readonly<RelPath> | undefined,
-        parent: Parent | undefined
+        parent: Parent | undefined,
+        relPath: Readonly<RelPath> | null
       ) => Inst
     },
-    relPath: Readonly<RelPath> | undefined,
-    parent: Parent | undefined
+    parent: Parent | undefined,
+    relPath: Readonly<RelPath> | null
   ): Inst {
     const name = relPath?.moduleName ?? ''
     // if we already have the result, return it
     const cached = this.instances.get(parent ?? this)?.get(name)
     if (cached != null) return cached
     // create a fresh instance
-    const inst = factory._createInstance(relPath, parent)
+    const inst = factory._createInstance(parent, relPath)
     // create a new entry for remembering this instance
     let m = this.instances.get(parent ?? this)
     if (m == null) {
@@ -118,8 +118,8 @@ const descendants = <Tree extends TreeNode<Tree>, Inst extends SomeNode>(
     const k = (i: number): Awaitable<void> => {
       const next = branches[i]
       if (next == null) return skip.then(last).then(cont)
-      return next[1]
-        .instantiate(tree, next[0])
+      return next.leaf
+        .instantiate(tree, next.relPath)
         .then(node => descendants(node, wait, except, queue, () => k(i + 1)))
     }
     return k(0)

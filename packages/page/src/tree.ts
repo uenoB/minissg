@@ -134,7 +134,7 @@ const findChild = async <Base, This extends Base, Impl>(
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
     const tree = self._leaf.getTreeLeaf(mod)
-    if (tree != null) return await tree.instantiate(self)
+    if (tree != null) return await tree.instantiate(self, null)
     if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
     mod = await mod.main(context)
@@ -148,7 +148,7 @@ const children = async <Base>(
   if (typeof self.content === 'function') return []
   const routes = (await self.content).moduleNameMap.routes()
   return (function* iterator(): Iterable<Next<Base>> {
-    for (const [relPath, leaf] of routes) yield [relPath, leaf.basis]
+    for (const { leaf, relPath } of routes) yield { leaf: leaf.basis, relPath }
   })()
 }
 
@@ -156,10 +156,10 @@ const entries = async <Base>(self: TreeNode<Base>): Promise<minissg.Module> => {
   if (typeof self.content === 'function') return []
   const routes = (await self.content).moduleNameMap.routes()
   return (function* iterator(): Iterable<[string, Awaitable<minissg.Module>]> {
-    for (const [relPath, leaf] of routes) {
+    for (const { leaf, relPath } of routes) {
       const mod = async (): Promise<MainModule> =>
         (await leaf.instantiate(self, relPath)).module
-      yield [relPath?.moduleName ?? '', delay(mod)]
+      yield [relPath.moduleName ?? '', delay(mod)]
     }
   })()
 }
@@ -200,7 +200,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   readonly module: This & NodeMethod<Impl> & InstProps<Base>
 
   constructor(
-    relPath: Readonly<RelPath> | undefined,
+    relPath: Readonly<RelPath> | null,
     arg: Pick<TreeNodeImpl<Base, This, Impl>, '_leaf' | 'content' | 'parent'>
   ) {
     const { _leaf, content, parent } = arg
@@ -296,10 +296,10 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   }
 
   async instantiate(
-    parent?: TreeNode<Base> | undefined,
-    relPath?: Readonly<RelPath> | undefined
+    parent: TreeNode<Base> | undefined,
+    relPath: Readonly<RelPath> | null // null relation
   ): Promise<TreeNode<Base>> {
-    const inst = this._ref.instantiate(this, relPath, parent)
+    const inst = this._ref.instantiate(this, parent, relPath)
     await currentNode.run(inst, async () => {
       await inst.module.initialize()
     })
@@ -307,7 +307,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   }
 
   async main(context: Readonly<minissg.Context>): Promise<minissg.Module> {
-    return (await this.instantiate(this.findParent(context))).module
+    return (await this.instantiate(this.findParent(context), null)).module
   }
 
   getTreeNode(x: object): TreeNode<Base> | undefined {
@@ -344,8 +344,8 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   }
 
   _createInstance(
-    relPath: Readonly<RelPath> | undefined,
-    parent: TreeNode<Base> | undefined
+    parent: TreeNode<Base> | undefined,
+    relPath: Readonly<RelPath> | null
   ): TreeNodeImpl<Base, This, Impl> {
     const arg = { _leaf: this, content: this.content, parent }
     const tree = new TreeNodeImpl(relPath, arg)

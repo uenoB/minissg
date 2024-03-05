@@ -8,6 +8,13 @@ import { type Asset, type AssetModule, AssetLeaf } from './asset'
 import type { Loaded, MainModule, Dir, TreeNode, Inst } from './tree'
 import { Tree, TreeLeafImpl } from './tree'
 
+const dummyRelPath: Readonly<RelPath> = {
+  moduleName: '',
+  stem: '',
+  variant: '',
+  fileName: ''
+}
+
 export interface Paginate<Item = unknown, This = Page> {
   pages: ReadonlyArray<Paginate<Item, This>>
   page: This
@@ -17,21 +24,19 @@ export interface Paginate<Item = unknown, This = Page> {
   numAllItems: number
 }
 
-type ParsePath = Omit<Readonly<RelPath>, 'fileName'>
+type ParsePath = Omit<Readonly<Partial<RelPath>>, 'fileName'>
 
 interface NewArg<Base, This, Impl> {
   url?: Readonly<URL> | string | Null
-  parsePath?: ((this: This, path: string) => ParsePath | Null) | Null
-  paginatePath?:
-    | ((this: This, index: number) => Readonly<RelPath> | Null)
-    | Null
+  parsePath?: ((this: This, path: string) => ParsePath) | Null
+  paginatePath?: ((this: This, index: number) => Readonly<RelPath>) | Null
   initialize?: ((this: Inst<Base, This>) => Awaitable<void>) | Null
   render?:
     | ((this: Inst<Base, This>, module: Impl) => Awaitable<minissg.Content>)
     | Null
 }
 
-type PairKey = string | RelPath | Null
+type PairKey = string | RelPath
 type Load<This, Impl> = (page: This) => Loaded<Impl>
 type LoadAsset = () => Awaitable<AssetModule>
 
@@ -93,7 +98,7 @@ class PageFactory<
   createSubpage(
     dir: Dir<Base>,
     content: TreeLeafImpl<Base, This, Impl>['content'],
-    relPath: Readonly<RelPath> | Null
+    relPath: Readonly<RelPath>
   ): TreeLeafImpl<Base, This, Impl> {
     const arg = {
       rootURL: this.leaf.rootURL,
@@ -117,16 +122,16 @@ class PageFactory<
         : path
     if (arg.pages != null) {
       for await (const [path, load] of iteratePairs(arg.pages, this.basis)) {
-        let relPath: Readonly<RelPath> | Null
+        let relPath: Readonly<RelPath>
         if (typeof path !== 'string') {
           relPath = path
         } else {
           const srcPath = PathSteps.normalize(await substPath(path))
           const parsed = this.basis.parsePath(srcPath)
           relPath = {
-            moduleName: parsed?.moduleName ?? '',
-            stem: parsed?.stem ?? '',
-            variant: parsed?.variant ?? '',
+            moduleName: parsed.moduleName ?? '',
+            stem: parsed.stem ?? '',
+            variant: parsed.variant ?? '',
             fileName: PathSteps.normalize(path)
           }
         }
@@ -143,8 +148,8 @@ class PageFactory<
     if (arg.assets != null) {
       for await (const [path, load] of iteratePairs(arg.assets, this.basis)) {
         const loader = load ?? (await substPath(path))
-        const asset = new AssetLeaf<TreeNode<Base>>(loader)
-        const pair = [undefined, asset] as const
+        const leaf = new AssetLeaf<TreeNode<Base>>(loader)
+        const pair = { leaf, relPath: dummyRelPath }
         dir.fileNameMap.addRoute(PathSteps.fromRelativeFileName(path), pair)
       }
     }
@@ -218,7 +223,7 @@ export class Page<
     return factory.leaf.basis
   }
 
-  parsePath(fileName: string): ParsePath | Null {
+  parsePath(fileName: string): ParsePath {
     const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(fileName)
     const variant = (m?.[1] ?? '').replace(/\./g, '/')
     const stemBase = fileName.slice(0, m?.index ?? fileName.length)
@@ -228,7 +233,7 @@ export class Page<
     return { moduleName, stem, variant }
   }
 
-  paginatePath(index: number): Readonly<RelPath> | Null {
+  paginatePath(index: number): Readonly<RelPath> {
     const moduleName = index === 0 ? './' : `${index + 1}/`
     const fileName = `${index + 1}`
     return { moduleName, stem: moduleName, variant: '', fileName }

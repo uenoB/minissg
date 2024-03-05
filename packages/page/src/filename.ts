@@ -66,10 +66,10 @@ export class FileName {
 }
 
 export interface RelPath {
-  moduleName?: string | Null
-  stem?: string | Null
-  variant?: string | Null
-  fileName?: string | Null
+  moduleName: string
+  stem: string
+  variant: string
+  fileName: string
 }
 
 export const concatName = (

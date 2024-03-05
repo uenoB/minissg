@@ -1,4 +1,4 @@
-import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
+import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import { type RelPath, PathSteps } from './filename'
 import { Trie } from './trie'
 
@@ -60,22 +60,22 @@ class FileNameTransition<Node> extends Transition<Node> {
 }
 
 export type { Transition }
-type NextPath = Readonly<RelPath> | undefined
-export type Next<Node> = readonly [NextPath, Node]
+export type NextPath = Readonly<RelPath>
+export type Next<Leaf> = Readonly<{ leaf: Leaf; relPath: NextPath }>
 
 export class Indices<Leaf, Asst> {
   readonly fileNameMap = new FileNameTransition<Next<Leaf | Asst>>()
   readonly moduleNameMap = new PathTransition<Next<Leaf>>()
   readonly stemMap = new PathTransition<Next<Leaf>>()
 
-  addRoute(leaf: Leaf, relPath?: Readonly<RelPath> | Null): void {
-    const pair = [relPath ?? undefined, leaf] as const
-    const fileSteps = PathSteps.fromRelativeFileName(relPath?.fileName)
-    const moduleSteps = PathSteps.fromRelativeModuleName(relPath?.moduleName)
-    const stemSteps = PathSteps.fromRelativeModuleName(relPath?.stem)
-    this.fileNameMap.addRoute(fileSteps, pair)
-    this.moduleNameMap.addRoute(moduleSteps, pair)
-    this.stemMap.addRoute(stemSteps, pair)
+  addRoute(leaf: Leaf, relPath: NextPath): void {
+    const next = { leaf, relPath }
+    const fileSteps = PathSteps.fromRelativeFileName(relPath.fileName)
+    const moduleSteps = PathSteps.fromRelativeModuleName(relPath.moduleName)
+    const stemSteps = PathSteps.fromRelativeModuleName(relPath.stem)
+    this.fileNameMap.addRoute(fileSteps, next)
+    this.moduleNameMap.addRoute(moduleSteps, next)
+    this.stemMap.addRoute(stemSteps, next)
   }
 }
 
@@ -129,7 +129,7 @@ export const find = <
           return key.length < path.length || (final ?? fin) === (fin ?? final)
             ? (r: Result): Awaitable<Result> =>
                 r ??
-                next[1].instantiate(node, next[0]).then(inst => {
+                next.leaf.instantiate(node, next.relPath).then(inst => {
                   const edge = { node: inst, final: fin ?? final }
                   return find(indexKey, key, edge, all).then(inner)
                 })

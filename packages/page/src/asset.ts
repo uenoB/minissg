@@ -61,7 +61,7 @@ class AssetNode {
 export type { Asset, AssetNode }
 
 export class AssetLeaf<Base extends SomeInternal> {
-  constructor(readonly load: (() => Awaitable<AssetModule>) | string) {}
+  constructor(private readonly load: (() => Awaitable<AssetModule>) | string) {}
 
   instantiate(parent: Base): PromiseLike<AssetNode> {
     const origin = new URL('/', parent.root.url).href
