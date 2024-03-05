@@ -17,9 +17,11 @@ export interface Paginate<Item = unknown, This = Page> {
   numAllItems: number
 }
 
+type ParsePath = Omit<Readonly<RelPath>, 'fileName'>
+
 interface NewArg<Base, This, Impl> {
   url?: Readonly<URL> | string | Null
-  parsePath?: ((this: This, path: string) => Readonly<RelPath> | Null) | Null
+  parsePath?: ((this: This, path: string) => ParsePath | Null) | Null
   paginatePath?:
     | ((this: This, index: number) => Readonly<RelPath> | Null)
     | Null
@@ -216,13 +218,13 @@ export class Page<
     return factory.leaf.basis
   }
 
-  parsePath(fileName: string): Readonly<RelPath> | Null {
+  parsePath(fileName: string): ParsePath | Null {
     const m = /\.?(?:\.([^./]+(?:\.[^./]+)*))?\.[^./]+$/.exec(fileName)
     const variant = (m?.[1] ?? '').replace(/\./g, '/')
     const stemBase = fileName.slice(0, m?.index ?? fileName.length)
     const stem = stemBase + (/(?:^|\/|\.[^./]*)$/.test(stemBase) ? '' : '/')
     const moduleName = variant === '' ? stem : variant + '/' + stem
-    return { moduleName, stem, variant, fileName }
+    return { moduleName, stem, variant }
   }
 
   paginatePath(index: number): Readonly<RelPath> | Null {
