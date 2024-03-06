@@ -1,20 +1,12 @@
 import { test, expect } from 'vitest'
-import type { Module, Content } from '../../../vite-plugin-minissg/src/module'
 import { run, ModuleName } from '../../../vite-plugin-minissg/src/module'
-import { type Asset, type Inst, Page } from '../index'
+import { type Inst, Page } from '../index'
 
-interface Pages {
-  root: Inst<Page>
-  [k: `/${string}`]: Inst<Page> | undefined
-  [k: `${string}.js`]: Inst<Page> | Asset | undefined
-  '': Inst<Page> | Asset | undefined
-}
-
-const tree = async (): Promise<Pages> => {
+const tree = async (): Promise<Inst<Page>> => {
   const bar = Page.module({
     pages: {
-      'foo/bar.en.js': (): unknown => 'bar1',
-      'foo/bar.ja.js': (): unknown => 'bar2'
+      'foo/ba.en.js': (): unknown => 'bar1',
+      'foo/ba.ja.js': (): unknown => 'bar2'
     },
     substitutePath: s => s.slice('foo/'.length)
   })
@@ -45,7 +37,7 @@ const tree = async (): Promise<Pages> => {
       '': (): unknown => 'qux0',
       'index.html..js': (): unknown => 'qux1',
       'foo.js': (): unknown => 'qux2',
-      'bar.html..js': (): unknown => 'qux3'
+      'bar.md..js': (): unknown => 'qux3'
     }
   })
   const fred = Page.module({
@@ -56,7 +48,7 @@ const tree = async (): Promise<Pages> => {
   const waldo = Page.module({
     pages: {
       '': fred,
-      'waldo.js': (): unknown => 'waldo'
+      'waldo.js': (): unknown => 'waldo0'
     }
   })
   const foo = Page.module({
@@ -65,63 +57,328 @@ const tree = async (): Promise<Pages> => {
       'bar/bar.js': (): unknown => bar,
       'baz.js': (): unknown => bazModule,
       'foo/index.html..js': (): unknown => 'foo',
-      'qux/qux.txt..js': qux,
+      'qux/qux.md..js': qux,
       'quux/index.html..js': (): unknown => quux,
       'grault/index.html..js': (): unknown => grault
     },
     substitutePath: s => s.replace(/^(?:foo|qux)\//, '')
   })
+  const prugh = Page.module({
+    pages: {
+      'foo/waldo.en.js': (): unknown => 'waldo1'
+    }
+  })
   const root = Page.module<unknown>({
     url: 'http://example.com',
     pages: {
+      'index.html..js': (): unknown => 'root',
       'foo.js': (): unknown => foo,
-      'index.html..js': (): unknown => 'root'
+      '': prugh
     }
   })
   const dummyContext = { moduleName: ModuleName.root, module: {} }
-  const p = (await root.main(dummyContext)) as Inst<Page>
-  return {
-    root: p,
-    '/': await p.findByModuleName('/'),
-    '/foo/': await p.findByModuleName('/foo/'),
-    '/foo/bar/bar/': await p.findByModuleName('/foo/bar/bar/'),
-    '/foo/bar/bar/en/bar/': await p.findByModuleName('/foo/bar/bar/en/bar/'),
-    '/foo/bar/bar/ja/bar/': await p.findByModuleName('/foo/bar/bar/ja/bar/'),
-    '/foo/baz/': await p.findByModuleName('/foo/baz/'),
-    '/foo/baz/en/': await p.findByModuleName('/foo/baz/en/'),
-    '/foo/baz/ja/': await p.findByModuleName('/foo/baz/ja/'),
-    '/foo/qux.txt': await p.findByModuleName('/foo/qux.txt'),
-    '/foo/qux.txt/': await p.findByModuleName('/foo/qux.txt/'),
-    '/foo/qux.txt/foo/': await p.findByModuleName('/foo/qux.txt/foo/'),
-    '/foo/qux.txt/bar.html': await p.findByModuleName('/foo/qux.txt/bar.html'),
-    '/foo/quux/': await p.findByModuleName('/foo/quux/'),
-    '/foo/quux/corge/': await p.findByModuleName('/foo/quux/corge/'),
-    '/foo/grault/': await p.findByModuleName('/foo/grault/'),
-    '/foo/grault/garply/': await p.findByModuleName('/foo/grault/garply/'),
-    '/foo/waldo/': await p.findByModuleName('/foo/waldo/'),
-    '/foo/fred/': await p.findByModuleName('/foo/fred/'),
-    '': await p.findByFileName(''),
-    'index.html..js': await p.findByFileName('index.html..js'),
-    'foo.js': await p.findByFileName('foo.js'),
-    'foo/index.html..js': await p.findByFileName('foo/index.html..js'),
-    'bar/bar.js': await p.findByFileName('bar/bar.js'),
-    'bar/foo/bar.en.js': await p.findByFileName('bar/foo/bar.en.js'),
-    'bar/foo/bar.ja.js': await p.findByFileName('bar/foo/bar.ja.js'),
-    'baz.js': await p.findByFileName('baz.js'),
-    'index.html..en.js': await p.findByFileName('index.html..en.js'),
-    'index.html..ja.js': await p.findByFileName('index.html..ja.js'),
-    'qux/qux.txt..js': await p.findByFileName('qux/qux.txt..js'),
-    'qux/index.html..js': await p.findByFileName('qux/index.html..js'),
-    'qux/foo.js': await p.findByFileName('qux/foo.js'),
-    'qux/bar.html..js': await p.findByFileName('qux/bar.html..js'),
-    'quux/index.html..js': await p.findByFileName('quux/index.html..js'),
-    'quux/corge.js': await p.findByFileName('quux/corge.js'),
-    'grault/index.html..js': await p.findByFileName('grault/index.html..js'),
-    'grault/garply.js': await p.findByFileName('grault/garply.js'),
-    'waldo.js': await p.findByFileName('waldo.js'),
-    'fred.js': await p.findByFileName('fred.js')
-  } as const
+  return (await root.main(dummyContext)) as Inst<Page>
 }
+
+// root:                             # /                     /
+//  'index.html..js': "root"         # index.html..js        /
+//  'foo.js':
+//   foo:                            # foo.js                foo/
+//    substitutePath: /^(?:foo|qux)\//
+//    '':
+//     waldo:                        #(foo.js                foo/)
+//      '':
+//       fred:                       #(foo.js                foo/)
+//        'fred.js': "fred"          # fred.js               foo/fred/
+//      'waldo.js': "waldo0"         # waldo.js              foo/waldo/
+//    'bar/bar.js':
+//     bar:                          # bar/bar.js            foo/bar/bar/
+//      substitutePath: 'foo/'
+//      'foo/ba.en.js': "bar1"       # bar/foo/ba.en.js      foo/bar/bar/en/ba/
+//      'foo/ba.ja.js': "bar2"       # bar/foo/ba.ja.js      foo/bar/bar/ja/ba/
+//    'baz.js':
+//     bazModule:
+//      baz:                         # baz.js                foo/baz/
+//       'index.html..en.js': "baz1" # index.html..en.js     foo/baz/en/
+//       'index.html..ja.js': "baz2" # index.html..ja.js     foo/baz/ja/
+//    'foo/index.html..js': "foo"    # foo/index.html..js    foo/
+//    'qux/qux.md..js':
+//     qux:                          # qux/qux.md..js        foo/qux.md
+//      '': "qux0"                   #(qux/qux.md..js        foo/qux.md)
+//      'index.html..js': "qux1"     # qux/index.html.js     foo/qux.md/
+//      'foo.js': "qux2"             # qux/foo.js            foo/qux.md/foo.js
+//      'bar.md..js': "qux3"         # qux/bar.md..js        foo/qux.md/bar.md
+//    'quux/index.html..js':
+//     quux:                         # quux/index.html..js   foo/quux/
+//      corge:                       #(quux/index.html..js   foo/quux/)
+//       '': "corge0"                #(quux/index.html..js   foo/quux/)
+//       'corge.js': "corge1"        # quux/corge.js         foo/quux/corge/
+//    'grault/index.html..js':
+//     grault:                       # grault/index.html..js foo/grault/
+//      garply:                      #(grault/index.html..js foo/grault/)
+//       'garply.js': "garply0"      # grault/garply.js      foo/grault/garply/
+//  '':
+//   plugh:                          # /                     /
+//    'foo/waldo.en.js': "waldo1"    # foo/waldo.en.js       en/foo/waldo/
+
+const pageNames: ReadonlyArray<{
+  path: ReadonlyArray<string | number>
+  fileName: string
+  moduleName: string
+  stem: string
+  variant: string
+  content: unknown
+}> = [
+  // depth first order
+  {
+    path: [],
+    fileName: '',
+    moduleName: '',
+    stem: '',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['index.html'], // () => 'root'
+    fileName: 'index.html..js',
+    moduleName: '',
+    stem: 'index.html/',
+    variant: '',
+    content: 'root'
+  },
+  {
+    path: ['foo/'], // () => foo
+    fileName: 'foo.js',
+    moduleName: 'foo/',
+    stem: 'foo/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0], // foo
+    fileName: 'foo.js',
+    moduleName: 'foo/',
+    stem: 'foo/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, ''], // waldo
+    fileName: 'foo.js',
+    moduleName: 'foo/',
+    stem: 'foo/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, '', ''], // fred
+    fileName: 'foo.js',
+    moduleName: 'foo/',
+    stem: 'foo/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, '', '', 'fred/'], // () => 'fred'
+    fileName: 'fred.js',
+    moduleName: 'foo/fred/',
+    stem: 'foo/fred/',
+    variant: '',
+    content: 'fred'
+  },
+  {
+    path: ['foo/', 0, '', 'waldo/'], // () => 'waldo0'
+    fileName: 'waldo.js',
+    moduleName: 'foo/waldo/',
+    stem: 'foo/waldo/',
+    variant: '',
+    content: 'waldo0'
+  },
+  {
+    path: ['foo/', 0, 'baz/'], // () => bazModule
+    fileName: 'baz.js',
+    moduleName: 'foo/baz/',
+    stem: 'foo/baz/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'baz/', 0], // baz
+    fileName: 'baz.js',
+    moduleName: 'foo/baz/',
+    stem: 'foo/baz/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'baz/', 0, 'en/index.html'], // () => 'baz1'
+    fileName: 'index.html..en.js',
+    moduleName: 'foo/baz/en/',
+    stem: 'foo/baz/index.html/',
+    variant: 'en',
+    content: 'baz1'
+  },
+  {
+    path: ['foo/', 0, 'baz/', 0, 'ja/index.html'], // () => 'baz2'
+    fileName: 'index.html..ja.js',
+    moduleName: 'foo/baz/ja/',
+    stem: 'foo/baz/index.html/',
+    variant: 'ja',
+    content: 'baz2'
+  },
+  {
+    path: ['foo/', 0, 'index.html'], // () => 'foo'
+    fileName: 'foo/index.html..js',
+    moduleName: 'foo/',
+    stem: 'foo/index.html/',
+    variant: '',
+    content: 'foo'
+  },
+  {
+    path: ['foo/', 0, 'qux.md'], // qux
+    fileName: 'qux/qux.md..js',
+    moduleName: 'foo/qux.md',
+    stem: 'foo/qux.md/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'qux.md', ''], // () => 'qux0'
+    fileName: 'qux/qux.md..js',
+    moduleName: 'foo/qux.md',
+    stem: 'foo/qux.md/',
+    variant: '',
+    content: 'qux0'
+  },
+  {
+    path: ['foo/', 0, 'qux.md', 'index.html'], // () => 'qux1'
+    fileName: 'qux/index.html..js',
+    moduleName: 'foo/qux.md/',
+    stem: 'foo/qux.md/index.html/',
+    variant: '',
+    content: 'qux1'
+  },
+  {
+    path: ['foo/', 0, 'qux.md', 'foo/'], // () => 'qux2'
+    fileName: 'qux/foo.js',
+    moduleName: 'foo/qux.md/foo/',
+    stem: 'foo/qux.md/foo/',
+    variant: '',
+    content: 'qux2'
+  },
+  {
+    path: ['foo/', 0, 'qux.md', 'bar.md'], // () => 'qux3'
+    fileName: 'qux/bar.md..js',
+    moduleName: 'foo/qux.md/bar.md',
+    stem: 'foo/qux.md/bar.md/',
+    variant: '',
+    content: 'qux3'
+  },
+  {
+    path: ['foo/', 0, 'quux/index.html'], // () => quux
+    fileName: 'quux/index.html..js',
+    moduleName: 'foo/quux/',
+    stem: 'foo/quux/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'quux/index.html', 0], // quux
+    fileName: 'quux/index.html..js',
+    moduleName: 'foo/quux/',
+    stem: 'foo/quux/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'quux/index.html', 0, 0], // corge
+    fileName: 'quux/index.html..js',
+    moduleName: 'foo/quux/',
+    stem: 'foo/quux/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'quux/index.html', 0, 0, ''], // () => 'corge0'
+    fileName: 'quux/index.html..js',
+    moduleName: 'foo/quux/',
+    stem: 'foo/quux/index.html/',
+    variant: '',
+    content: 'corge0'
+  },
+  {
+    path: ['foo/', 0, 'quux/index.html', 0, 0, 'corge/'], // () => 'corge1'
+    fileName: 'quux/corge.js',
+    moduleName: 'foo/quux/corge/',
+    stem: 'foo/quux/index.html/corge/',
+    variant: '',
+    content: 'corge1'
+  },
+  {
+    path: ['foo/', 0, 'grault/index.html'], // () => grault
+    fileName: 'grault/index.html..js',
+    moduleName: 'foo/grault/',
+    stem: 'foo/grault/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'grault/index.html', 0], // grault
+    fileName: 'grault/index.html..js',
+    moduleName: 'foo/grault/',
+    stem: 'foo/grault/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'grault/index.html', 0, 0], // garply
+    fileName: 'grault/index.html..js',
+    moduleName: 'foo/grault/',
+    stem: 'foo/grault/index.html/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'grault/index.html', 0, 0, 'garply/'], // () => 'garply0'
+    fileName: 'grault/garply.js',
+    moduleName: 'foo/grault/garply/',
+    stem: 'foo/grault/index.html/garply/',
+    variant: '',
+    content: 'garply0'
+  },
+  {
+    path: [''], // prugh
+    fileName: '',
+    moduleName: '',
+    stem: '',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['', 'en/foo/waldo/'], // () => 'waldo1'
+    fileName: 'foo/waldo.en.js',
+    moduleName: 'en/foo/waldo/',
+    stem: 'foo/waldo/',
+    variant: 'en',
+    content: 'waldo1'
+  }
+]
+
+const groupBy = <X, Y>(a: Iterable<X>, f: (x: X) => Y): Array<[X, ...X[]]> => {
+  const map = new Map<Y, [X, ...X[]]>()
+  for (const x of a) {
+    const key = f(x)
+    const values = map.get(key)
+    values != null ? values.push(x) : map.set(key, [x])
+  }
+  return Array.from(map.values())
+}
+
+const arrayEq = <X>(a: readonly X[], b: readonly X[]): boolean =>
+  a.every((x, i) => x === b[i]) && b.every((x, i) => x === a[i])
+
+const arrayStartsWith = <X>(a: readonly X[], b: readonly X[]): boolean =>
+  b.every((x, i) => x === a[i])
 
 test('Page.module without argument', async () => {
   const p = Page.module()
@@ -164,177 +421,6 @@ test('new Page', () => {
   expect(() => p.main(dummyContext)).toThrow('not available')
 })
 
-test('tree', async () => {
-  const t = await tree()
-  expect(t).toStrictEqual(
-    Object.fromEntries(
-      Object.entries(t).map(([k]) => {
-        const pat: Record<string, unknown> = {}
-        if (k === 'root') {
-          pat['fileName'] = ''
-          pat['moduleName'] = ''
-        } else if (k.startsWith('/')) {
-          pat['moduleName'] = ModuleName.root.join('.' + k).path
-        } else if (k.endsWith('.js') || k === '') {
-          pat['fileName'] = k
-        }
-        return [k, expect.objectContaining(pat)]
-      })
-    )
-  )
-})
-
-test('tree contents', async () => {
-  const t = await tree()
-  const pages = await run({ module: t.root, moduleName: ModuleName.root })
-  expect(
-    Object.fromEntries(
-      await Promise.all(
-        Array.from(pages, async ([name, load]) => {
-          return [ModuleName.root.join(name).path, await (await load).body]
-        })
-      )
-    )
-  ).toStrictEqual({
-    '': 'root',
-    'foo/': 'foo',
-    'foo/bar/bar/en/bar/': 'bar1',
-    'foo/bar/bar/ja/bar/': 'bar2',
-    'foo/baz/en/': 'baz1',
-    'foo/baz/ja/': 'baz2',
-    'foo/qux.txt': 'qux0',
-    'foo/qux.txt/': 'qux1',
-    'foo/qux.txt/foo/': 'qux2',
-    'foo/qux.txt/bar.html': 'qux3',
-    'foo/quux/': 'corge0',
-    'foo/quux/corge/': 'corge1',
-    'foo/grault/garply/': 'garply0',
-    'foo/waldo/': 'waldo',
-    'foo/fred/': 'fred'
-  })
-})
-
-test.each([
-  ['/foo'],
-  ['/foo/bar'],
-  ['/foo/bar/'],
-  ['/foo/bar/bar'],
-  ['/foo/bar/bar/en'],
-  ['/foo/bar/bar/en/'],
-  ['/foo/bar/bar/en/bar'],
-  ['/foo/bar/bar/ja'],
-  ['/foo/bar/bar/ja/'],
-  ['/foo/bar/bar/ja/bar'],
-  ['/foo/baz'],
-  ['/foo/baz/en'],
-  ['/foo/baz/ja'],
-  ['/foo/quux'],
-  ['/foo/quux/corge'],
-  ['/foo/grault'],
-  ['/foo/grault/garply'],
-  ['/foo/waldo'],
-  ['/foo/fred']
-])('intermediate name %s must be undefined', async url => {
-  const t = await tree()
-  await expect(t.root.findByModuleName(url)).resolves.toBeUndefined()
-})
-
-test.each([
-  ['', 'root'],
-  ['/', 'index.html..js'],
-  ['/foo/', 'foo.js'],
-  ['/foo/bar/bar/', 'bar/bar.js'],
-  ['/foo/bar/bar/en/bar/', 'bar/foo/bar.en.js'],
-  ['/foo/bar/bar/ja/bar/', 'bar/foo/bar.ja.js'],
-  ['/foo/baz/', 'baz.js'],
-  ['/foo/baz/en/', 'index.html..en.js'],
-  ['/foo/baz/ja/', 'index.html..ja.js'],
-  ['/foo/qux.txt', 'qux/qux.txt..js'],
-  ['/foo/qux.txt/', 'qux/index.html..js'],
-  ['/foo/qux.txt/foo/', 'qux/foo.js'],
-  ['/foo/qux.txt/bar.html', 'qux/bar.html..js'],
-  ['/foo/quux/', 'quux/index.html..js'],
-  ['/foo/quux/corge/', 'quux/corge.js'],
-  ['/foo/grault/', 'grault/index.html..js'],
-  ['/foo/grault/garply/', 'grault/garply.js'],
-  ['/foo/waldo/', 'waldo.js'],
-  ['/foo/fred/', 'fred.js']
-] as const)('page %s and %s must be identical', async (url, fileName) => {
-  const t = await tree()
-  expect(t[url]).toBe(t[fileName])
-})
-
-test.each([
-  ['index.html..js', 'root'],
-  ['foo/index.html..js', 'foo'],
-  ['/foo/bar/bar/en/bar/', 'bar1'],
-  ['bar/foo/bar.en.js', 'bar1'],
-  ['/foo/bar/bar/ja/bar/', 'bar2'],
-  ['bar/foo/bar.ja.js', 'bar2'],
-  ['/foo/baz/en/', 'baz1'],
-  ['/foo/baz/ja/', 'baz2'],
-  ['/foo/qux.txt', 'qux0'],
-  ['qux/qux.txt..js', 'qux0'],
-  ['/foo/qux.txt/', 'qux1'],
-  ['qux/index.html..js', 'qux1'],
-  ['/foo/qux.txt/foo/', 'qux2'],
-  ['qux/foo.js', 'qux2'],
-  ['/foo/qux.txt/bar.html', 'qux3'],
-  ['qux/bar.html..js', 'qux3'],
-  ['/foo/quux/', undefined], // corge0
-  ['quux/index.html..js', undefined], // corge0
-  ['/foo/quux/corge/', 'corge1'],
-  ['quux/corge.js', 'corge1'],
-  ['/foo/grault/garply/', 'garply0'],
-  ['grault/garply.js', 'garply0'],
-  ['/foo/waldo/', 'waldo'],
-  ['waldo.js', 'waldo'],
-  ['/foo/fred/', 'fred'],
-  ['fred.js', 'fred']
-] as const)('page %o must have %o as its contents', async (url, body) => {
-  const getDefault = async (m: Module): Promise<Content | undefined> =>
-    'default' in m ? await m.default : undefined
-  const t = await tree()
-  const p = t[url]
-  expect(p).toBeDefined()
-  if (p == null) return
-  expect(p.type).toBe('page')
-  if (p.type !== 'page') return
-  const context = {
-    module: p.parent ?? {},
-    moduleName: ModuleName.root.join(p.moduleName)
-  }
-  const m = p.main(context)
-  await expect(Promise.resolve(m).then(getDefault)).resolves.toBe(body)
-})
-
-test.each([
-  [['/foo/baz/en/', '/foo/baz/ja/']],
-  [['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/']],
-  [['/foo/']]
-] as const)('%o are variants of each other', async urls => {
-  const t = await tree()
-  for (const url of urls) {
-    const p = t[url]
-    expect(p?.type).toBe('page')
-    if (p?.type !== 'page') return
-    const a = p.variants().then(Array.from)
-    await expect(a).resolves.toStrictEqual(urls.map(i => t[i]))
-  }
-})
-
-test.each([
-  ['', ['/']],
-  ['foo/', ['/foo/']],
-  ['foo/bar/bar/', ['/foo/bar/bar/']],
-  ['foo/bar/bar/bar/', ['/foo/bar/bar/en/bar/', '/foo/bar/bar/ja/bar/']],
-  ['foo/baz/', ['/foo/baz/']]
-] as const)('stem %o matches with %o', async (stem, urls) => {
-  const t = await tree()
-  const set = t.root.findByStem(stem).then(Array.from)
-  await expect(set).resolves.toStrictEqual(urls.map(i => t[i]))
-})
-
 test('subclass', () => {
   type M = Readonly<{ default?: string }>
   class MyPage1 extends Page<M, MyPage1> {
@@ -365,22 +451,206 @@ test('generic subclass', () => {
   expect(page.foo).toBe(123)
 })
 
+test('root names', async () => {
+  const root = await tree()
+  expect(root.fileName).toBe('')
+  expect(root.stem).toBe('')
+  expect(root.variant).toBe('')
+  expect(root.moduleName).toBe('')
+})
+
+test.each(
+  groupBy(pageNames, x => x.fileName)
+    .map(g => g[0])
+    .map(x => [x.fileName, x] as const)
+)('file %o has proper name properties', async (fileName, props) => {
+  const root = await tree()
+  const page = await root.findByFileName(fileName)
+  expect(page).toBeDefined()
+  if (page == null) return
+  expect(page.type).toBe('page')
+  if (page.type !== 'page') return
+  expect(page.fileName).toBe(props.fileName)
+  expect(page.stem).toBe(props.stem)
+  expect(page.variant).toBe(props.variant)
+  expect(page.moduleName).toBe(props.moduleName)
+  expect(page).toBe(await root.findByPath(props.path))
+})
+
+test.each(
+  groupBy(pageNames, x => x.moduleName)
+    .map(g => g[0])
+    .map(x => [x.moduleName, x] as const)
+)('page %o has proper name proparties', async (name, props) => {
+  const root = await tree()
+  const page = await root.findByModuleName(name)
+  expect(page).toBeDefined()
+  if (page == null) return
+  expect(page.fileName).toBe(props.fileName)
+  expect(page.stem).toBe(props.stem)
+  expect(page.variant).toBe(props.variant)
+  expect(page.moduleName).toBe(props.moduleName)
+  expect(page).toBe(await root.findByPath(props.path))
+})
+
+test.each(
+  groupBy(pageNames, x => x.path)
+    .map(g => g[0])
+    .map(x => [x.path, x] as const)
+)('path %o has proper name proparties', async (path, props) => {
+  const root = await tree()
+  const page = await root.findByPath(path)
+  expect(page).toBeDefined()
+  if (page == null) return
+  expect(page.fileName).toBe(props.fileName)
+  expect(page.stem).toBe(props.stem)
+  expect(page.variant).toBe(props.variant)
+  expect(page.moduleName).toBe(props.moduleName)
+})
+
+test.each(
+  pageNames
+    .map(x => x.moduleName.replace(/\/*$/, ''))
+    .filter(i => pageNames.every(x => x.moduleName !== i))
+)('page %o must not exist', async name => {
+  const root = await tree()
+  await expect(root.findByModuleName(name)).resolves.toBeUndefined()
+})
+
+test.each(
+  groupBy(pageNames, x => x.stem)
+    .map(g => g.map(x => g.map(y => [x, y] as const)))
+    .flat(2)
+    .map(([x, y]) => [x.moduleName, y.moduleName] as const)
+)('page %o is in the variants of page %o', async (name1, name2) => {
+  const root = await tree()
+  const page1 = await root.findByModuleName(name1)
+  expect(page1).toBeDefined()
+  if (page1 == null) return
+  const page2 = await root.findByModuleName(name2)
+  expect(page2).toBeDefined()
+  if (page2 == null) return
+  const variants = await page2.variants()
+  expect(variants.has(page1)).toBeTruthy()
+})
+
+test.each(
+  groupBy(
+    pageNames.filter(
+      (x, i) =>
+        x.stem === '' ||
+        pageNames.slice(0, i).every(y => x.moduleName !== y.moduleName)
+    ),
+    x => x.stem
+  )
+    .map(g => g.map(x => [x.stem, g.length] as const))
+    .flat(1)
+)('stem %o has %d variants', async (stem, numVariants) => {
+  const root = await tree()
+  const set = await root.findByStem(stem)
+  expect(set.size).toBe(numVariants)
+})
+
+test.each(
+  groupBy(pageNames, x => x.moduleName)
+    .map(g => g[0])
+    .map(x => x.moduleName)
+)('page %o is included in its variants', async name => {
+  const root = await tree()
+  const page = await root.findByModuleName(name)
+  expect(page).toBeDefined()
+  if (page == null) return
+  const set = await page.variants()
+  expect(set.has(page)).toBeTruthy()
+})
+
+test.each(
+  pageNames.map(x => [
+    x.path,
+    pageNames
+      .map(y => y.path)
+      .filter(
+        y =>
+          arrayEq(y, [...x.path, 0]) ||
+          arrayEq(y, [...x.path, '']) ||
+          ((x.moduleName === '' || x.moduleName.endsWith('/')) &&
+            arrayEq(y, [...x.path, 'index.html']))
+      )
+  ])
+)('path(%o).subpages() should be %o', async (path, subpagePaths) => {
+  const root = await tree()
+  const page = await root.findByPath(path)
+  expect(page).toBeDefined()
+  if (page == null) return
+  const subpages = Array.from(await page.subpages())
+  const expectSubpages = await Promise.all(
+    subpagePaths.map(async i => await root.findByPath(i))
+  )
+  expect(subpages).toStrictEqual(expectSubpages)
+})
+
 test.each([
   ['index.html..js', 'index.html..en.js', 'index.html..en.js'],
   ['index.html..js', 'foo/index.html..js', 'foo/index.html..js'],
-  ['bar/foo/bar.en.js', 'bar.ja.js', 'bar/foo/bar.ja.js'],
-  ['bar/foo/bar.en.js', '../../index.html..js', 'index.html..js'],
+  ['bar/foo/ba.en.js', 'bar.ja.js', 'bar/foo/bar.ja.js'],
+  ['bar/foo/ba.en.js', '../../index.html..js', 'index.html..js'],
   ['foo/index.html..js', '/index.html..en.js', 'index.html..en.js'],
   ['index.html..en.js', 'index.html..ja.js', 'index.html..ja.js'],
   ['quux/corge.js', '../grault/garply.js', 'grault/garply.js'],
   ['grault/garply.js', '../quux/corge.js', 'quux/corge.js']
 ] as const)(
-  'tree[%o].findByFileName(%o) must be %o',
-  async (path1, path2, output) => {
-    const t = await tree()
-    const p = t[path1]
-    expect(p).toBeInstanceOf(Page)
-    if (!(p instanceof Page)) return
-    await expect(p.findByFileName(path2)).resolves.toBe(t[output])
+  'page(%o).findByFileName(%o) must be %o',
+  async (path1, path2, path3) => {
+    const root = await tree()
+    const page1 = await root.findByFileName(path1)
+    expect(page1).toBeInstanceOf(Page)
+    if (!(page1 instanceof Page)) return
+    const page3 = await root.findByFileName(path3)
+    await expect(page1.findByFileName(path2)).resolves.toBe(page3)
   }
 )
+
+test.each(
+  groupBy(pageNames, x => x.moduleName)
+    .map(g => [g[0], g.map(x => x.content)] as const)
+    .map(x => [x[0].moduleName, x[1].reduce((z, c) => z ?? c)] as const)
+)('page %o is rendered as %o', async (name, content) => {
+  const fileName = ModuleName.root.join(name).fileName()
+  const root = await tree()
+  const pages = await run({ module: root, moduleName: ModuleName.root })
+  const body = await (await pages.get(fileName))?.body
+  expect(body).toBe(content)
+})
+
+test.each(
+  pageNames
+    .filter(x => x.content != null)
+    .map(x => [x.path, x.content] as const)
+)('path(%o).load() should be %o', async (path, content) => {
+  const root = await tree()
+  const page = await root.findByPath(path)
+  expect(page).toBeDefined()
+  if (page == null) return
+  await expect(page.load()).resolves.toBe(content)
+})
+
+test.each(
+  pageNames.map(
+    x =>
+      [
+        x.path,
+        pageNames.find(
+          y =>
+            arrayStartsWith(y.path, x.path) &&
+            x.moduleName === y.moduleName &&
+            y.content != null
+        )?.content
+      ] as const
+  )
+)('path(%o).fetch() should be %o', async (path, content) => {
+  const root = await tree()
+  const page = await root.findByPath(path)
+  expect(page).toBeDefined()
+  if (page == null) return
+  await expect(page.fetch()).resolves.toBe(content)
+})

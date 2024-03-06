@@ -22,10 +22,12 @@ export class PathSteps {
   static empty = new PathSteps([])
 
   static fromRelativeModuleName(path: string | Null): PathSteps {
+    // from('') = [] because 'foo'.join('') = 'foo'.
     if (path == null || path === '') return new PathSteps([])
     try {
       path = ModuleName.root.join('./' + path).path
     } catch {}
+    // from('.') = [''] because 'foo'.join('.') = 'foo/'.
     return new PathSteps(path === '' ? [''] : path.split('/'))
   }
 
@@ -38,12 +40,12 @@ export class PathSteps {
     return this.path.length
   }
 
-  get last(): string | undefined {
-    return this.path[this.path.length - 1]
-  }
-
   chop(): PathSteps {
     return new PathSteps(this.path.slice(0, this.path.length - 1))
+  }
+
+  chomp(): PathSteps {
+    return this.path[this.path.length - 1] === '' ? this.chop() : this
   }
 }
 
