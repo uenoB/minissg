@@ -37,7 +37,8 @@ const tree = async (): Promise<Inst<Page>> => {
       '': (): unknown => 'qux0',
       'index.html..js': (): unknown => 'qux1',
       'foo.js': (): unknown => 'qux2',
-      'bar.md..js': (): unknown => 'qux3'
+      'bar.md..js': (): unknown => 'qux3',
+      'baz.md..js': (): unknown => 'qux4'
     }
   })
   const fred = Page.module({
@@ -106,8 +107,9 @@ const tree = async (): Promise<Inst<Page>> => {
 //     qux:                          # qux/qux.md..js        foo/qux.md
 //      '': "qux0"                   #(qux/qux.md..js        foo/qux.md)
 //      'index.html..js': "qux1"     # qux/index.html.js     foo/qux.md/
-//      'foo.js': "qux2"             # qux/foo.js            foo/qux.md/foo.js
+//      'foo.js': "qux2"             # qux/foo.js            foo/qux.md/foo/
 //      'bar.md..js': "qux3"         # qux/bar.md..js        foo/qux.md/bar.md
+//      'baz.md..js': "qux4"         # qux/baz.md..js        foo/qux.md/baz.md
 //    'quux/index.html..js':
 //     quux:                         # quux/index.html..js   foo/quux/
 //      corge:                       #(quux/index.html..js   foo/quux/)
@@ -273,6 +275,14 @@ const pageNames: ReadonlyArray<{
     stem: 'foo/qux.md/bar.md/',
     variant: '',
     content: 'qux3'
+  },
+  {
+    path: ['foo/', 0, 'qux.md', 'baz.md'], // () => 'qux4'
+    fileName: 'qux/baz.md..js',
+    moduleName: 'foo/qux.md/baz.md',
+    stem: 'foo/qux.md/baz.md/',
+    variant: '',
+    content: 'qux4'
   },
   {
     path: ['foo/', 0, 'quux/index.html'], // () => quux
@@ -590,11 +600,41 @@ test.each(
 })
 
 test.each([
+  ['', '', ''],
+  ['', 'foo/', 'foo/'],
+  ['foo/', '', 'foo/'],
+  ['foo/', '.', 'foo/'],
+  ['foo/', '..', ''],
+  ['foo/bar/bar/en/ba/', '../..', 'foo/bar/bar/'],
+  ['foo/bar/bar/en/ba/', '../../ja/ba/', 'foo/bar/bar/ja/ba/'],
+  ['foo/qux.md/bar.md', '', 'foo/qux.md/bar.md'],
+  ['foo/qux.md/bar.md', '.', 'foo/qux.md/'],
+  ['foo/qux.md/bar.md', '..', 'foo/'],
+  ['foo/qux.md/bar.md', '../..', ''],
+  ['foo/qux.md/bar.md', 'bar.md', 'foo/qux.md/bar.md'],
+  ['foo/qux.md/bar.md', 'baz.md', 'foo/qux.md/baz.md'],
+  ['foo/qux.md/bar.md', '../qux.md', 'foo/qux.md'],
+  ['foo/qux.md/bar.md', '/foo/', 'foo/']
+] as const)(
+  'page(%o).findByModuleName(%o) must be %o',
+  async (path1, path2, path3) => {
+    const root = await tree()
+    const page1 = await root.findByModuleName(path1)
+    expect(page1).toBeDefined()
+    if (page1 == null) return
+    const page3 = await root.findByModuleName(path3)
+    await expect(page1.findByModuleName(path2)).resolves.toBe(page3)
+  }
+)
+
+test.each([
   ['index.html..js', 'index.html..en.js', 'index.html..en.js'],
   ['index.html..js', 'foo/index.html..js', 'foo/index.html..js'],
   ['bar/foo/ba.en.js', 'bar.ja.js', 'bar/foo/bar.ja.js'],
   ['bar/foo/ba.en.js', '../../index.html..js', 'index.html..js'],
+  ['bar/foo/ba.en.js', '../bar.js', 'bar/bar.js'],
   ['foo/index.html..js', '/index.html..en.js', 'index.html..en.js'],
+  ['foo/index.html..js', '../index.html..en.js', 'index.html..en.js'],
   ['index.html..en.js', 'index.html..ja.js', 'index.html..ja.js'],
   ['quux/corge.js', '../grault/garply.js', 'grault/garply.js'],
   ['grault/garply.js', '../quux/corge.js', 'quux/corge.js']
@@ -626,7 +666,7 @@ test.each(
   pageNames
     .filter(x => x.content != null)
     .map(x => [x.path, x.content] as const)
-)('path(%o).load() should be %o', async (path, content) => {
+)('path(%o).load() must be %o', async (path, content) => {
   const root = await tree()
   const page = await root.findByPath(path)
   expect(page).toBeDefined()
@@ -647,7 +687,7 @@ test.each(
         )?.content
       ] as const
   )
-)('path(%o).fetch() should be %o', async (path, content) => {
+)('path(%o).fetch() must be %o', async (path, content) => {
   const root = await tree()
   const page = await root.findByPath(path)
   expect(page).toBeDefined()

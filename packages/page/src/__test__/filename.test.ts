@@ -23,6 +23,22 @@ test.each([
 })
 
 test.each([
+  ['', '', ''],
+  ['', 'bar', 'bar'],
+  ['foo', 'bar', 'bar'],
+  ['foo/.', 'bar', 'foo/./bar'],
+  ['foo/..', 'bar', 'foo/../bar'],
+  ['foo/...', 'bar', 'foo/bar'],
+  ['foo//', 'bar', 'foo//bar'],
+  ['foo/bar', '', 'foo/bar'],
+  ['foo/bar', 'baz', 'foo/baz'],
+  ['foo/bar/', 'baz', 'foo/bar/baz'],
+  ['foo/bar', '/baz', '/baz']
+])('PathSteps.join(%o, %o) must be %o', (path1, path2, output) => {
+  expect(PathSteps.join(path1, path2)).toBe(output)
+})
+
+test.each([
   ['', []],
   ['.', ['']],
   ['./', ['']],

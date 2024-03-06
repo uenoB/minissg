@@ -62,9 +62,7 @@ const findByModuleName = async <Base>(
   self: TreeNode<Base>,
   path: string
 ): Promise<Inst<Base> | undefined> => {
-  const key = path.startsWith('/')
-    ? PathSteps.normalize(path)
-    : PathSteps.normalize(self.moduleName.path + '/' + path)
+  const key = PathSteps.normalize(PathSteps.join(self.moduleName.path, path))
   return await find<'moduleNameMap', typeof self, never>(
     'moduleNameMap',
     self.root,
@@ -76,9 +74,7 @@ const findByFileName = async <Base>(
   self: TreeNode<Base>,
   path: string
 ): Promise<Inst<Base> | Asset | undefined> => {
-  const key = path.startsWith('/')
-    ? PathSteps.normalize(path.slice(1))
-    : PathSteps.normalize(self.fileName.join(path).path)
+  const key = PathSteps.normalize(PathSteps.join(self.fileName.path, path))
   return await find<'fileNameMap', typeof self, AssetNode>(
     'fileNameMap',
     self.root,
@@ -101,9 +97,7 @@ const findByStem = async <Base>(
   self: TreeNode<Base>,
   path: string
 ): Promise<Set<Inst<Base>>> => {
-  const key = path.startsWith('/')
-    ? PathSteps.normalize(path.slice(1))
-    : PathSteps.normalize(self.stem.join(path).path)
+  const key = PathSteps.normalize(PathSteps.join(self.stem.path, path))
   const steps = PathSteps.fromRelativeModuleName(key).path
   const set = new Set<Inst<Base>>()
   await find<'stemMap', typeof self, never>('stemMap', self.root, steps, node =>

@@ -15,6 +15,13 @@ export class PathSteps {
     }
   }
 
+  static join(path1: string, path2: string): string {
+    if (path2 === '') return path1
+    if (path1 === '' || path2.startsWith('/')) return path2
+    path1 = path1.replace(/(^|\/)(?!\.\.?$)[^/]*$/, '$1')
+    return path1.replace(/[^/]$/, '$&/') + path2
+  }
+
   private constructor(path: readonly string[]) {
     this.path = path
   }
