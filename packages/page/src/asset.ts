@@ -29,17 +29,17 @@ class Asset {
   ) {
     this.url =
       typeof load === 'string'
-        ? delay.dummy(Object.freeze(new URL(load, origin)))
+        ? delay.resolve(Object.freeze(new URL(load, origin)))
         : memo == null
           ? delay(assetURL, delay(load), origin)
-          : delay(() => memo.memoize(assetURL, memo.memoize(load), origin))
+          : memo.memoize(assetURL, memo.memoize(load), origin)
   }
 
   declare readonly ref: () => Delay<undefined>
   declare readonly type: 'asset'
   static {
-    const dummyURL = delay.dummy(Object.freeze(new URL('file:')))
-    const undef = delay.dummy(undefined)
+    const dummyURL = delay.resolve(Object.freeze(new URL('file:')))
+    const undef = delay.resolve(undefined)
     constProp(this.prototype, 'url', dummyURL)
     constProp(this.prototype, 'ref', () => undef)
     constProp(this.prototype, 'type', 'asset')

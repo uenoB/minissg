@@ -288,7 +288,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
       moduleName: this.moduleName.path,
       stem: this.stem.path,
       variant: this.variant.path,
-      url: delay.dummy(this.url),
+      url: delay.resolve(this.url),
       parent: this.parent?.module,
       root: this.root.module
     }
@@ -296,7 +296,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   }
 
   ref(): Delay<Inst<Base, This>> {
-    return delay.dummy(this.module)
+    return delay.resolve(this.module)
   }
 
   children(): Delay<Iterable<Next<Base>>> {
@@ -526,12 +526,12 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
 
   load(): Delay<Impl | undefined> {
     const tree = getTreeImpl(this) ?? unavailable()
-    return tree.load() ?? delay.dummy(undefined)
+    return tree.load() ?? delay.resolve(undefined)
   }
 
   fetch(): Delay<unknown> {
     const tree = getTreeImpl(this) ?? unavailable()
-    return tree.fetch() ?? delay.dummy(undefined)
+    return tree.fetch() ?? delay.resolve(undefined)
   }
 
   protected memoize<Args extends readonly unknown[], Ret>(

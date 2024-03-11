@@ -1,94 +1,97 @@
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
-import { defineProperty } from './util'
-
-const dig = <K extends object, X>(
-  map: WeakMap<K, WeakMap<K, X>>,
-  key: K
-): WeakMap<K, X> => {
-  const r = map.get(key)
-  if (r != null) return r
-  const m = new WeakMap<K, X>()
-  map.set(key, m)
-  return m
-}
 
 export interface Delay<X> extends PromiseLike<X> {
-  then: <Result1 = X, Result2 = never>(
-    onFullfilled?: ((value: X) => Awaitable<Result1>) | null | undefined,
-    onRejected?: ((x: unknown) => Awaitable<Result2>) | null | undefined
-  ) => Delay<Result1 | Result2>
-  value: X
+  readonly value: X
+  readonly then: <Y = X, Z = never>(
+    // fit signatures with lib.es2015.promise.d.ts
+    onfulfilled?: ((value: X) => Awaitable<Y>) | undefined | null,
+    onrejected?: ((reason: unknown) => Awaitable<Z>) | undefined | null
+  ) => Delay<Y | Z>
 }
 
-type Load<X, A extends unknown[]> = ((...a: A) => Awaitable<X>) | PromiseLike<X>
+type State<X, A extends unknown[]> =
+  | [(...a: A) => Awaitable<X>, A] // delayed
+  | PromiseLike<X> // working
+  | { then?: never; done: true; value: X } // fulfilled
+  | { then?: never; done: false; value: unknown } // rejected
 
-class DelayAsync<X, A extends unknown[]> implements Delay<X> {
-  #p: [Load<X, A>, A] | PromiseLike<X>
-  readonly #w = new WeakMap<object, WeakMap<object, Delay<unknown>>>()
-  #e: unknown
-  #r?: [X]
+class DelayImpl<X, A extends unknown[]> implements Delay<X> {
+  #state: State<X, A>
 
-  constructor(load: Load<X, A>, args: A) {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    this.#p = [load, args]
+  constructor(state: State<X, A>) {
+    this.#state = state
+    if (!Array.isArray(state) && state.then != null) void this.#connect(state)
   }
 
-  promise(): PromiseLike<X> {
-    if (!Array.isArray(this.#p)) return this.#p
-    const r = (x: X): X => (this.#r = [x])[0]
-    const e = (x: unknown): never => raise((this.#e = x))
-    this.#p = this.#e =
-      typeof this.#p[0] === 'function'
-        ? Promise.resolve(this.#p[0](...this.#p[1])).then(r, e)
-        : this.#p[0].then(r, e)
-    return this.#p
+  #connect(promise: PromiseLike<X>): PromiseLike<X> {
+    return (this.#state = promise.then(
+      (value: X): X => (this.#state = { done: true, value }).value,
+      (value: unknown): X => raise((this.#state = { done: false, value }).value)
+    ))
   }
 
-  then<Y, Z>(
-    f?: ((x: X) => Awaitable<Y>) | null | undefined,
-    g?: ((x: unknown) => Awaitable<Z>) | null | undefined
-  ): Delay<Y | Z> {
-    const memo = dig(this.#w, f ?? this)
-    const cached = memo.get(g ?? this)
-    if (cached != null) return cached as Delay<Y | Z>
-    const p = new DelayAsync(this.promise().then(f, g), [])
-    if (f != null || g != null) memo.set(g ?? this, p)
-    return p
+  #touch(): Exclude<State<X, A>, unknown[]> {
+    const state = this.#state
+    if (!Array.isArray(state)) return state
+    return this.#connect(Promise.resolve(state[0](...state[1])))
   }
 
   get value(): X {
-    void this.promise()
-    if (this.#r != null) return this.#r[0]
-    throw this.#e
-  }
-}
-
-class DelayDummy<X> implements Delay<X> {
-  #p: Delay<X> | undefined
-  declare value: X
-
-  constructor(value: X) {
-    defineProperty(this, 'value', { enumerable: true, value })
+    const state = this.#touch()
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
+    if (state.then != null) throw state
+    return state.done ? state.value : raise(state.value)
   }
 
   then<Y, Z>(
-    f?: ((x: X) => Awaitable<Y>) | null | undefined,
-    g?: ((x: unknown) => Awaitable<Z>) | null | undefined
+    onfulfilled?: ((value: X) => Awaitable<Y>) | undefined | null,
+    onrejected?: ((reason: unknown) => Awaitable<Z>) | undefined | null
   ): Delay<Y | Z> {
-    this.#p ??= new DelayAsync(Promise.resolve(this.value), [])
-    return this.#p.then(f, g)
+    const state = this.#touch()
+    const promise =
+      state.then != null
+        ? state
+        : state.done
+          ? Promise.resolve(state.value)
+          : Promise.reject(state.value)
+    return new DelayImpl(promise.then(onfulfilled, onrejected))
   }
 }
 
-const delay = (<X, A extends unknown[] = []>(
-  load: Load<X, A>,
+const delay = <X, A extends unknown[]>(
+  func: ((...args: A) => Awaitable<X>) | PromiseLike<X>,
   ...args: A
-): Delay<X> => new DelayAsync<X, A>(load, args)) as {
-  <X, A extends unknown[] = []>(load: Load<X, A>, ...args: A): Delay<X>
-  dummy: <X>(value: X) => Delay<X>
+): Delay<X> =>
+  new DelayImpl<X, A>(
+    typeof func === 'function' ? [func, args] : [() => func, args]
+  )
+
+const isAwaited = <X>(x: unknown): x is Awaited<X> =>
+  x == null || typeof (x as object as { then: unknown }).then !== 'function'
+
+const resolve = <X = void>(value?: Awaitable<X>): Delay<X> => {
+  if (isAwaited<X>(value)) return new DelayImpl<X, never>({ done: true, value })
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return new DelayImpl<X, never>(Promise.resolve(value!))
 }
-delay.dummy = <X>(value: X): Delay<X> => new DelayDummy<X>(value)
 
-defineProperty(delay, 'dummy', { configurable: false, writable: false })
+const reject = <X = never>(value?: unknown): Delay<X> =>
+  isAwaited<unknown>(value)
+    ? new DelayImpl<X, never>({ done: false, value })
+    : new DelayImpl<X, never>(Promise.reject(value))
 
-export { delay }
+const delayFull: {
+  <X>(load: PromiseLike<X>): Delay<Awaited<X>>
+  <X, A extends unknown[] = []>(
+    load: (...args: A) => Awaitable<X>,
+    ...args: A
+  ): Delay<Awaited<X>>
+  readonly resolve: {
+    // fit signatures with lib.es2015.promise.d.ts
+    (): Delay<void>
+    <X>(value: Awaitable<X>): Delay<Awaited<X>>
+  }
+  readonly reject: <X = never>(error?: unknown) => Delay<X>
+} = Object.assign(delay, { resolve, reject })
+
+export { delayFull as delay }

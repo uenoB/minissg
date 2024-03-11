@@ -58,7 +58,7 @@ export class Ref<
     // associate the instance in the root for future `ref` call
     const root = parent?.root ?? inst
     const wait = this.referees.get(root)
-    const promise = delay.dummy(inst.module)
+    const promise = delay.resolve(inst.module)
     if (wait == null) {
       this.referees.set(root, { found: inst, promise })
     } else if (wait.resolve != null) {
