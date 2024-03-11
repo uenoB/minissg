@@ -19,16 +19,17 @@ export const defineProperty = <Obj extends object, Key extends keyof Obj>(
   obj: Obj,
   key: Key,
   descriptor: Descriptor<Obj[Key]>
-): boolean => {
+): Obj => {
   const d = Object.assign(Object.create(null), descriptor) as typeof descriptor
-  return Reflect.defineProperty(obj, key, d)
+  Reflect.defineProperty(obj, key, d)
+  return obj
 }
 
 export const constProp = <Obj extends object, Key extends keyof Obj>(
   obj: Obj,
   key: Key,
   value: Obj[Key]
-): boolean =>
+): Obj =>
   defineProperty(obj, key, { configurable: true, writable: true, value })
 
 export const objectAssign = <X extends object, Y extends object>(
