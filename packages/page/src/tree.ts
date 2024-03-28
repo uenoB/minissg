@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
+import { debugTimer } from './debug'
 import { isAbsURL, defineProperty, createObject, objectAssign } from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
@@ -329,7 +330,17 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     const render1 = async (): R => await this.module.render(mod)
     const render2 = async (): R => await currentNode.run(this, render1)
     const render3 = async (): R => await this.memo.run(render2)
-    return { default: delay(render3) }
+    const render = debugTimer(render3, (debug, dt, when) => {
+      const path = `/${c.moduleName.path}`
+      if (when === 'start') {
+        debug('start rendering %s', path)
+      } else if (when === 'middle') {
+        debug('now rendering %s (+%s sec)', path, (dt / 1000).toFixed(3))
+      } else {
+        debug('rendering %s finished (%s sec)', path, (dt / 1000).toFixed(3))
+      }
+    })
+    return { default: delay(render) }
   }
 }
 

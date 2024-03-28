@@ -32,7 +32,13 @@
   "keywords": [
     "vite-plugin-minissg"
   ],
+  "dependencies": {
+    "debug": "^4.3.4"
+  },
   "peerDependencies": {
     "vite-plugin-minissg": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12"
   }
 }
