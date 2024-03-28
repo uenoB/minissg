@@ -126,15 +126,15 @@ class FileNameTransition<Next> extends Transition<Next> {
 
 export type { Transition }
 type NextPath = Readonly<RelPath>
-export type Next<Leaf> = Readonly<{ leaf: Leaf; relPath: NextPath }>
+export type Next<Abst> = Readonly<{ abst: Abst; relPath: NextPath }>
 
-export class Indices<Leaf, Asset> {
-  readonly moduleNameMap = new ModuleNameTransition<Next<Leaf>>()
-  readonly stemMap = new ModuleNameTransition<Next<Leaf>>()
-  readonly fileNameMap = new FileNameTransition<Next<Leaf | Asset>>()
+export class Indices<Abst, Asset> {
+  readonly moduleNameMap = new ModuleNameTransition<Next<Abst>>()
+  readonly stemMap = new ModuleNameTransition<Next<Abst>>()
+  readonly fileNameMap = new FileNameTransition<Next<Abst | Asset>>()
 
-  addRoute(leaf: Leaf, relPath: NextPath): void {
-    const next = { leaf, relPath }
+  addRoute(abst: Abst, relPath: NextPath): void {
+    const next = { abst, relPath }
     const moduleSteps = PathSteps.fromRelativeModuleName(relPath.moduleName)
     const stemSteps = PathSteps.fromRelativeModuleName(relPath.stem)
     const fileSteps = PathSteps.fromRelativeFileName(relPath.fileName)
@@ -144,7 +144,7 @@ export class Indices<Leaf, Asset> {
   }
 }
 
-export interface TreeLeaf<Tree, Inst = Tree> {
+export interface TreeAbst<Tree, Inst = Tree> {
   readonly instantiate: (parent: Tree, path: NextPath) => PromiseLike<Inst>
 }
 
@@ -156,7 +156,7 @@ interface TreeNode<Tree, Content> {
 
 type Content<Tree, Inst, Key extends string> =
   | ((...a: never) => unknown)
-  | PromiseLike<{ [P in Key]: Transition<Next<TreeLeaf<Tree, Inst>>> }>
+  | PromiseLike<{ [P in Key]: Transition<Next<TreeAbst<Tree, Inst>>> }>
 
 const undef = Promise.resolve(undefined)
 
@@ -206,7 +206,7 @@ export const find = <
           trie.value?.reduceRight<Cont>((cont, { next, epsilon }) => {
             return r =>
               r ??
-              next.leaf.instantiate(node, next.relPath).then(inst => {
+              next.abst.instantiate(node, next.relPath).then(inst => {
                 return epsilon
                   ? search(inst, key, final).then(cont)
                   : check(inst, key, final ?? true).then(cont)

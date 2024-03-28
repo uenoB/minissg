@@ -60,7 +60,7 @@ class AssetNode {
 
 export type { Asset, AssetNode }
 
-export class AssetLeaf<Base extends SomeInternal> {
+export class AssetAbst<Base extends SomeInternal> {
   constructor(private readonly load: (() => Awaitable<AssetModule>) | string) {}
 
   instantiate(parent: Base): PromiseLike<AssetNode> {

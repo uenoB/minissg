@@ -1,7 +1,7 @@
 import type { ModuleName } from '../../vite-plugin-minissg/src/module'
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
 import { type Delay, delay } from './delay'
-import type { Transition, Next, TreeLeaf } from './find'
+import type { Transition, Next, TreeAbst } from './find'
 import type { RelPath } from './filename'
 
 interface SomeNode {
@@ -10,7 +10,7 @@ interface SomeNode {
 interface TreeNode<Tree> extends SomeNode {
   readonly content:
     | ((...a: never) => unknown)
-    | PromiseLike<{ moduleNameMap: Transition<Next<TreeLeaf<Tree>>> }>
+    | PromiseLike<{ moduleNameMap: Transition<Next<TreeAbst<Tree>>> }>
   readonly findChild: () => PromiseLike<Tree | undefined>
   readonly parent: Tree | undefined
   readonly root: Tree
@@ -118,7 +118,7 @@ const descendants = <Tree extends TreeNode<Tree>, Inst extends SomeNode>(
     const k = (i: number): Awaitable<void> => {
       const next = branches[i]
       if (next == null) return skip.then(last).then(cont)
-      return next.leaf
+      return next.abst
         .instantiate(tree, next.relPath)
         .then(node => descendants(node, wait, except, queue, () => k(i + 1)))
     }

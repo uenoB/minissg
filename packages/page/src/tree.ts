@@ -8,7 +8,7 @@ import { Memo } from './memo'
 import { PathSteps, FileName, concatName, concatFileName } from './filename'
 import type { RelPath } from './filename'
 import { type Next, Indices, find } from './find'
-import type { Asset, AssetNode, AssetLeaf } from './asset'
+import type { Asset, AssetNode, AssetAbst } from './asset'
 import { Ref } from './ref'
 
 export type MainModule = Readonly<{ main: minissg.Main }>
@@ -21,10 +21,10 @@ export const isMinissgMainModule = (x: unknown): x is MainModule =>
 
 type TreeImpl<Base, This extends Base, Impl> =
   | TreeNodeImpl<Base, This, Impl>
-  | TreeLeafImpl<Base, This, Impl>
+  | TreeAbstImpl<Base, This, Impl>
 
 const currentNode = new AsyncLocalStorage<TreeNode<unknown>>()
-const internal = new WeakMap<object, TreeNode<unknown> | TreeLeaf<unknown>>()
+const internal = new WeakMap<object, TreeNode<unknown> | TreeAbst<unknown>>()
 
 const setTree = <Base, This extends Base, Impl>(
   tree: TreeImpl<Base, This, Impl>,
@@ -33,17 +33,17 @@ const setTree = <Base, This extends Base, Impl>(
 
 const getTree = (
   obj: object
-): TreeNode<unknown> | TreeLeaf<unknown> | undefined => internal.get(obj)
+): TreeNode<unknown> | TreeAbst<unknown> | undefined => internal.get(obj)
 
 const isTreeNodeOf = <Base>(
   x: TreeNode<unknown>,
   Base_: abstract new (...a: never) => Base
 ): x is TreeNode<Base> => x.module instanceof Base_
 
-const isTreeLeafOf = <Base>(
-  x: TreeLeaf<unknown>,
+const isTreeAbstOf = <Base>(
+  x: TreeAbst<unknown>,
   Base_: abstract new (...a: never) => Base
-): x is TreeLeaf<Base> => x.basis instanceof Base_
+): x is TreeAbst<Base> => x.basis instanceof Base_
 
 const getTreeImpl = <Base, This extends Base, Impl>(
   obj: Tree<Base, This, Impl>
@@ -124,9 +124,9 @@ const findByPath = async <Base>(
       if (typeof node.content === 'function') return undefined
       const routes = Array.from((await node.content).moduleNameMap.routes())
       nodes = []
-      for (const { leaf, relPath } of routes) {
+      for (const { abst, relPath } of routes) {
         if (relPath.moduleName === step) {
-          nodes.push(await leaf.instantiate(node, relPath))
+          nodes.push(await abst.instantiate(node, relPath))
         }
       }
     } else if (step === 0) {
@@ -155,7 +155,7 @@ const subnodes = async function* <Base>(
   for (const { trie } of Array.from(index.walk(dir ? [''] : [])).reverse()) {
     for (const { next, epsilon } of trie.value ?? []) {
       if (!epsilon || (next.relPath?.moduleName ?? '') === '') {
-        yield await next.leaf.instantiate(self, next.relPath)
+        yield await next.abst.instantiate(self, next.relPath)
       }
     }
   }
@@ -180,8 +180,8 @@ const findChild = async <Base, This extends Base, Impl>(
   const moduleName = self.moduleName
   let context: minissg.Context = self
   while (typeof mod === 'object' && mod != null) {
-    const leaf = self._leaf.getTreeLeaf(mod)
-    if (leaf != null) return await leaf.instantiate(self, null)
+    const abst = self._abst.getTreeAbst(mod)
+    if (abst != null) return await abst.instantiate(self, null)
     if (!hasMinissgMain(mod)) break
     context = Object.freeze({ moduleName, module: mod, parent: context })
     mod = await mod.main(context)
@@ -211,12 +211,12 @@ const fetch = async <Base>(self: TreeNode<Base>): Promise<unknown> => {
 }
 
 const children = async <Base>(
-  self: TreeNode<Base> | TreeLeaf<Base>
+  self: TreeNode<Base> | TreeAbst<Base>
 ): Promise<Iterable<Next<Base>>> => {
   if (typeof self.content === 'function') return []
   const routes = (await self.content).moduleNameMap.routes()
   return (function* iterator(): Iterable<Next<Base>> {
-    for (const { leaf, relPath } of routes) yield { leaf: leaf.basis, relPath }
+    for (const { abst, relPath } of routes) yield { abst: abst.basis, relPath }
   })()
 }
 
@@ -224,15 +224,15 @@ const entries = async <Base>(self: TreeNode<Base>): Promise<minissg.Module> => {
   if (typeof self.content === 'function') return []
   const routes = (await self.content).moduleNameMap.routes()
   return (function* iterator(): Iterable<[string, Awaitable<minissg.Module>]> {
-    for (const { leaf, relPath } of routes) {
+    for (const { abst, relPath } of routes) {
       const mod = async (): Promise<MainModule> =>
-        (await leaf.instantiate(self, relPath)).module
+        (await abst.instantiate(self, relPath)).module
       yield [relPath.moduleName ?? '', delay(mod)]
     }
   })()
 }
 
-export type Dir<Base> = Indices<TreeLeaf<Base>, AssetLeaf<TreeNode<Base>>>
+export type Dir<Base> = Indices<TreeAbst<Base>, AssetAbst<TreeNode<Base>>>
 
 // these are private in each node and therefore safely hidden from other nodes.
 type Public<X> = Omit<X, 'content' | 'module' | 'basis' | `_${string}`>
@@ -243,8 +243,8 @@ export interface TreeNode<Base>
   readonly content: ((...a: never) => unknown) | PromiseLike<Dir<Base>>
 }
 
-export interface TreeLeaf<Base>
-  extends Public<TreeLeafImpl<Base, Base, unknown>> {
+export interface TreeAbst<Base>
+  extends Public<TreeAbstImpl<Base, Base, unknown>> {
   readonly basis: Base & MainModule
   readonly content: ((...a: never) => unknown) | PromiseLike<Dir<Base>>
 }
@@ -264,15 +264,15 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   readonly parent: TreeNode<Base> | undefined
   readonly root: TreeNode<Base>
   readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
-  readonly _leaf: TreeLeafImpl<Base, This, Impl>
+  readonly _abst: TreeAbstImpl<Base, This, Impl>
   readonly module: This & NodeMethod<Impl> & InstProps<Base>
 
   constructor(
     relPath: Readonly<RelPath> | null,
-    arg: Pick<TreeNodeImpl<Base, This, Impl>, '_leaf' | 'content' | 'parent'>
+    arg: Pick<TreeNodeImpl<Base, This, Impl>, '_abst' | 'content' | 'parent'>
   ) {
-    const { _leaf, content, parent } = arg
-    const rootURL = parent?.root?.url ?? _leaf.rootURL ?? 'file:'
+    const { _abst, content, parent } = arg
+    const rootURL = parent?.root?.url ?? _abst.rootURL ?? 'file:'
     this.memo = parent?.memo ?? new Memo()
     this.moduleName = concatName(parent?.moduleName, relPath?.moduleName)
     this.stem = concatName(parent?.stem, relPath?.stem)
@@ -282,8 +282,8 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     this.parent = parent
     this.root = parent?.root ?? this
     this.content = content
-    this._leaf = _leaf
-    const inst = createObject(_leaf.basis)
+    this._abst = _abst
+    const inst = createObject(_abst.basis)
     setTree(this, inst)
     const props: InstProps<Base> = {
       moduleName: this.moduleName.path,
@@ -317,7 +317,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   }
 
   async main(c: Readonly<minissg.Context>): Promise<minissg.Module> {
-    const parent = this._leaf.findParent(c, this.module)
+    const parent = this._abst.findParent(c, this.module)
     if (parent !== this.parent) throw Error('parent page mismatch')
     if (c.moduleName.path !== this.moduleName.path) throw Error('name mismatch')
     const content = this.content
@@ -344,12 +344,12 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   }
 }
 
-type TreeLeafArg<Base, This extends Base, Impl> = Pick<
-  TreeLeafImpl<Base, This, Impl>,
+type TreeAbstArg<Base, This extends Base, Impl> = Pick<
+  TreeAbstImpl<Base, This, Impl>,
   'rootURL' | 'fileName' | 'basis' | 'content' | 'Base'
 >
 
-export class TreeLeafImpl<Base, This extends Base, Impl> {
+export class TreeAbstImpl<Base, This extends Base, Impl> {
   readonly rootURL: Readonly<URL> | undefined
   readonly fileName: FileName
   readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
@@ -361,7 +361,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     TreeNodeImpl<Base, This, Impl>
   >()
 
-  constructor(arg: TreeLeafArg<Base, This, Impl>) {
+  constructor(arg: TreeAbstArg<Base, This, Impl>) {
     this.rootURL = arg.rootURL
     this.fileName = arg.fileName
     this.content = arg.content
@@ -398,10 +398,10 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     return isTreeNodeOf(tree, this.Base) ? tree : undefined
   }
 
-  getTreeLeaf(x: object): TreeLeaf<Base> | undefined {
+  getTreeAbst(x: object): TreeAbst<Base> | undefined {
     const tree = getTree(x)
     if (typeof tree !== 'object' || tree?.memo != null) return undefined
-    return tree != null && isTreeLeafOf(tree, this.Base) ? tree : undefined
+    return tree != null && isTreeAbstOf(tree, this.Base) ? tree : undefined
   }
 
   findParent(
@@ -433,16 +433,16 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
     parent: TreeNode<Base> | undefined,
     relPath: Readonly<RelPath> | null
   ): TreeNodeImpl<Base, This, Impl> {
-    const arg = { _leaf: this, content: this.content, parent }
+    const arg = { _abst: this, content: this.content, parent }
     const tree = new TreeNodeImpl(relPath, arg)
     return tree
   }
 
   static decorate<Base, This extends Base & NodeMethod<Impl> & NodeProps, Impl>(
-    arg: TreeLeafArg<Base, This, Impl>
-  ): TreeLeafImpl<Base, This, Impl> {
+    arg: TreeAbstArg<Base, This, Impl>
+  ): TreeAbstImpl<Base, This, Impl> {
     const node: This = Object.create(arg.basis) as typeof arg.basis
-    const tree = new TreeLeafImpl({ ...arg, basis: node })
+    const tree = new TreeAbstImpl({ ...arg, basis: node })
     setTree(tree, node)
     return tree
   }
@@ -452,7 +452,7 @@ export class TreeLeafImpl<Base, This extends Base, Impl> {
   }
 
   static createDirectory<Base>(): Dir<Base> {
-    return new Indices<TreeLeaf<Base>, AssetLeaf<TreeNode<Base>>>()
+    return new Indices<TreeAbst<Base>, AssetAbst<TreeNode<Base>>>()
   }
 
   declare readonly memo: undefined

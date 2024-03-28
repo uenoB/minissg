@@ -4,9 +4,9 @@ import { type Pairs, type List, iteratePairs, listItems } from './items'
 import { constProp } from './util'
 import { type Delay, delay } from './delay'
 import { type RelPath, PathSteps, concatFileName } from './filename'
-import { type Asset, type AssetModule, AssetLeaf } from './asset'
+import { type Asset, type AssetModule, AssetAbst } from './asset'
 import type { Loaded, MainModule, Dir, TreeNode, Inst } from './tree'
-import { Tree, TreeLeafImpl } from './tree'
+import { Tree, TreeAbstImpl } from './tree'
 
 const dummyRelPath: Readonly<RelPath> = {
   moduleName: '',
@@ -64,13 +64,13 @@ class PageFactory<
   Args extends unknown[]
 > {
   readonly basis: This
-  readonly leaf: TreeLeafImpl<Base, This, Impl>
+  readonly abst: TreeAbstImpl<Base, This, Impl>
 
   constructor(
     This: PageConstructor<Base, This, Args>,
     arg: NewArg<Base, This, Impl>,
     args: Args,
-    content: TreeLeafImpl<Base, This, Impl>['content']
+    content: TreeAbstImpl<Base, This, Impl>['content']
   ) {
     this.basis = new This(...args)
     if (arg.parsePath != null) {
@@ -87,35 +87,35 @@ class PageFactory<
     }
     const init = {
       rootURL: arg.url != null ? new URL(arg.url) : undefined,
-      fileName: TreeLeafImpl.currentFileName(),
+      fileName: TreeAbstImpl.currentFileName(),
       basis: this.basis,
       content,
       Base: This.Base
     }
-    this.leaf = TreeLeafImpl.decorate<Base, This, Impl>(init)
+    this.abst = TreeAbstImpl.decorate<Base, This, Impl>(init)
   }
 
   createSubpage(
     dir: Dir<Base>,
-    content: TreeLeafImpl<Base, This, Impl>['content'],
+    content: TreeAbstImpl<Base, This, Impl>['content'],
     relPath: Readonly<RelPath>
-  ): TreeLeafImpl<Base, This, Impl> {
+  ): TreeAbstImpl<Base, This, Impl> {
     const arg = {
-      rootURL: this.leaf.rootURL,
-      fileName: concatFileName(this.leaf.fileName, relPath?.fileName),
+      rootURL: this.abst.rootURL,
+      fileName: concatFileName(this.abst.fileName, relPath?.fileName),
       basis: this.basis,
       content,
-      Base: this.leaf.Base
+      Base: this.abst.Base
     }
-    const leaf = TreeLeafImpl.decorate(arg)
-    dir.addRoute(leaf, relPath)
-    return leaf
+    const abst = TreeAbstImpl.decorate(arg)
+    dir.addRoute(abst, relPath)
+    return abst
   }
 
   async createModuleDirectory(
     arg: Readonly<ModuleArg<Base, This, Impl>>
   ): Promise<Dir<Base>> {
-    const dir = TreeLeafImpl.createDirectory<Base>()
+    const dir = TreeAbstImpl.createDirectory<Base>()
     const substPath = (path: string): Awaitable<string> =>
       arg.substitutePath != null
         ? Reflect.apply(arg.substitutePath, this.basis, [path])
@@ -135,9 +135,9 @@ class PageFactory<
             fileName: PathSteps.normalize(path)
           }
         }
-        const leaf = this.leaf.getTreeLeaf(load)
-        if (leaf != null) {
-          dir.addRoute(leaf, relPath)
+        const abst = this.abst.getTreeAbst(load)
+        if (abst != null) {
+          dir.addRoute(abst, relPath)
         } else if (typeof load === 'function') {
           this.createSubpage(dir, load, relPath)
         } else {
@@ -148,8 +148,8 @@ class PageFactory<
     if (arg.assets != null) {
       for await (const [path, load] of iteratePairs(arg.assets, this.basis)) {
         const loader = load ?? (await substPath(path))
-        const leaf = new AssetLeaf<TreeNode<Base>>(loader)
-        const pair = { leaf, relPath: dummyRelPath }
+        const abst = new AssetAbst<TreeNode<Base>>(loader)
+        const pair = { abst, relPath: dummyRelPath }
         dir.fileNameMap.addRoute(PathSteps.fromRelativeFileName(path), pair)
       }
     }
@@ -159,18 +159,18 @@ class PageFactory<
   async createPaginateDirectory<Item>(
     arg: Readonly<PaginateArg<Item, Base, This, Impl>>
   ): Promise<Dir<Base>> {
-    const dir = TreeLeafImpl.createDirectory<Base>()
+    const dir = TreeAbstImpl.createDirectory<Base>()
     const rawPageSize = arg.pageSize ?? 10
     const pageSize = rawPageSize >= 1 ? rawPageSize : 1
     const load = arg.load
-    const allItems = await listItems(arg.items, this.leaf.basis)
+    const allItems = await listItems(arg.items, this.abst.basis)
     const numAllItems = allItems.length
     const numPages = Math.ceil(numAllItems / pageSize)
     const pages: Array<Paginate<Item, This>> = []
     for (let pageIndex = 0; pageIndex < numPages; pageIndex++) {
       const itemIndex = pageIndex * pageSize
       const items = allItems.slice(itemIndex, itemIndex + pageSize)
-      const relPath = this.leaf.basis.paginatePath(pageIndex)
+      const relPath = this.abst.basis.paginatePath(pageIndex)
       const page = undefined as unknown as This // dummy
       const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
       const content = (): Loaded<Impl> => Reflect.apply(load, pagi.page, [pagi])
@@ -203,7 +203,7 @@ export class Page<
     type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
     const dir = delay(async () => await factory.createModuleDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
-    return factory.leaf.basis
+    return factory.abst.basis
   }
 
   static paginate<
@@ -220,7 +220,7 @@ export class Page<
     type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
     const dir = delay(async () => await factory.createPaginateDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
-    return factory.leaf.basis
+    return factory.abst.basis
   }
 
   parsePath(fileName: string): ParsePath {
