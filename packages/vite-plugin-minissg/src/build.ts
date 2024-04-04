@@ -155,8 +155,7 @@ export const buildPlugin = (
         sources: site.entries(),
         destination: new Map<string, Rollup.ResolvedId | null>(),
         map: async ([name, id]) => {
-          const preserveSignature = 'strict' as const
-          this.emitFile({ type: 'chunk', id, preserveSignature })
+          this.emitFile({ type: 'chunk', id, preserveSignature: 'strict' })
           const r = await this.resolve(id, undefined, { isEntry: true })
           if (r?.external === false) entryCount++
           return [name, r] as const

@@ -100,7 +100,7 @@ export default [
     rules: modificationToStandardJs
   }),
   ...expand({
-    extends: 'standard-with-typescript',
+    extends: 'love',
     files: ['**/*.ts'],
     rules: modificationToStandardTs
   }),

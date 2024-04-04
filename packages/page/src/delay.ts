@@ -47,6 +47,7 @@ class DelayImpl<X, A extends unknown[]> implements Delay<X> {
     onfulfilled?: ((value: X) => Awaitable<Y>) | undefined | null,
     onrejected?: ((reason: unknown) => Awaitable<Z>) | undefined | null
   ): Delay<Y | Z> {
+    /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
     const state = this.#touch()
     const promise =
       state.then != null
@@ -55,6 +56,7 @@ class DelayImpl<X, A extends unknown[]> implements Delay<X> {
           ? Promise.resolve(state.value)
           : Promise.reject(state.value)
     return new DelayImpl(promise.then(onfulfilled, onrejected))
+    /* eslint-enable */
   }
 }
 
@@ -75,10 +77,12 @@ const resolve = <X = void>(value?: Awaitable<X>): Delay<X> => {
   return new DelayImpl<X, never>(Promise.resolve(value!))
 }
 
+/* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
 const reject = <X = never>(value?: unknown): Delay<X> =>
   isAwaited<unknown>(value)
     ? new DelayImpl<X, never>({ done: false, value })
     : new DelayImpl<X, never>(Promise.reject(value))
+/* eslint-enable */
 
 const delayFull: {
   <X>(load: PromiseLike<X>): Delay<Awaited<X>>
