@@ -392,7 +392,7 @@ Intuitively:
 
 1. A module may have `main` function that returns another module.
    This allows the module to delegate file generation to another
-   module.
+   module, which is possibly dynamically created.
 2. A module may also have `default` value that gives Minissg the
    content of a destination file.
    The content can be given in several forms including string,
@@ -414,7 +414,7 @@ Intuitively:
    See [Static Routing](#static-routing) section below for the details
    of name concatination.
 
-Empty module is regarded as `{ default: undefined }`.
+Empty modules are simply ignored.
 
 Through the `main` functions and mapping objects, the collection of
 modules constitute a tree structure.

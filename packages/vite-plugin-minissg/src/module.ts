@@ -115,8 +115,7 @@ export const run = async (
         const context = { ...con, moduleName, module, path, parent: con }
         return { context: Object.freeze(context), loaded: newLoaded }
       })
-      const subtrees = (await Promise.all(children)).filter(isNotNull)
-      return subtrees.length > 0 || children.length > 0 ? subtrees : null
+      return (await Promise.all(children)).filter(isNotNull)
     },
     map: x => x,
     reduce: ({ context: con, loaded }, z) => {
