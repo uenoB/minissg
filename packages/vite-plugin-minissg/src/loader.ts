@@ -14,7 +14,7 @@ const CLIENT = Query.Class('client')
 const HYDRATE = Query.Class('hydrate')
 const RENDER = Query.Class('render')
 const RENDERER = Query.Class('renderer')
-const MARK = Query.Class('MINISSG-MARK')
+const COPY = Query.Class('MINISSG-COPY')
 
 type Side = 'client' | 'server'
 const coerceSide = (s: string | boolean | undefined): Side =>
@@ -137,7 +137,7 @@ export const loaderPlugin = (
         }
         const ssr = inSSR && !site.isAsset(r.id)
         const prev = isInSSR.get(r.id)
-        if (prev != null && prev !== ssr) r = { ...r, id: MARK.add(r.id) }
+        if (prev != null && prev !== ssr) r = { ...r, id: COPY.add(r.id) }
         isInSSR.set(r.id, ssr)
         return r
       }

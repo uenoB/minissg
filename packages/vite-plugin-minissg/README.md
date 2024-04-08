@@ -1381,7 +1381,7 @@ The association must be specified in one of the following forms:
 * It is possible to import the same file both in server-side and
   client-side, but it may cause some problems in building related to
   some Rollup plugins.
-  Minissg sometimes add `?MINISSG-MARK` query at the end of file
+  Minissg sometimes add `?MINISSG-COPY` query at the end of file
   names and duplicate codes in order to separate server-side codes
   from client-side resources.
   This changes the suffix of a file name, preventing some Rollup
@@ -1391,11 +1391,11 @@ The association must be specified in one of the following forms:
   cause this issue.
 
   If you encounter this issue and want to avoid it, configure plugins
-  so that they can accept files even with the `?MINISSG-MARK` suffix.
+  so that they can accept files even with the `?MINISSG-DUP` suffix.
   For example, set the following options to `@mdx-js/rollup`:
 
   ```js
-  mdx({ mdxExtensions: ['.mdx', '.mdx?MINISSG-MARK' ] })
+  mdx({ mdxExtensions: ['.mdx', '.mdx?MINISSG-DUP' ] })
   ```
 
 * Minissg often prevents Vite's optimizeDeps feature from working as
