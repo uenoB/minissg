@@ -20,7 +20,7 @@ export default defineConfig({
       plugins: () => [
         preact(),
         mdx({
-          mdxExtensions: ['.mdx', '.mdx?MINISSG-MARK'],
+          mdxExtensions: ['.mdx', '.mdx?MINISSG-COPY'],
           jsxImportSource: 'preact',
           remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter]
         })
