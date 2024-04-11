@@ -409,9 +409,7 @@ test('Page.module with url', async () => {
   const r = Page.module({ url: 'http://example.com/foo/' })
   const dummyContext = { moduleName: ModuleName.root, module: {} }
   const p = (await r.main(dummyContext)) as Page
-  await expect(p.url).resolves.toMatchObject({
-    href: 'http://example.com/foo/'
-  })
+  expect(p.url).toMatchObject({ href: 'http://example.com/foo/' })
 })
 
 test('new Page', () => {

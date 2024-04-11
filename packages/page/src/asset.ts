@@ -1,59 +1,36 @@
-import type { Awaitable } from '../../vite-plugin-minissg/src/util'
+import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import { constProp } from './util'
 import { type Delay, delay } from './delay'
-import type { Memo } from './memo'
 
 interface SomeInternal {
   readonly root: SomeInternal
   readonly url: Readonly<URL> | undefined
-  readonly memo: Memo
 }
 
 export interface AssetModule {
   readonly default: string
 }
 
-const assetURL = async (
-  load: Delay<AssetModule>,
-  origin: string
-): Promise<Readonly<URL>> =>
-  Object.freeze(new URL((await load).default, origin))
-
 class Asset {
-  readonly url: Delay<Readonly<URL>>
-
-  constructor(
-    origin: string,
-    load: (() => Awaitable<AssetModule>) | string,
-    memo: Memo | undefined
-  ) {
-    this.url =
-      typeof load === 'string'
-        ? delay.resolve(Object.freeze(new URL(load, origin)))
-        : memo == null
-          ? delay(assetURL, delay(load), origin)
-          : memo.memoize(assetURL, memo.memoize(load), origin)
-  }
+  constructor(readonly url: Readonly<URL>) {}
 
   declare readonly ref: () => Delay<undefined>
   declare readonly type: 'asset'
   static {
-    const dummyURL = delay.resolve(Object.freeze(new URL('file:')))
     const undef = delay.resolve(undefined)
-    constProp(this.prototype, 'url', dummyURL)
     constProp(this.prototype, 'ref', () => undef)
     constProp(this.prototype, 'type', 'asset')
   }
 }
 
 class AssetNode {
-  constructor(readonly module: Asset) {}
+  constructor(readonly module: PromiseLike<Asset>) {}
 
   declare readonly findChild: () => PromiseLike<undefined>
   declare readonly content: undefined
   static {
-    const undef = (): PromiseLike<undefined> => Promise.resolve(undefined)
-    constProp(this.prototype, 'findChild', undef)
+    const findChild = (): PromiseLike<undefined> => Promise.resolve(undefined)
+    constProp(this.prototype, 'findChild', findChild)
     constProp(this.prototype, 'content', undefined)
   }
 }
@@ -65,7 +42,12 @@ export class AssetAbst<Base extends SomeInternal> {
 
   instantiate(parent: Base): PromiseLike<AssetNode> {
     const origin = new URL('/', parent.root.url).href
-    const node = new AssetNode(new Asset(origin, this.load, parent.memo))
-    return Promise.resolve(node)
+    const load = this.load
+    const relPath =
+      typeof load === 'string' ? () => load : async () => (await load()).default
+    const asset = lazy(
+      async () => new Asset(Object.freeze(new URL(await relPath(), origin)))
+    )
+    return Promise.resolve(new AssetNode(asset))
   }
 }

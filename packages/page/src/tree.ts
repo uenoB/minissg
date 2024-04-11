@@ -289,7 +289,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
       moduleName: this.moduleName.path,
       stem: this.stem.path,
       variant: this.variant.path,
-      url: delay.resolve(this.url),
+      url: this.url,
       parent: this.parent?.module,
       root: this.root.module
     }
@@ -466,7 +466,7 @@ interface InstProps<Base> {
   readonly moduleName: string
   readonly stem: string
   readonly variant: string
-  readonly url: Delay<Readonly<URL>>
+  readonly url: Readonly<URL>
   readonly parent: Base | undefined
   readonly root: Base
 }
