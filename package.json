@@ -13,6 +13,7 @@
   "pnpm": {
     "overrides": {
       "vite-plugin-minissg": "workspace:^",
+      "@minissg/page": "workspace:^",
       "@minissg/render-preact": "workspace:^",
       "@minissg/render-react": "workspace:^",
       "@minissg/render-solid": "workspace:^",
