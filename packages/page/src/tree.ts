@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type * as minissg from '../../vite-plugin-minissg/src/module'
-import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
+import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import { debugTimer } from './debug'
-import { isAbsURL, defineProperty, createObject, objectAssign } from './util'
+import * as u from './util'
 import { type Delay, delay } from './delay'
 import { Memo } from './memo'
 import { PathSteps, FileName, concatName, concatFileName } from './filename'
@@ -50,13 +50,11 @@ const getTreeImpl = <Base, This extends Base, Impl>(
 ): TreeImpl<Base, This, Impl> | undefined =>
   internal.get(obj) as TreeImpl<Base, This, Impl> | undefined
 
-const unavailable = (): never => raise(Error('not available'))
-
 const getTreeNodeImpl = <Base, This extends Base, Impl>(
   x: Tree<Base, This, Impl>
 ): TreeNodeImpl<Base, This, Impl> => {
   const tree = getTreeImpl(x)
-  return tree?.memo != null ? tree : unavailable()
+  return tree?.memo != null ? tree : u.unavailable()
 }
 
 const findByModuleName = async <Base>(
@@ -87,7 +85,7 @@ const findByBoth = async <Base>(
   self: TreeNode<Base>,
   path: string
 ): Promise<Inst<Base> | Asset | undefined> => {
-  if (isAbsURL(path)) return undefined
+  if (u.isAbsURL(path)) return undefined
   return (
     (await self.memo.memoize(findByModuleName, self, path)) ??
     (await self.memo.memoize(findByFileName, self, path))
@@ -260,7 +258,7 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
   readonly stem: minissg.ModuleName
   readonly variant: minissg.ModuleName
   readonly fileName: FileName
-  readonly url: Readonly<URL>
+  readonly url: Readonly<URL> | undefined
   readonly parent: TreeNode<Base> | undefined
   readonly root: TreeNode<Base>
   readonly content: ((module: This) => Loaded<Impl>) | PromiseLike<Dir<Base>>
@@ -272,28 +270,31 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     arg: Pick<TreeNodeImpl<Base, This, Impl>, '_abst' | 'content' | 'parent'>
   ) {
     const { _abst, content, parent } = arg
-    const rootURL = parent?.root?.url ?? _abst.rootURL ?? 'file:'
+    const rootURL = parent?.root?.url ?? _abst.rootURL
     this.memo = parent?.memo ?? new Memo()
     this.moduleName = concatName(parent?.moduleName, relPath?.moduleName)
     this.stem = concatName(parent?.stem, relPath?.stem)
     this.variant = concatName(parent?.variant, relPath?.variant)
     this.fileName = concatFileName(parent?.fileName, relPath?.fileName)
-    this.url = Object.freeze(new URL(this.moduleName.path, rootURL))
+    this.url =
+      rootURL != null
+        ? Object.freeze(new URL(this.moduleName.path, rootURL))
+        : undefined
     this.parent = parent
     this.root = parent?.root ?? this
     this.content = content
     this._abst = _abst
-    const inst = createObject(_abst.basis)
+    const inst = u.createObject(_abst.basis)
     setTree(this, inst)
-    const props: InstProps<Base> = {
-      moduleName: this.moduleName.path,
-      stem: this.stem.path,
-      variant: this.variant.path,
-      url: this.url,
-      parent: this.parent?.module,
-      root: this.root.module
+    const props = {
+      moduleName: { value: this.moduleName.path },
+      stem: { value: this.stem.path },
+      variant: { value: this.variant.path },
+      url: this.url != null ? { value: this.url } : { get: u.unavailable },
+      parent: { value: this.parent?.module },
+      root: { value: this.root.module }
     }
-    this.module = objectAssign(inst, props)
+    this.module = u.defineProperties(inst, props)
   }
 
   ref(): Delay<Inst<Base, This>> {
@@ -479,12 +480,12 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
   declare readonly parent: unknown
   declare readonly root: unknown
   static {
-    defineProperty(this.prototype, 'moduleName', { get: unavailable })
-    defineProperty(this.prototype, 'stem', { get: unavailable })
-    defineProperty(this.prototype, 'variant', { get: unavailable })
-    defineProperty(this.prototype, 'url', { get: unavailable })
-    defineProperty(this.prototype, 'parent', { get: unavailable })
-    defineProperty(this.prototype, 'root', { get: unavailable })
+    u.defineProperty(this.prototype, 'moduleName', { get: u.unavailable })
+    u.defineProperty(this.prototype, 'stem', { get: u.unavailable })
+    u.defineProperty(this.prototype, 'variant', { get: u.unavailable })
+    u.defineProperty(this.prototype, 'url', { get: u.unavailable })
+    u.defineProperty(this.prototype, 'parent', { get: u.unavailable })
+    u.defineProperty(this.prototype, 'root', { get: u.unavailable })
   }
 
   get fileName(): string {
@@ -492,11 +493,11 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
   }
 
   get ref(): Delay<Inst<Base, This>> {
-    return (getTreeImpl(this) ?? unavailable()).ref()
+    return (getTreeImpl(this) ?? u.unavailable()).ref()
   }
 
   get children(): Delay<Iterable<Next<Base>>> {
-    return (getTreeImpl(this) ?? unavailable()).children()
+    return (getTreeImpl(this) ?? u.unavailable()).children()
   }
 
   findByModuleName(path: string): Delay<Inst<Base> | undefined> {
@@ -536,12 +537,12 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
   }
 
   load(): Delay<Impl | undefined> {
-    const tree = getTreeImpl(this) ?? unavailable()
+    const tree = getTreeImpl(this) ?? u.unavailable()
     return tree.load() ?? delay.resolve(undefined)
   }
 
   fetch(): Delay<unknown> {
-    const tree = getTreeImpl(this) ?? unavailable()
+    const tree = getTreeImpl(this) ?? u.unavailable()
     return tree.fetch() ?? delay.resolve(undefined)
   }
 
@@ -554,7 +555,7 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
   }
 
   main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
-    return getTreeImpl(this)?.main(context) ?? unavailable()
+    return getTreeImpl(this)?.main(context) ?? u.unavailable()
   }
 
   render(this: Inst<Base, This>, module: Impl): Awaitable<minissg.Content> {

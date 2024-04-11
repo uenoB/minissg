@@ -7,6 +7,10 @@ export const isAbsURL = (url: string): boolean => {
   }
 }
 
+export const unavailable = (): never => {
+  throw Error('not available')
+}
+
 export const createObject = <X extends object>(x: X): X => Object.create(x) as X
 
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
@@ -32,11 +36,11 @@ export const constProp = <Obj extends object, Key extends keyof Obj>(
 ): Obj =>
   defineProperty(obj, key, { configurable: true, writable: true, value })
 
-export const objectAssign = <X extends object, Y extends object>(
+export const defineProperties = <X extends object, Y extends object>(
   obj: X,
-  src: Y
+  src: { [K in keyof Y]: Descriptor<Y[K]> }
 ): X & Y => {
   const dst: X & Y = obj as X & Y
-  for (const k in src) defineProperty(dst, k, { value: src[k] })
+  for (const k in src) defineProperty(dst, k, src[k])
   return dst
 }
