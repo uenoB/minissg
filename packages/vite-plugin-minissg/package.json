@@ -15,11 +15,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.cjs"
     },
-    "./renderer/*": {
-      "types": "./dist/renderer/*.d.ts",
-      "import": "./dist/renderer/*.js",
-      "default": "./dist/renderer/*.cjs"
-    },
     "./client": {
       "types": "./client.d.ts"
     },
