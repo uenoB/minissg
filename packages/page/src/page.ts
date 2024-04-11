@@ -1,5 +1,6 @@
 import type * as minissg from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
+import { lazy } from '../../vite-plugin-minissg/src/util'
 import { type Pairs, type List, iteratePairs, listItems } from './items'
 import { constProp } from './util'
 import { type Delay, delay } from './delay'
@@ -201,7 +202,7 @@ export class Page<
     ...args: Args
   ): This {
     type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
-    const dir = delay(async () => await factory.createModuleDirectory(arg))
+    const dir = lazy(async () => await factory.createModuleDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
     return factory.abst.basis
   }
@@ -218,7 +219,7 @@ export class Page<
     ...args: Args
   ): This {
     type F = PageFactory<Base, Page<Impl, Base> & This, Impl, Args>
-    const dir = delay(async () => await factory.createPaginateDirectory(arg))
+    const dir = lazy(async () => await factory.createPaginateDirectory(arg))
     const factory: F = new PageFactory(this, arg, args, dir)
     return factory.abst.basis
   }

@@ -19,9 +19,8 @@ class Asset {
   declare readonly ref: () => Delay<undefined>
   declare readonly type: 'asset'
   static {
-    const undef = delay.resolve(undefined)
     defineProperty(this.prototype, 'url', { get: unavailable })
-    constProp(this.prototype, 'ref', () => undef)
+    constProp(this.prototype, 'ref', () => delay.resolve(undefined))
     constProp(this.prototype, 'type', 'asset')
   }
 }

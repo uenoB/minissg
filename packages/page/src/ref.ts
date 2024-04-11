@@ -1,6 +1,5 @@
 import type { ModuleName } from '../../vite-plugin-minissg/src/module'
-import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
-import { type Delay, delay } from './delay'
+import { type Awaitable, raise, lazy } from '../../vite-plugin-minissg/src/util'
 import type { Transition, Next, TreeAbst } from './find'
 import type { RelPath } from './filename'
 
@@ -20,7 +19,7 @@ interface TreeNode<Tree> extends SomeNode {
 interface Wait<Inst extends SomeNode> {
   resolve?: ((x: Inst['module'] | undefined) => void) | undefined
   reject?: ((x: unknown) => void) | undefined
-  promise?: Delay<Inst['module']> | undefined
+  promise?: PromiseLike<Inst['module']> | undefined
   found?: Inst
 }
 
@@ -58,7 +57,7 @@ export class Ref<
     // associate the instance in the root for future `ref` call
     const root = parent?.root ?? inst
     const wait = this.referees.get(root)
-    const promise = delay.resolve(inst.module)
+    const promise = Promise.resolve(inst.module)
     if (wait == null) {
       this.referees.set(root, { found: inst, promise })
     } else if (wait.resolve != null) {
@@ -72,16 +71,16 @@ export class Ref<
     return inst
   }
 
-  ref(current: Tree | undefined): Delay<Inst['module']> {
+  ref(current: Tree | undefined): PromiseLike<Inst['module']> {
     // ref must be created in a tree context
-    if (current == null) return delay(() => raise(error()))
+    if (current == null) return lazy(() => raise(error()))
     // search for the instance in the current tree
     const item = this.referees.get(current.root)
     // if we already have a promise, reuse it
     if (item?.promise != null) return item.promise
     // create a new promise that will be fulfilled with the instance
     const wait: Wait<Inst> = {}
-    wait.promise = delay((): Awaitable<Inst['module']> => {
+    wait.promise = lazy((): Awaitable<Inst['module']> => {
       // initiate crowler to search for the instance in the current tree
       void search(current, wait)
       return new Promise<Inst['module']>((resolve, reject) => {

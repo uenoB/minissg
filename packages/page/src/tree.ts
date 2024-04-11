@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type * as minissg from '../../vite-plugin-minissg/src/module'
-import type { Awaitable } from '../../vite-plugin-minissg/src/util'
+import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import { debugTimer } from './debug'
 import * as u from './util'
 import { type Delay, delay } from './delay'
@@ -225,7 +225,7 @@ const entries = async <Base>(self: TreeNode<Base>): Promise<minissg.Module> => {
     for (const { abst, relPath } of routes) {
       const mod = async (): Promise<MainModule> =>
         (await abst.instantiate(self, relPath)).module
-      yield [relPath.moduleName ?? '', delay(mod)]
+      yield [relPath.moduleName ?? '', lazy(mod)]
     }
   })()
 }
@@ -331,17 +331,18 @@ class TreeNodeImpl<Base, This extends Base, Impl> {
     const render1 = async (): R => await this.module.render(mod)
     const render2 = async (): R => await currentNode.run(this, render1)
     const render3 = async (): R => await this.memo.run(render2)
-    const render = debugTimer(render3, (debug, dt, when) => {
-      const path = `/${c.moduleName.path}`
-      if (when === 'start') {
-        debug('start rendering %s', path)
-      } else if (when === 'middle') {
-        debug('now rendering %s (+%s sec)', path, (dt / 1000).toFixed(3))
-      } else {
-        debug('rendering %s finished (%s sec)', path, (dt / 1000).toFixed(3))
-      }
-    })
-    return { default: delay(render) }
+    const render = async (): R =>
+      await debugTimer(render3, (debug, dt, when) => {
+        const path = `/${c.moduleName.path}`
+        if (when === 'start') {
+          debug('start rendering %s', path)
+        } else if (when === 'middle') {
+          debug('now rendering %s (+%s sec)', path, (dt / 1000).toFixed(3))
+        } else {
+          debug('rendering %s finished (%s sec)', path, (dt / 1000).toFixed(3))
+        }
+      })
+    return { default: lazy(render) }
   }
 }
 
@@ -375,7 +376,7 @@ export class TreeAbstImpl<Base, This extends Base, Impl> {
   }
 
   ref(): Delay<Inst<Base, This>> {
-    return this._ref.ref(currentNode.getStore())
+    return delay(this._ref.ref(currentNode.getStore()))
   }
 
   async instantiate(
@@ -493,7 +494,7 @@ export class Tree<Base, This extends Base, Impl> implements NodeProps {
   }
 
   get ref(): Delay<Inst<Base, This>> {
-    return (getTreeImpl(this) ?? u.unavailable()).ref()
+    return delay((getTreeImpl(this) ?? u.unavailable()).ref())
   }
 
   get children(): Delay<Iterable<Next<Base>>> {
