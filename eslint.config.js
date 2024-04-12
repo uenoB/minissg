@@ -12,7 +12,7 @@ const modificationToStandardJs = {
   'space-before-function-paren': [
     'error',
     {
-      anonymous: 'always',
+      anonymous: 'ignore',
       named: 'never',
       asyncArrow: 'always'
     }
