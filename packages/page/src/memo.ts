@@ -1,18 +1,6 @@
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import { Delay } from './delay'
-
-interface SomeMap<K, V> {
-  get: (key: K) => V | undefined
-  set: (key: K, value: V) => unknown
-}
-
-const dig = <K, V>(map: SomeMap<K, V>, key: K, Con: new () => V): V => {
-  const r = map.get(key)
-  if (r != null) return r
-  const v = new Con()
-  map.set(key, v)
-  return v
-}
+import { dig } from './util'
 
 class Memo {
   private objects: WeakMap<object, Memo> | undefined
