@@ -3,7 +3,6 @@ import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
 import { lazy } from '../../vite-plugin-minissg/src/util'
 import { type Pairs, type List, iteratePairs, listItems } from './items'
 import { constProp } from './util'
-import { type Delay, delay } from './delay'
 import { type RelPath, PathSteps, concatFileName } from './filename'
 import { type Asset, type AssetModule, AssetAbst } from './asset'
 import type { Loaded, MainModule, Dir, TreeNode, Inst } from './tree'
@@ -245,19 +244,15 @@ export class Page<
   static {
     constProp(this.prototype, 'type', 'page')
   }
-
-  static delay = delay
 }
 
 type AssetTy = Asset
-type DelayTy<X> = Delay<X>
 type RelPathTy = RelPath
 type InstTy<Base, This = Base> = Inst<Base, This>
 type PaginateTy = Paginate
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Page {
   export type Asset = AssetTy
-  export type Delay<X> = DelayTy<X>
   export type RelPath = RelPathTy
   export type Inst<Base, This = Base> = InstTy<Base, This>
   export type Paginate = PaginateTy

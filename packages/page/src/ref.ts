@@ -1,5 +1,5 @@
 import type { ModuleName } from '../../vite-plugin-minissg/src/module'
-import { type Awaitable, raise, lazy } from '../../vite-plugin-minissg/src/util'
+import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import type { Transition, Next, TreeAbst } from './find'
 import type { RelPath } from './filename'
 
@@ -71,9 +71,7 @@ export class Ref<
     return inst
   }
 
-  ref(current: Tree | undefined): PromiseLike<Inst['module']> {
-    // ref must be created in a tree context
-    if (current == null) return lazy(() => raise(error()))
+  ref(current: Tree): PromiseLike<Inst['module']> {
     // search for the instance in the current tree
     const item = this.referees.get(current.root)
     // if we already have a promise, reuse it
@@ -92,9 +90,6 @@ export class Ref<
     return wait.promise
   }
 }
-
-const error = <Tree extends TreeNode<Tree>>(tree?: Tree): Error =>
-  Error(`not found any instance from ${tree?.moduleName.path ?? 'outside'}`)
 
 const skip: PromiseLike<void> = Promise.resolve(undefined)
 
@@ -171,7 +166,7 @@ const search = <Tree extends TreeNode<Tree>, Inst extends SomeNode>(
     const last = (): void => {
       // we've found that we don't have any instance in this tree.
       if (wait.reject == null) return
-      wait.reject(error(tree))
+      wait.reject(Error(`not found any instance from ${tree.moduleName.path}`))
       wait.resolve = undefined
       wait.reject = undefined
     }

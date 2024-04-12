@@ -1,6 +1,6 @@
 import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
 import { constProp, defineProperty, unavailable } from './util'
-import { type Delay, delay } from './delay'
+import { Delay } from './delay'
 
 interface SomeInternal {
   readonly url: Readonly<URL> | undefined
@@ -12,7 +12,7 @@ export interface AssetModule {
 
 class Asset {
   constructor(url: Readonly<URL> | undefined) {
-    if (url != null) this.url = url
+    if (url != null) defineProperty(this, 'url', { value: url })
   }
 
   declare readonly url: Readonly<URL>
@@ -20,7 +20,7 @@ class Asset {
   declare readonly type: 'asset'
   static {
     defineProperty(this.prototype, 'url', { get: unavailable })
-    constProp(this.prototype, 'ref', () => delay.resolve(undefined))
+    constProp(this.prototype, 'ref', () => Delay.resolve(undefined))
     constProp(this.prototype, 'type', 'asset')
   }
 }

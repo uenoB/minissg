@@ -1,5 +1,5 @@
 export type { Asset } from './asset'
-export { type Delay, delay } from './delay'
+export { Delay } from './delay'
 export type { RelPath } from './filename'
 export type { Inst } from './tree'
 export { type Paginate, Page, Page as default } from './page'

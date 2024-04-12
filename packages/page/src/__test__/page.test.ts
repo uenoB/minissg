@@ -402,7 +402,7 @@ test('Page.module without argument', async () => {
   await expect(p.children).resolves.toBeDefined()
   await expect(p.load()).resolves.toBeUndefined()
   expect(() => p.find('')).toThrow('not available')
-  await expect(async () => await p.ref).rejects.toThrow('not found')
+  await expect(async () => await p.ref).rejects.toThrow('called from outside')
 })
 
 test('Page.module with url', async () => {
