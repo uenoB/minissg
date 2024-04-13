@@ -1103,10 +1103,7 @@ with the following signature:
 
 ```typescript
 declare module 'virtual:minissg/control' {
-  export const peek: <Ret, Args extends readonly unknown[]>(
-    f: ((...args: Args) => Ret | PromiseLike<Ret>) | Ret | PromiseLike<Ret>,
-    ...args: Args
-  ) => Promise<Ret>
+  export const peek: <X>(f: () => PromiseLike<X> | X) => Promise<X>
 }
 ```
 

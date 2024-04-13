@@ -151,7 +151,7 @@ export const loaderPlugin = (
           return libModule
         } else if (isVirtual(v, 'Control', 0)) {
           if (v[1] === 'server') return js`export { peek } from ${Lib}`
-          return js`export const peek = f => f()`
+          return js`export const peek = async f => await f()`
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null
@@ -250,5 +250,4 @@ const libModule = `
   const storage = /*#__PURE__*/ new AsyncLocalStorage()
   export const add = id => storage.getStore()?.add(id)
   export const run = storage.run.bind(storage)
-  const fn = (f, a) => async () => await (typeof f === 'function' ? f(...a) : f)
-  export const peek = (f, ...a) => storage.run({ add: () => void 0 }, fn(f, a))`
+  export const peek = async f => await storage.run({ add: () => void 0 }, f())`

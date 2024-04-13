@@ -20,8 +20,5 @@ declare module '*?hydrate' {
 }
 
 declare module 'virtual:minissg/control' {
-  export const peek: <X, A extends readonly unknown[]>(
-    f: ((...args: A) => PromiseLike<X> | X) | PromiseLike<X> | X,
-    ...args: A
-  ) => Promise<X>
+  export const peek: <X>(f: () => PromiseLike<X> | X) => Promise<X>
 }
