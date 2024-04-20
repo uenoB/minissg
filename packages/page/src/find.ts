@@ -2,138 +2,140 @@ import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import { type RelPath, PathSteps } from './filename'
 import { Trie } from './trie'
 
-// Each page has a fragment NFA and the entire NFA is constructed by
-// concatinating each of them.  For example, page A has a reference to
-// page B with path component 'foo', page B has one for page C with 'bar'.
-// The fragments of these pages and their concatination is depicted as follows:
+// Each page has a fragment of NFA.  Each node in the trie of a page is a
+// state of NFA.  Each page has two implicit states: one is a final state
+// that corresponds to the page and another is a non-final state and placed
+// just before the root of trie with epsilon transtion.  For example, if
+// page A has a reference to another page with path 'foo/bar', the trie,
+// i.e. the NFA fragment, is depicted as follows:
 //
-//     page A: [1] --'foo'-->[[2]](B)
-//                             |
-//                          epsilon
-//                             v
-//     page B:                [3] --'bar'-->[[4]](C)
+//                             +--------------trie---------------+
+//                             |                                 |
+//     page A:  [[1]]   [2] --e--> [3] --foo--> [4] --bar--> [5] |
+//                             |                                 |
+//                             +---------------------------------+
 //
-// Concatination is done by choosing a state of the two and connecting them
-// by an epsilon transition.  For module name, there are two candidate states
-// to be connected to the next fragment: the next state of the last path
-// component ([2] in the above figure) or its previous state ([1]).
-// For module name, the latter is used instead of the former if the path
-// includes an empty string.  For example, if A has 'foo/' for B and B has
-// 'bar' for C, the concatinated NFA looks like the following:
+// If the page A is the root of page search, its final state ([[1]] in the
+// above figure) is the initial state and connected to its non-final state
+// ([2]) by an epsilon transition.
 //
-//     page A: [1] --'foo'--> [2] --''-->[[5]](B)
-//                             |
-//                          epsilon
-//                             v
-//     page B:                [3] --'bar'-->[[4]](C)
+// The entire NFA is constructed by concatinating the fragment of each page
+// with epsilon transitions.  Each leaf of a trie is connected to the final
+// state of a page by an epsilon transition.  To the non-final state, either
+// the leaf node or its predecessor is connected by an epsilon transition.
+// For module names, the former is typically used.  Only when the last path
+// component is empty, the latter is chosen.  For example, suppose page A has
+// 'foo/' for page B and page B has 'bar' for page C, the entire NFA looks
+// like the following:
+//
+//     page A: [[1]]   [2] --e--> [3] --foo--> [4] --''--> [5]
+//                                              |            |
+//                      +-----------e-----------+            |
+//               +------|--------------e---------------------+
+//               v      v
+//     page B: [[6]]   [7] --e--> [8] --bar--> [9]
+//                                             | |
+//               +-------------e---------------+ |
+//               |      +-----------e------------+
+//               v      v
+//     page C: [[ ]]   [ ] --e--> ...
 //
 // This construction allows to accept 'foo/bar' and 'foo/' but reject 'foo'.
-// Note that, in module name path, empty string may occur only as the last
-// component.
 //
-// For file name, since their relative path resolution is performed on a
-// directory-basis strategy, the state previous to the last one is always
-// used to connect the two fragment.  For example, A has 'foo/bar.js' for B
-// and B has 'baz.js' for C, resulting NFA is the following:
+// For file names, since their relative path resolution is performed on a
+// directory-basis strategy, the predecessor of the trie leaf is always
+// selected to connect the two NFA fragments.  For example, when page A has
+// 'foo/bar.js' for B and page B has 'baz.js' for C, resulting NFA is the
+// following:
 //
-//     page A: [1] --'foo'--> [2] --'bar.js'-->[[3]](B)
-//                             |
-//                          epsilon
-//                             v
-//     page B:                [4] --'baz.js'-->[[5]](C)
+//     page A: [[1]]   [2] --e--> [3] --foo--> [4] --bar.js--> [5]
+//                                              |               |
+//                      +-----------e-----------+               |
+//               +------|---------------e-----------------------+
+//               v      v
+//     page B: [[6]]   [7] --e--> [8] --baz.js--> [9]
+//                                 |               |
+//                      +-----e----+               |
+//               +------|---------e----------------+
+//               v      v
+//     page C: [[A]]   [B] --e--> ...
 //
-// Empty path sometimes causes the following issue.  Consider the case when
-// A has 'foo/' for B and B has '' for C.  In this case, the NFA must reject
-// ['foo'] because there does not any page of 'foo'.  If we add an epsilon
-// transition to a final state accepting the empty path in B, which is
-// depicted as follows,
+// If path to the next page is empty and therefore no predecessor of the trie
+// leaf is found, the epsilon transition to the final state is omitted in order
+// to avoid unexpected acceptance of input.  For example, consider the case
+// when page A has 'foo/' for B, B has '' for C, and C has 'bar' for D.
+// The NFA is constructed as follows:
 //
-//     page A: [1] --'foo'--> [2] --''-->[[3]](B)
-//                             |
-//                          epsilon
-//                             v
-//     page B:                [4] --epsilon-->[[5]](C)
-//                             |
-//                          epsilon
-//                             v
-//     page C:                 :
+//     page A: [[1]]   [2] --e--> [3] --foo--> [4] --''--> [5]
+//                                              |           |
+//                      +-----------e-----------+           |
+//               +------|--------------e--------------------+
+//               v      v
+//     page B: [[6]]   [7] --e--> [8]
+//                                 |
+//                      +----e-----+
+//                      v
+//     page C: [[A]]   [B] --e--> [C] --bar--> [D]
+//                                             | |
+//                      +-----------e----------+ |
+//               +------|-------e----------------+
+//               v      v
+//     page D: [[E]]   [F]
 //
-// not only [5] but also [2] and [4] become final states due to epsilon
-// transition to a final state [5].  This is not satisfactory.  To avoid
-// this issue, we omit transitions corresponding to empty path, such as
-// [4]-->[5] in the above NFA.  Because of this omission, any node referred
-// to from another node through empty path, such as page C in the above,
-// is never found by NFA matching.
-//
-// The root path indicates a set of root pages rather than the single root
-// page.   Each of root pages is determined by either an empty path `[]` or
-// single path `['']`.  Note that they have different meaning in the middle of
-// concatination, but at the beginning of module path, both of them indicate
-// the root page.  For example, consider the following construction of NFA
-// starting with the state [1]:
-//
-//     page A: [1] --''-->[[2]](B)
-//              |
-//              v
-//     page B:[[3]](C)
-//              |
-//              v
-//     page C: [4] --''-->[[5]](D)
-//
-// In the standard theory of automata, `[]` is accepted only by [3] and `['']`
-// is accepted by [2] and [5].  Therefore, `[]` represents {C} and `['']`
-// represents {C, D}.  However, we would like to choose {B, C, D} for the
-// root of tree search.  This exceptional case is implemented in the `root`
-// flag of the `find` function.
+// This accepts 'foo/' for B and 'foo/bar' for D.  Because of omission of
+// epsilon transition from [8] to [[A]], page C never matches.
+// If the epsilon transition from [8] to [[A]] exists, 'foo' is accepted
+// for page C, but this is not satisfactory.
 
 interface State<Next> {
+  readonly final: boolean
   readonly next: Next
-  readonly epsilon: boolean
 }
 
 abstract class Transition<Next> extends Trie<string, Array<State<Next>>> {
-  protected addEdge(steps: PathSteps, next: State<Next>): void {
+  protected addEdge(steps: PathSteps, state: State<Next>): void {
     const { key, trie } = this.get(steps.path)
     if (key.length === 0 && trie.value != null) {
-      trie.value.push(next)
+      trie.value.push(state)
     } else {
-      trie.set(key, [next])
+      trie.set(key, [state])
     }
   }
 
   abstract addRoute(steps: PathSteps, next: Next): void
 
   *routes(): Iterable<Next> {
-    for (const edges of this) {
-      for (const { next, epsilon } of edges) if (epsilon) yield next
+    for (const states of this.values()) {
+      for (const { final, next } of states) if (!final) yield next
     }
   }
 }
 
 class ModuleNameTransition<Next> extends Transition<Next> {
   override addRoute(steps: PathSteps, next: Next): void {
-    if (steps.length > 0) this.addEdge(steps, { next, epsilon: false })
-    this.addEdge(steps.chomp(), { next, epsilon: true })
+    if (steps.length > 0) this.addEdge(steps, { final: true, next })
+    this.addEdge(steps.chomp(), { final: false, next })
   }
 }
 
 class FileNameTransition<Next> extends Transition<Next> {
   override addRoute(steps: PathSteps, next: Next): void {
-    if (steps.length > 0) this.addEdge(steps, { next, epsilon: false })
-    this.addEdge(steps.chop(), { next, epsilon: true })
+    if (steps.length > 0) this.addEdge(steps, { final: true, next })
+    this.addEdge(steps.chop(), { final: false, next })
   }
 }
 
-export type { Transition }
-type NextPath = Readonly<RelPath>
-export type Next<Abst> = Readonly<{ abst: Abst; relPath: NextPath }>
+interface Next<Abst> {
+  readonly relPath: Readonly<RelPath> | null // null means empty RelPath
+  readonly abst: Abst
+}
 
 export class Indices<Abst, Asset> {
   readonly moduleNameMap = new ModuleNameTransition<Next<Abst>>()
   readonly stemMap = new ModuleNameTransition<Next<Abst>>()
   readonly fileNameMap = new FileNameTransition<Next<Abst | Asset>>()
 
-  addRoute(abst: Abst, relPath: NextPath): void {
+  addRoute(relPath: Readonly<RelPath>, abst: Abst): void {
     const next = { abst, relPath }
     const moduleSteps = PathSteps.fromRelativeModuleName(relPath.moduleName)
     const stemSteps = PathSteps.fromRelativeModuleName(relPath.stem)
@@ -144,21 +146,27 @@ export class Indices<Abst, Asset> {
   }
 }
 
-export interface TreeAbst<Tree, Inst = Tree> {
-  readonly instantiate: (parent: Tree, path: NextPath) => PromiseLike<Inst>
+interface TreeAbst<Tree, Inst = Tree> {
+  readonly instantiate: (
+    parent: Tree,
+    path: Readonly<RelPath> | null
+  ) => PromiseLike<Inst>
 }
 
-interface TreeNode<Tree, Content> {
-  readonly module: unknown
+interface TreeNode<Tree, Content, Base extends object = object> {
   readonly content: Content
-  readonly findChild: () => PromiseLike<Tree | undefined>
+  readonly module: Base
+  readonly findChild: () => PromiseLike<
+    { tree: true; node: Tree } | { tree: false }
+  >
 }
 
 type Content<Tree, Inst, Key extends string> =
   | ((...a: never) => unknown)
   | PromiseLike<{ [P in Key]: Transition<Next<TreeAbst<Tree, Inst>>> }>
+  | undefined
 
-const undef = Promise.resolve(undefined)
+type Found<Tree extends { module: unknown }> = Tree['module'] | undefined
 
 export const find = <
   Key extends string,
@@ -168,56 +176,40 @@ export const find = <
   indexKey: Key,
   node: Tree | Asset,
   input: readonly string[],
-  cb?: ((node: Tree | Asset) => unknown) | undefined
-): PromiseLike<(Tree | Asset)['module'] | undefined> => {
-  type Result = (Tree | Asset)['module'] | undefined
-  type Cont = (r: Result) => Awaitable<Result>
-  type Step<Final = never> = (
+  found: (node: Tree | Asset) => Awaitable<Found<Tree | Asset>> = r => r.module
+): PromiseLike<Found<Tree | Asset>> => {
+  type Cont = (r: Found<Tree | Asset>) => Awaitable<Found<Tree | Asset>>
+  const undef = Promise.resolve(undefined)
+
+  const search = (
     node: Tree | Asset,
-    input: readonly string[],
-    final: readonly string[] | null | Final
-  ) => PromiseLike<Result>
-
-  const check: Step<true> = (node, input, final): PromiseLike<Result> => {
-    // reject unless the final condition is met.
-    if (final == null || (final === true && input.length > 0)) return undef
-    // end of root search and switch to input search.
-    if (final !== true && final.length > 0) return search(node, final, null)
-    // matched.
-    return cb?.(node) != null ? undef : Promise.resolve(node.module)
-  }
-
-  const deref: Step = (node, input, final) =>
-    node.findChild().then(next => {
-      return next == null ? undef : search(next, input, final)
-    })
-
-  const visit: Step = (node, input, final) =>
-    // shallow one has precedence.
-    check(node, input, final).then(r => r ?? deref(node, input, final))
-
-  const search: Step = (node, input, final) => {
-    if (typeof node.content !== 'object') return visit(node, input, final)
-    return node.content.then(index => {
-      const children = index[indexKey]
-      const cont = Array.from(children.walk(input)).reduce<Cont>(
+    input: readonly string[]
+  ): PromiseLike<Found<Tree | Asset>> => {
+    if (input.length === 0) return undef
+    if (typeof node.content !== 'object') {
+      return node.findChild().then(next => {
+        return next.tree ? search(next.node, input) : undefined
+      })
+    }
+    return node.content.then((index): PromiseLike<Found<Tree | Asset>> => {
+      // longer match has precedence
+      const cont = Array.from(index[indexKey].walk(input)).reduce<Cont>(
         (cont, { key, trie }) =>
-          // longest match has precedence.
-          trie.value?.reduceRight<Cont>((cont, { next, epsilon }) => {
+          trie.value?.reduceRight<Cont>((cont, { final, next }) => {
+            if (final && key.length !== 0) return cont
             return r =>
               r ??
               next.abst.instantiate(node, next.relPath).then(inst => {
-                return epsilon
-                  ? search(inst, key, final).then(cont)
-                  : check(inst, key, final ?? true).then(cont)
+                return final
+                  ? Promise.resolve(found(inst)).then(cont)
+                  : search(inst, key).then(cont)
               })
           }, cont) ?? cont,
         r => r
       )
-      // shallow one has precedence.
-      return (children.isEmpty() ? visit : check)(node, input, final).then(cont)
+      return undef.then(cont)
     })
   }
 
-  return search(node, [''], input)
+  return input.length > 0 ? search(node, input) : Promise.resolve(found(node))
 }

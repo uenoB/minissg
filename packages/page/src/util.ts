@@ -1,3 +1,5 @@
+export type Public<X> = Omit<X, `#${string}`>
+
 export const isAbsURL = (url: string): boolean => {
   try {
     void new URL(url)
@@ -6,12 +8,6 @@ export const isAbsURL = (url: string): boolean => {
     return false
   }
 }
-
-export const unavailable = (): never => {
-  throw Error('not available')
-}
-
-export const createObject = <X extends object>(x: X): X => Object.create(x) as X
 
 type Descriptor<X> = { configurable?: boolean; enumerable?: boolean } & (
   | { writable?: boolean; value?: X; get?: never; set?: never }

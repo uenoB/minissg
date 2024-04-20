@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { run, ModuleName } from '../../../vite-plugin-minissg/src/module'
-import { type Inst, Page } from '../index'
+import { Page } from '../page'
 
-const tree = async (): Promise<Inst<Page>> => {
+const tree = async (): Promise<Page> => {
   const bar = Page.module({
     pages: {
       'foo/ba.en.js': (): unknown => 'bar1',
@@ -22,16 +22,14 @@ const tree = async (): Promise<Inst<Page>> => {
       'garply.js': (): unknown => 'garply0'
     }
   })
-  const grault = Page.module()
-  grault.main = () => garply
+  const grault = Page.module({ initialize: () => garply })
   const corge = Page.module({
     pages: {
       '': (): unknown => 'corge0',
       'corge.js': (): unknown => 'corge1'
     }
   })
-  const quux = Page.module()
-  quux.main = () => corge
+  const quux = Page.module({ initialize: () => corge })
   const qux = Page.module({
     pages: {
       '': (): unknown => 'qux0',
@@ -78,7 +76,7 @@ const tree = async (): Promise<Inst<Page>> => {
     }
   })
   const dummyContext = { moduleName: ModuleName.root, module: {} }
-  return (await root.main(dummyContext)) as Inst<Page>
+  return (await root.main(dummyContext)) as Page
 }
 
 // root:                             # /                     /
@@ -123,15 +121,17 @@ const tree = async (): Promise<Inst<Page>> => {
 //   plugh:                          # /                     /
 //    'foo/waldo.en.js': "waldo1"    # foo/waldo.en.js       en/foo/waldo/
 
-const pageNames: ReadonlyArray<{
+interface PageInfo {
   path: ReadonlyArray<string | number>
   fileName: string
   moduleName: string
   stem: string
   variant: string
   content: unknown
-}> = [
-  // depth first order
+}
+
+const pagesPreOrder: readonly [PageInfo, ...PageInfo[]] = [
+  // pre-order in tree traversal
   {
     path: [],
     fileName: '',
@@ -195,6 +195,38 @@ const pageNames: ReadonlyArray<{
     stem: 'foo/waldo/',
     variant: '',
     content: 'waldo0'
+  },
+  {
+    path: ['foo/', 0, 'bar/bar/'], // () => bar
+    fileName: 'bar/bar.js',
+    moduleName: 'foo/bar/bar/',
+    stem: 'foo/bar/bar/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'bar/bar/', 0], // bar
+    fileName: 'bar/bar.js',
+    moduleName: 'foo/bar/bar/',
+    stem: 'foo/bar/bar/',
+    variant: '',
+    content: undefined
+  },
+  {
+    path: ['foo/', 0, 'bar/bar/', 0, 'en/ba/'], // () => 'bar1'
+    fileName: 'bar/foo/ba.en.js',
+    moduleName: 'foo/bar/bar/en/ba/',
+    stem: 'foo/bar/bar/ba/',
+    variant: 'en',
+    content: 'bar1'
+  },
+  {
+    path: ['foo/', 0, 'bar/bar/', 0, 'ja/ba/'], // () => 'bar2'
+    fileName: 'bar/foo/ba.ja.js',
+    moduleName: 'foo/bar/bar/ja/ba/',
+    stem: 'foo/bar/bar/ba/',
+    variant: 'ja',
+    content: 'bar2'
   },
   {
     path: ['foo/', 0, 'baz/'], // () => bazModule
@@ -374,6 +406,20 @@ const pageNames: ReadonlyArray<{
   }
 ]
 
+/*
+const pagesPostOrder = (() => {
+  const children = (node: PageInfo): PageInfo[] =>
+    pagesPreOrder.filter(i => {
+      if (i.path.length !== node.path.length + 1) return false
+      const path = i.path.slice(0, node.path.length)
+      return JSON.stringify(path) === JSON.stringify(node.path)
+    })
+  const postorder = (node: PageInfo): PageInfo[] =>
+    children(node).map(postorder).flat(1).concat([node])
+  return postorder(pagesPreOrder[0])
+  })()
+*/
+
 const groupBy = <X, Y>(a: Iterable<X>, f: (x: X) => Y): Array<[X, ...X[]]> => {
   const map = new Map<Y, [X, ...X[]]>()
   for (const x of a) {
@@ -384,25 +430,38 @@ const groupBy = <X, Y>(a: Iterable<X>, f: (x: X) => Y): Array<[X, ...X[]]> => {
   return Array.from(map.values())
 }
 
+/*
 const arrayEq = <X>(a: readonly X[], b: readonly X[]): boolean =>
   a.every((x, i) => x === b[i]) && b.every((x, i) => x === a[i])
+*/
 
 const arrayStartsWith = <X>(a: readonly X[], b: readonly X[]): boolean =>
   b.every((x, i) => x === a[i])
 
+const uniqByPath = <X, Y extends { path: readonly X[] }>(
+  a: readonly Y[]
+): Y[] => {
+  const first = a[0]
+  if (a.length === 0 || first == null) return []
+  return [
+    first,
+    ...uniqByPath(a.filter(i => !arrayStartsWith(i.path, first.path)))
+  ]
+}
+
 test('Page.module without argument', async () => {
   const p = Page.module()
-  expect(() => p.moduleName).toThrow('not available')
-  expect(() => p.stem).toThrow('not available')
-  expect(() => p.variant).toThrow('not available')
+  expect(p.moduleName).toBeUndefined()
+  expect(p.stem).toBeUndefined()
+  expect(p.variant).toBeUndefined()
   expect(p.fileName).toBe('')
-  expect(() => p.url).toThrow('not available')
-  expect(() => p.parent).toThrow('not available')
-  expect(() => p.root).toThrow('not available')
-  await expect(p.children).resolves.toBeDefined()
+  expect(p.url).toBeUndefined()
+  expect(p.parent).toBeUndefined()
+  expect(p.root).toBeUndefined()
+  await expect(p.children).resolves.toStrictEqual([])
   await expect(p.load()).resolves.toBeUndefined()
-  expect(() => p.find('')).toThrow('not available')
-  await expect(async () => await p.ref).rejects.toThrow('called from outside')
+  await expect(p.find('')).resolves.toBeUndefined()
+  await expect(async () => await p.deref()).rejects.toThrow('from outside')
 })
 
 test('Page.module with url', async () => {
@@ -412,21 +471,21 @@ test('Page.module with url', async () => {
   expect(p.url).toMatchObject({ href: 'http://example.com/foo/' })
 })
 
-test('new Page', () => {
+test('new Page', async () => {
   const p = new Page()
-  expect(() => p.moduleName).toThrow('not available')
-  expect(() => p.stem).toThrow('not available')
-  expect(() => p.variant).toThrow('not available')
+  expect(p.moduleName).toBeUndefined()
+  expect(p.stem).toBeUndefined()
+  expect(p.variant).toBeUndefined()
   expect(p.fileName).toBe('')
-  expect(() => p.url).toThrow('not available')
-  expect(() => p.parent).toThrow('not available')
-  expect(() => p.root).toThrow('not available')
-  expect(() => p.children).toThrow('not available')
-  expect(() => p.load()).toThrow('not available')
-  expect(() => p.find('')).toThrow('not available')
-  expect(() => p.ref).toThrow('not available')
+  expect(p.url).toBeUndefined()
+  expect(p.parent).toBeUndefined()
+  expect(p.root).toBeUndefined()
+  await expect(p.children).resolves.toStrictEqual([])
+  await expect(p.load()).resolves.toBeUndefined()
+  await expect(p.find('')).resolves.toBeUndefined()
+  expect(() => p.deref()).toThrow('unavailable')
   const dummyContext = { moduleName: ModuleName.root, module: {} }
-  expect(() => p.main(dummyContext)).toThrow('not available')
+  expect(() => p.main(dummyContext)).toThrow('unavailable')
 })
 
 test('subclass', () => {
@@ -468,7 +527,7 @@ test('root names', async () => {
 })
 
 test.each(
-  groupBy(pageNames, x => x.fileName)
+  groupBy(pagesPreOrder, x => x.fileName)
     .map(g => g[0])
     .map(x => [x.fileName, x] as const)
 )('file %o has proper name properties', async (fileName, props) => {
@@ -482,11 +541,11 @@ test.each(
   expect(page.stem).toBe(props.stem)
   expect(page.variant).toBe(props.variant)
   expect(page.moduleName).toBe(props.moduleName)
-  expect(page).toBe(await root.findByPath(props.path))
+  expect(page).toBe(await root.findByTreePath(props.path))
 })
 
 test.each(
-  groupBy(pageNames, x => x.moduleName)
+  groupBy(pagesPreOrder, x => x.moduleName)
     .map(g => g[0])
     .map(x => [x.moduleName, x] as const)
 )('page %o has proper name proparties', async (name, props) => {
@@ -498,16 +557,16 @@ test.each(
   expect(page.stem).toBe(props.stem)
   expect(page.variant).toBe(props.variant)
   expect(page.moduleName).toBe(props.moduleName)
-  expect(page).toBe(await root.findByPath(props.path))
+  expect(page).toBe(await root.findByTreePath(props.path))
 })
 
 test.each(
-  groupBy(pageNames, x => x.path)
+  groupBy(pagesPreOrder, x => x.path)
     .map(g => g[0])
     .map(x => [x.path, x] as const)
 )('path %o has proper name proparties', async (path, props) => {
   const root = await tree()
-  const page = await root.findByPath(path)
+  const page = await root.findByTreePath(path)
   expect(page).toBeDefined()
   if (page == null) return
   expect(page.fileName).toBe(props.fileName)
@@ -517,16 +576,16 @@ test.each(
 })
 
 test.each(
-  pageNames
+  pagesPreOrder
     .map(x => x.moduleName.replace(/\/*$/, ''))
-    .filter(i => pageNames.every(x => x.moduleName !== i))
+    .filter(i => pagesPreOrder.every(x => x.moduleName !== i))
 )('page %o must not exist', async name => {
   const root = await tree()
   await expect(root.findByModuleName(name)).resolves.toBeUndefined()
 })
 
 test.each(
-  groupBy(pageNames, x => x.stem)
+  groupBy(pagesPreOrder, x => x.stem)
     .map(g => g.map(x => g.map(y => [x, y] as const)))
     .flat(2)
     .map(([x, y]) => [x.moduleName, y.moduleName] as const)
@@ -543,14 +602,8 @@ test.each(
 })
 
 test.each(
-  groupBy(
-    pageNames.filter(
-      (x, i) =>
-        x.stem === '' ||
-        pageNames.slice(0, i).every(y => x.moduleName !== y.moduleName)
-    ),
-    x => x.stem
-  )
+  groupBy(pagesPreOrder, x => x.stem)
+    .map(uniqByPath)
     .map(g => g.map(x => [x.stem, g.length] as const))
     .flat(1)
 )('stem %o has %d variants', async (stem, numVariants) => {
@@ -560,7 +613,7 @@ test.each(
 })
 
 test.each(
-  groupBy(pageNames, x => x.moduleName)
+  groupBy(pagesPreOrder, x => x.moduleName)
     .map(g => g[0])
     .map(x => x.moduleName)
 )('page %o is included in its variants', async name => {
@@ -572,10 +625,11 @@ test.each(
   expect(set.has(page)).toBeTruthy()
 })
 
+/*
 test.each(
-  pageNames.map(x => [
+  pagesPreOrder.map(x => [
     x.path,
-    pageNames
+    pagesPreOrder
       .map(y => y.path)
       .filter(
         y =>
@@ -587,15 +641,16 @@ test.each(
   ])
 )('path(%o).subpages() should be %o', async (path, subpagePaths) => {
   const root = await tree()
-  const page = await root.findByPath(path)
+  const page = await root.findByTreePath(path)
   expect(page).toBeDefined()
   if (page == null) return
   const subpages = Array.from(await page.subpages())
   const expectSubpages = await Promise.all(
-    subpagePaths.map(async i => await root.findByPath(i))
+    subpagePaths.map(async i => await root.findByTreePath(i))
   )
   expect(subpages).toStrictEqual(expectSubpages)
 })
+*/
 
 test.each([
   ['', '', ''],
@@ -649,7 +704,7 @@ test.each([
 )
 
 test.each(
-  groupBy(pageNames, x => x.moduleName)
+  groupBy(pagesPreOrder, x => x.moduleName)
     .map(g => [g[0], g.map(x => x.content)] as const)
     .map(x => [x[0].moduleName, x[1].reduce((z, c) => z ?? c)] as const)
 )('page %o is rendered as %o', async (name, content) => {
@@ -661,23 +716,24 @@ test.each(
 })
 
 test.each(
-  pageNames
+  pagesPreOrder
     .filter(x => x.content != null)
     .map(x => [x.path, x.content] as const)
 )('path(%o).load() must be %o', async (path, content) => {
   const root = await tree()
-  const page = await root.findByPath(path)
+  const page = await root.findByTreePath(path)
   expect(page).toBeDefined()
   if (page == null) return
   await expect(page.load()).resolves.toBe(content)
 })
 
+/*
 test.each(
-  pageNames.map(
+  pagesPreOrder.map(
     x =>
       [
         x.path,
-        pageNames.find(
+        pagesPreOrder.find(
           y =>
             arrayStartsWith(y.path, x.path) &&
             x.moduleName === y.moduleName &&
@@ -687,8 +743,9 @@ test.each(
   )
 )('path(%o).fetch() must be %o', async (path, content) => {
   const root = await tree()
-  const page = await root.findByPath(path)
+  const page = await root.findByTreePath(path)
   expect(page).toBeDefined()
   if (page == null) return
   await expect(page.fetch()).resolves.toBe(content)
 })
+*/

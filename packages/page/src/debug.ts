@@ -17,7 +17,7 @@ const debugTimerImpl = <X>(
   task: () => PromiseLike<X>,
   callback: (
     debug: typeof d,
-    dt: number,
+    dt: number, // in seconds
     when: 'start' | 'middle' | 'end'
   ) => Awaitable<void>
 ): PromiseLike<X> => {
@@ -27,7 +27,7 @@ const debugTimerImpl = <X>(
     for (;;) {
       const result = await Promise.race([promise, sleep(debugTimerPeriod)])
       const t2 = performance.now()
-      await callback(d, t2 - t1, result != null ? 'end' : 'middle')
+      await callback(d, (t2 - t1) / 1000, result != null ? 'end' : 'middle')
       if (result != null) return result.done
     }
   })

@@ -1,5 +1,5 @@
-import { type Awaitable, lazy } from '../../vite-plugin-minissg/src/util'
-import { constProp, defineProperty, unavailable } from './util'
+import { type Awaitable, lazy, raise } from '../../vite-plugin-minissg/src/util'
+import { constProp, defineProperty } from './util'
 import { Delay } from './delay'
 
 interface SomeInternal {
@@ -19,6 +19,7 @@ class Asset {
   declare readonly ref: () => Delay<undefined>
   declare readonly type: 'asset'
   static {
+    const unavailable = (): never => raise(Error('url is unavailable'))
     defineProperty(this.prototype, 'url', { get: unavailable })
     constProp(this.prototype, 'ref', () => Delay.resolve(undefined))
     constProp(this.prototype, 'type', 'asset')
@@ -28,12 +29,10 @@ class Asset {
 class AssetNode {
   constructor(readonly module: Awaitable<Asset>) {}
 
-  declare readonly findChild: () => PromiseLike<undefined>
   declare readonly content: undefined
-  static {
-    const findChild = (): PromiseLike<undefined> => Promise.resolve(undefined)
-    constProp(this.prototype, 'findChild', findChild)
-    constProp(this.prototype, 'content', undefined)
+
+  findChild(): PromiseLike<{ tree: false }> {
+    return Promise.resolve({ tree: false })
   }
 }
 

@@ -11,10 +11,6 @@ export class Trie<K, V> {
     this.value = value
   }
 
-  isEmpty(): boolean {
-    return this.value === undefined && this.children.size === 0
-  }
-
   get(key: readonly K[]): Get<K, V> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let trie: Trie<K, V> = this
@@ -50,8 +46,17 @@ export class Trie<K, V> {
     return trie
   }
 
-  *[Symbol.iterator](): IterableIterator<V> {
+  *values(): IterableIterator<V> {
     if (this.value != null) yield this.value
-    for (const [, trie] of this.children) yield* trie
+    for (const [, trie] of this.children) yield* trie.values()
+  }
+
+  *entries(): IterableIterator<[Array<K | undefined>, V]> {
+    if (this.value != null) yield [[], this.value]
+    for (const [key, trie] of this.children) {
+      for (const [keys, value] of trie.entries()) {
+        yield [[key, ...keys], value]
+      }
+    }
   }
 }
