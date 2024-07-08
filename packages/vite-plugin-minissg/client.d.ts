@@ -20,5 +20,5 @@ declare module '*?hydrate' {
 }
 
 declare module 'virtual:minissg/control' {
-  export const peek: <X>(f: () => PromiseLike<X> | X) => Promise<X>
+  export const getContext: () => import('./dist/index').Context
 }

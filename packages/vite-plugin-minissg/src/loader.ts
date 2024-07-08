@@ -150,8 +150,8 @@ export const loaderPlugin = (
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Control', 0)) {
-          if (v[1] === 'server') return js`export { peek } from ${Lib}`
-          return js`export const peek = async f => await f()`
+          if (v[1] === 'server') return js`export { getContext } from ${Lib}`
+          return js`throw Error('available only in server context')`
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null
@@ -241,13 +241,13 @@ export const loaderPlugin = (
 export interface LibModule {
   readonly data: Map<string, JsonObj>
   readonly add: (id: string) => unknown
-  readonly run: <R>(s: { add: (id: string) => unknown }, f: () => R) => R
+  readonly run: <R>(c: { loaded: Set<string> }, f: () => R) => R
 }
 
 const libModule = `
   import { AsyncLocalStorage } from 'node:async_hooks'
   export const data = /*#__PURE__*/ new Map()
-  const storage = /*#__PURE__*/ new AsyncLocalStorage()
-  export const add = id => storage.getStore()?.add(id)
-  export const run = storage.run.bind(storage)
-  export const peek = async f => await storage.run({ add: () => void 0 }, f())`
+  const currentContext = /*#__PURE__*/ new AsyncLocalStorage()
+  export const getContext = currentContext.getStore()
+  export const add = id => currentContext.getStore()?.loaded.add(id)
+  export const run = currentContext.run.bind(currentContext)`

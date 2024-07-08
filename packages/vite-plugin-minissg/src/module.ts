@@ -60,6 +60,7 @@ export interface Context {
   module: Module
   path?: string | undefined
   parent?: Readonly<Context> | undefined
+  loaded?: Set<string> | undefined
 }
 
 const pathOf = (c: Context): string => {
@@ -87,44 +88,43 @@ export const run = async (
   site?: Site
 ): Promise<Map<string, Page>> =>
   await mapReduce({
-    sources: [{ context: root, loaded: new Set<string>() }],
+    sources: [{ ...root, loaded: new Set<string>() }],
     destination: new Map<string, Page>(),
-    fork: async ({ context: con, loaded }) => {
-      typeCheck(con.module, () => pathOf(con), 'object')
+    fork: async ctx => {
+      typeCheck(ctx.module, () => pathOf(ctx), 'object')
       let routes
-      if (Symbol.iterator in con.module) {
-        routes = con.module
-      } else if (typeof con.module.main === 'function') {
-        const mod = con.module
-        site?.debug.module?.('await %s.main()', pathOf(con))
-        const module = await run(loaded, () => mod.main(con))
-        const context = { ...con, module, path: undefined, parent: con }
-        return [{ context: Object.freeze(context), loaded }]
-      } else if ('default' in con.module) {
+      if (Symbol.iterator in ctx.module) {
+        routes = ctx.module
+      } else if (typeof ctx.module.main === 'function') {
+        const mod = ctx.module
+        site?.debug.module?.('await %s.main()', pathOf(ctx))
+        const module = await run(ctx, () => mod.main(ctx))
+        return [{ ...ctx, module, path: undefined, parent: ctx }]
+      } else if ('default' in ctx.module) {
         return null
       } else {
-        routes = Object.entries(con.module)
+        routes = Object.entries(ctx.module)
       }
       const children = Array.from(routes, async ([path, mod], i) => {
-        typeCheck(path, () => `${pathOf(con)}[${i}][0]`, 'string')
-        const moduleName = Object.freeze(con.moduleName.join(path))
-        if (con.request?.requestName.isIn(moduleName) === false) return null
-        const newLoaded = new Set(loaded)
-        site?.debug.module?.('await %s[%o]', pathOf(con), path)
-        const module = await run(newLoaded, async () => await mod)
-        const context = { ...con, moduleName, module, path, parent: con }
-        return { context: Object.freeze(context), loaded: newLoaded }
+        typeCheck(path, () => `${pathOf(ctx)}[${i}][0]`, 'string')
+        const moduleName = Object.freeze(ctx.moduleName.join(path))
+        if (ctx.request?.requestName.isIn(moduleName) === false) return null
+        site?.debug.module?.('await %s[%o]', pathOf(ctx), path)
+        const forked = { ...ctx, loaded: new Set(ctx.loaded) }
+        const module = await run(forked, async () => await mod)
+        return { ...forked, moduleName, module, path, parent: forked }
       })
       return (await Promise.all(children)).filter(isNotNull)
     },
     map: x => x,
-    reduce: ({ context: con, loaded }, z) => {
-      const module = con.module as Extract<Module, { default: unknown }>
-      const fileName = con.moduleName.fileName()
+    reduce: (ctx, z) => {
+      const module = ctx.module as Extract<Module, { default: unknown }>
+      const fileName = ctx.moduleName.fileName()
       const page: Page = lazy(async () => {
         try {
-          site?.debug.module?.('await %s.default', pathOf(con))
-          const t = await run(loaded, async () => await module.default)
+          site?.debug.module?.('await %s.default', pathOf(ctx))
+          const t = await run(ctx, async () => await module.default)
+          const loaded = ctx.loaded
           site?.debug.module?.('imported modules for %o: %O', fileName, loaded)
           return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
         } catch (e) {
@@ -134,13 +134,13 @@ export const run = async (
         }
       })
       if (z.has(fileName)) {
-        site?.config.logger.warn(`duplicate file ${fileName} by ${pathOf(con)}`)
+        site?.config.logger.warn(`duplicate file ${fileName} by ${pathOf(ctx)}`)
       } else {
         z.set(fileName, page)
       }
     },
-    catch: (e, { context: con }) => {
-      site?.config.logger.error(`error occurred in visiting ${pathOf(con)}`)
+    catch: (e, ctx) => {
+      site?.config.logger.error(`error occurred in visiting ${pathOf(ctx)}`)
       if (site == null || e instanceof Error) throw e
       throw Error(format('uncaught non-error throw: %o', e), { cause: e })
     }

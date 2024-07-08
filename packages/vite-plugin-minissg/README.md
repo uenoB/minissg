@@ -47,7 +47,7 @@ but maximum freedom of static site programming.
   * [User-defined Renderers and Hydration](#user-defined-renderers-and-hydration)
   * [Mixing Components of Different Systems](#mixing-components-of-different-systems)
   * [Contextual Information of Modules](#contextual-information-of-modules)
-  * [Ignoring the Effect of Dynamic Imports](#ignoring-the-effect-of-dynamic-imports)
+  * [Manipulating the Effect of Dynamic Imports](#manipulate-the-effect-of-dynamic-imports)
   * [Debugging Server-side Code](#debugging-server-side-code)
 * [Plugin Options](#plugin-options)
 * [Related Works](#related-works)
@@ -1061,6 +1061,10 @@ following information:
   parent module.
 * `parent`: the context of the parent module, or `undefined` if this
   module is the root of the module tree.
+* `loaded`: the set of Vite's module identifiers that are dynamically
+  imported in the current context.
+  See [Manipulating the Effect of Dynamic Imports](#manipulating-the-effect-of-dynamic-imports)
+  for the usage of this information.
 
 The type of the argument of the `main` function, `Context`,
 is defined as follows in TypeScript:
@@ -1072,6 +1076,7 @@ type Context = {
   request?: Readonly<Request> | undefined;
   path?: string | undefined;
   parent?: Readonly<Context> | undefined;
+  loaded?: Set<string> | undefined;
 }
 
 type Request = {
@@ -1087,29 +1092,48 @@ type ModuleName = {
 }
 ```
 
-### Ignoring the Effect of Dynamic Imports
+Minissg provides `vitrual:minissg/control` module with the following
+signature so that you can obtain the context information anywhere other
+than the `main` function:
+
+```typescript
+declare module 'virtual:minissg/control' {
+  export const getContext: () => Context
+}
+```
+
+### Manipulating the Effect of Dynamic Imports
 
 As described in [Style Sheets](#style-sheets) section,
 Minissg exploits the effect of dynamic imports to associate style sheets
 and other assets to the generated pages.
-However, we sometimes would like to import some modules without any
-association with any asset.
-Typical examples include the case when you would like to read the
-frontmatter of an MDX module regardless of any relationship between
-the module and current page.
+However, we sometimes want fine-grained control over the set of assets
+imported, such as importing some modules without associating them with
+any specific assets.
+Typical examples include the case when you want to read the frontmatter
+of an MDX module regardless of any relationship between the module and
+current page.
 
-For this purpose, Minissg provides `virtual:minissg/control` module
-with the following signature:
+For this purpose, Minissg makes `loaded` set public in the `Context`
+structure.
+By manipulating the `loaded` set, you can manipulate the set of assets
+associated to the current context.
+For example, the following function ignores assets loaded during the
+execution of the given function:
 
-```typescript
-declare module 'virtual:minissg/control' {
-  export const peek: <X>(f: () => PromiseLike<X> | X) => Promise<X>
+```js
+import { getContext } from 'virtual:minissg/control'
+function peek(f) {
+  const { loaded } = getContext()
+  const original = new Set(loaded ?? [])  // save the current loaded set
+  try {
+    f()  // this may add some modules in the loaded set
+  } finally {
+    loaded.clear()  // revert the loaded set to the saved set
+    for (const i of original) loaded.add(i)
+  }
 }
 ```
-
-The `peek` function executes the given function or wait for the given
-promise fulfilled, but during its execution, any asset offered by
-dynamic imports are ignored.
 
 ### Debugging Server-side Code
 
