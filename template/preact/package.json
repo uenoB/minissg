@@ -8,11 +8,11 @@
   },
   "dependencies": {
     "@minissg/render-preact": "^3.0.0",
-    "@preact/preset-vite": "^2.8.2",
-    "preact": "^10.20.1",
-    "preact-render-to-string": "^6.4.1",
+    "@preact/preset-vite": "^2.8.3",
+    "preact": "^10.22.1",
+    "preact-render-to-string": "^6.5.5",
     "preact-ssr-prepass": "^1.2.1",
-    "vite": "^5.2.8",
+    "vite": "^5.3.3",
     "vite-plugin-minissg": "^3.0.0"
   }
 }
