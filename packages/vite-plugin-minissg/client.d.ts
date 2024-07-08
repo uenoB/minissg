@@ -18,7 +18,3 @@ declare module '*?hydrate' {
   const component: any
   export default component
 }
-
-declare module 'virtual:minissg/control' {
-  export const getContext: () => import('./dist/index').Context
-}

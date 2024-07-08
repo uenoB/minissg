@@ -43,7 +43,6 @@ const isVirtual = <Name extends string, N extends number>(
 ): v is Virtual<Name, N> => v != null && v[0] === name && v.length > args
 
 export const Lib = virtual(['Lib'], 'lib.js')
-export const Control = (side: string): string => virtual(['Control', side])
 export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
 const Client = (side: string, id: string): string =>
@@ -115,8 +114,6 @@ export const loaderPlugin = (
         let r: Rollup.PartialResolvedId | null = { id }
         if (isVirtual(v, 'self', 1) && importer != null) {
           r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
-        } else if (isVirtual(v, 'control', 1)) {
-          r = { id: Control(coerceSide(inSSR)) }
         } else if (isVirtual(v, 'Exact', 2)) {
           r = (v[2] === '' ? <X>(x: X): X => x : resolveQuery)({ id: v[1] })
         } else if (v == null) {
@@ -149,9 +146,6 @@ export const loaderPlugin = (
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Lib', 0)) {
           return libModule
-        } else if (isVirtual(v, 'Control', 0)) {
-          if (v[1] === 'server') return js`export { getContext } from ${Lib}`
-          return js`throw Error('available only in server context')`
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null
@@ -248,6 +242,5 @@ const libModule = `
   import { AsyncLocalStorage } from 'node:async_hooks'
   export const data = /*#__PURE__*/ new Map()
   const currentContext = /*#__PURE__*/ new AsyncLocalStorage()
-  export const getContext = currentContext.getStore()
   export const add = id => currentContext.getStore()?.loaded.add(id)
   export const run = currentContext.run.bind(currentContext)`

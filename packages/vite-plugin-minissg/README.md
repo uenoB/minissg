@@ -1092,16 +1092,6 @@ type ModuleName = {
 }
 ```
 
-Minissg provides `vitrual:minissg/control` module with the following
-signature so that you can obtain the context information anywhere other
-than the `main` function:
-
-```typescript
-declare module 'virtual:minissg/control' {
-  export const getContext: () => Context
-}
-```
-
 ### Manipulating the Effect of Dynamic Imports
 
 As described in [Style Sheets](#style-sheets) section,
@@ -1122,9 +1112,8 @@ For example, the following function ignores assets loaded during the
 execution of the given function:
 
 ```js
-import { getContext } from 'virtual:minissg/control'
-function peek(f) {
-  const { loaded } = getContext()
+function peek(context, f) {
+  const { loaded } = context
   const original = new Set(loaded ?? [])  // save the current loaded set
   try {
     f()  // this may add some modules in the loaded set
