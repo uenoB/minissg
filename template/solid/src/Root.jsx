@@ -2,7 +2,7 @@ import './Root.css'
 
 const favicon = import.meta.env.BASE_URL + 'favicon.ico'
 
-export default function Root({ head, children }) {
+export default function Root(props) {
   return (
     <html lang="en">
       <head>
@@ -10,9 +10,9 @@ export default function Root({ head, children }) {
         <meta name="viewport" content="width=device-width,initial-scale=1.0" />
         <link rel="icon" type="image/svg+xml" href={favicon} />
         <title>Vite + MiniSSG + Solid</title>
-        {head}
+        {props.head}
       </head>
-      <body>{children}</body>
+      <body>{props.children}</body>
     </html>
   )
 }

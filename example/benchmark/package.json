@@ -16,7 +16,7 @@
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.0",
     "remark-mdx-frontmatter": "^5.0.0",
-    "remark-smartypants": "^3.0.1",
+    "remark-smartypants": "^3.0.2",
     "tiged": "^2.12.7",
     "vite": "^5.3.3",
     "vite-plugin-minissg": "^3.0.0"

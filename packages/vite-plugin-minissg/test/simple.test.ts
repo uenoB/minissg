@@ -2,8 +2,6 @@ import { test, expect } from 'vitest'
 import { build } from './build'
 import ssg from '../src/index'
 
-/* eslint-disable max-len */
-
 test('README: Hello, World', async () => {
   await expect(
     build({

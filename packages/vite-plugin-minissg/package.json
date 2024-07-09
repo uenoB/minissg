@@ -7,6 +7,9 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "module": "dist/index.js",
   "main": "dist/index.cjs",
   "exports": {

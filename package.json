@@ -22,6 +22,7 @@
     }
   },
   "devDependencies": {
+    "@eslint/compat": "^1.1.0",
     "@rollup/plugin-terser": "^0.4.4",
     "@semantic-release/commit-analyzer": "^13.0.0",
     "@semantic-release/git": "^10.0.1",
@@ -29,12 +30,15 @@
     "@semantic-release/npm": "^12.0.1",
     "@semantic-release/release-notes-generator": "^14.0.1",
     "@types/node": "^20.14.10",
-    "@typescript-eslint/eslint-plugin": "^7.15.0",
     "eslint": "^8.57.0",
-    "eslint-config-love": "^54.0.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.9.0",
+    "eslint-plugin-promise": "^6.4.0",
     "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-solid": "^0.14.1",
     "eslint-plugin-svelte": "^2.41.0",
     "eslint-plugin-vue": "^9.27.0",
+    "globals": "^15.8.0",
     "lint-staged": "^15.2.7",
     "postcss-html": "^1.7.0",
     "prettier": "^3.3.2",
@@ -47,6 +51,7 @@
     "stylelint-config-recess-order": "^5.0.1",
     "stylelint-config-standard": "^36.0.1",
     "typescript": "^5.5.3",
+    "typescript-eslint": "^7.16.0",
     "vite": "^5.3.3",
     "vitest": "^2.0.1",
     "yaml": "^2.4.5"

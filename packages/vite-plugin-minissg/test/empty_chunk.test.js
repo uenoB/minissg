@@ -1,8 +1,6 @@
 import { test, expect } from 'vitest'
 import { build } from './build'
 
-/* eslint-disable max-len */
-
 test('shared image used to yielded an empty chunk', async () => {
   await expect(
     build({

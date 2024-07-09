@@ -1,123 +1,194 @@
-import { fileURLToPath } from 'node:url'
-import { FlatCompat } from '@eslint/eslintrc'
-import js from '@eslint/js'
-import typescriptEslint from '@typescript-eslint/eslint-plugin'
-import standard from 'eslint-config-standard'
-import reactRecommended from 'eslint-plugin-react/configs/recommended.js'
-const rc = new FlatCompat({ baseDirectory: fileURLToPath(import.meta.url) })
-
-const modificationToStandardJs = {
-  // Turn off rules in `standard` conflicting with Prettier
-  indent: 'off',
-  'space-before-function-paren': [
-    'error',
-    {
-      anonymous: 'ignore',
-      named: 'never',
-      asyncArrow: 'always'
-    }
-  ],
-  'generator-star-spacing': 'off',
-  'yield-star-spacing': 'off',
-  // make some rules more strict
-  'no-unused-vars': [
-    'error',
-    {
-      ...standard.rules['no-unused-vars'][1],
-      args: 'all',
-      argsIgnorePattern: '^_',
-      caughtErrors: 'all',
-      caughtErrorsIgnorePattern: '^_'
-    }
-  ]
-}
-
-const modificationToStandardTs = {
-  ...(() => {
-    const rules = {}
-    for (const [k, v] of Object.entries(modificationToStandardJs)) {
-      const tsk = `@typescript-eslint/${k}`
-      rules[tsk in typescriptEslint.configs.all.rules ? tsk : k] = v
-    }
-    return rules
-  })(),
-  // Turn off rules in `standard` conflicting with Prettier
-  '@typescript-eslint/member-delimiter-style': [
-    'error',
-    {
-      multiline: { delimiter: 'none' },
-      singleline: { delimiter: 'semi', requireLast: false }
-    }
-  ],
-  '@typescript-eslint/space-before-function-paren': 'off',
-  '@typescript-eslint/indent': 'off',
-  // make some rules more permissive
-  '@typescript-eslint/no-invalid-void-type': [
-    'error',
-    { allowAsThisParameter: true }
-  ]
-}
-
-const expand = config => {
-  const { extends: ext, ...rest } = config
-  const configs = Array.isArray(ext) ? ext : [ext]
-  const selector = {}
-  if (rest.files != null) selector.files = rest.files
-  if (rest.ignores != null) selector.ignores = rest.ignores
-  const extensions = rc.extends(...configs).map(c => ({ ...c, ...selector }))
-  return [...extensions, rest]
-}
+import globals from 'globals'
+import eslintJs from '@eslint/js'
+import eslintTs from 'typescript-eslint'
+import eslintReactRecommended from 'eslint-plugin-react/configs/recommended.js'
+import eslintSolidRecommended from 'eslint-plugin-solid/configs/recommended.js'
+import eslintSvelte from 'eslint-plugin-svelte'
+import eslintVue from 'eslint-plugin-vue'
+import eslintNode from 'eslint-plugin-n'
+import eslintPromise from 'eslint-plugin-promise'
+import eslintImport from 'eslint-plugin-import'
+import { fixupPluginRules } from '@eslint/compat'
 
 export default [
+  { ignores: ['**/dist/**/*', 'packages/vite-plugin-minissg/client.d.ts'] },
+  { linterOptions: { reportUnusedDisableDirectives: true } },
+  eslintJs.configs.recommended,
+  eslintNode.configs['flat/recommended-module'],
+  eslintPromise.configs['flat/recommended'],
+  { plugins: { import: fixupPluginRules(eslintImport) } },
   {
-    ignores: ['**/dist/**/*', 'packages/vite-plugin-minissg/client.d.ts']
-  },
-  {
-    linterOptions: {
-      reportUnusedDisableDirectives: true
-    },
+    // derived from StandardJS
     rules: {
-      'max-len': ['error', { code: 80 }]
+      'no-var': 'error',
+      'object-shorthand': ['error', 'properties'],
+      'accessor-pairs': 'error',
+      'array-callback-return': 'error',
+      camelcase: ['error', { properties: 'never' }],
+      curly: ['error', 'multi-line'],
+      'default-case-last': 'error',
+      'dot-notation': 'error',
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      'new-cap': ['error', { capIsNew: false }],
+      'no-array-constructor': 'error',
+      'no-caller': 'error',
+      'no-eval': 'error',
+      'no-extend-native': 'error',
+      'no-extra-bind': 'error',
+      'no-implied-eval': 'error',
+      'no-iterator': 'error',
+      'no-labels': 'error',
+      'no-lone-blocks': 'error',
+      'no-multi-str': 'error',
+      'no-new': 'error',
+      'no-new-func': 'error',
+      'no-object-constructor': 'error',
+      'no-new-wrappers': 'error',
+      'no-octal-escape': 'error',
+      'no-proto': 'error',
+      'no-return-assign': 'error',
+      'no-self-compare': 'error',
+      'no-sequences': 'error',
+      'no-template-curly-in-string': 'error',
+      'no-throw-literal': 'error',
+      'no-undef-init': 'error',
+      'no-unmodified-loop-condition': 'error',
+      'no-unneeded-ternary': ['error', { defaultAssignment: false }],
+      'no-unreachable-loop': 'error',
+      'no-unused-expressions': 'error',
+      'no-unused-vars': [
+        'error',
+        {
+          args: 'all',
+          ignoreRestSiblings: true,
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ],
+      'no-use-before-define': ['error', { classes: false, variables: false }],
+      'no-useless-call': 'error',
+      'no-useless-computed-key': 'error',
+      'no-useless-constructor': 'error',
+      'no-useless-rename': 'error',
+      'no-useless-return': 'error',
+      'no-void': ['error', { allowAsStatement: true }],
+      'one-var': ['error', { initialized: 'never' }],
+      'prefer-const': ['error', { destructuring: 'all' }],
+      'prefer-promise-reject-errors': 'error',
+      'prefer-regex-literals': ['error', { disallowRedundantWrapping: true }],
+      'symbol-description': 'error',
+      'unicode-bom': 'error',
+      yoda: 'error',
+      'import/export': 'error',
+      'import/first': 'error',
+      'import/no-absolute-path': 'error',
+      'import/no-duplicates': 'error',
+      'import/no-named-default': 'error',
+      'import/no-webpack-loader-syntax': 'error',
+      'n/handle-callback-err': 'error',
+      'n/no-callback-literal': 'error',
+      'n/no-extraneous-import': 'off',
+      'n/no-missing-import': 'off',
+      'n/no-new-require': 'error',
+      'n/no-path-concat': 'error',
+      'promise/no-nesting': 'off'
     }
   },
-  js.configs.recommended,
-  ...expand({
-    extends: [
-      'plugin:@typescript-eslint/recommended',
-      'plugin:@typescript-eslint/recommended-requiring-type-checking',
-      'plugin:@typescript-eslint/strict'
-    ],
+  ...eslintTs.configs.strictTypeChecked.map(config => ({
+    ...config,
+    files: ['**/*.ts']
+  })),
+  {
     files: ['**/*.ts'],
     languageOptions: {
       parserOptions: {
-        project: fileURLToPath(new URL('tsconfig.json', import.meta.url))
+        project: true,
+        tsconfigRootDir: import.meta.dirname
       }
-    }
-  }),
-  ...expand({
-    extends: 'standard',
-    files: ['**/*.{js,jsx}'],
-    rules: modificationToStandardJs
-  }),
-  ...expand({
-    extends: 'love',
-    files: ['**/*.ts'],
-    rules: modificationToStandardTs
-  }),
-  {
-    files: ['**/*.d.ts'],
-    rules: {
-      '@typescript-eslint/consistent-type-imports': 'off',
-      '@typescript-eslint/no-explicit-any': 'off'
     }
   },
   {
-    ...reactRecommended,
-    settings: { react: { version: '16.0' } },
-    files: ['**/*.jsx']
+    files: ['**/*.ts'],
+    rules: {
+      '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
+      '@typescript-eslint/ban-types': 'error',
+      '@typescript-eslint/consistent-indexed-object-style': ['error', 'record'],
+      '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
+      '@typescript-eslint/consistent-type-exports': 'error',
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/dot-notation': 'error',
+      'dot-notation': 'off',
+      '@typescript-eslint/explicit-function-return-type': [
+        'error',
+        { allowExpressions: true }
+      ],
+      '@typescript-eslint/method-signature-style': 'error',
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: 'variableLike',
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'allow',
+          format: ['camelCase', 'PascalCase', 'UPPER_CASE']
+        }
+      ],
+      '@typescript-eslint/no-extraneous-class': 'error',
+      '@typescript-eslint/no-invalid-void-type': [
+        'error',
+        { allowAsThisParameter: true }
+      ],
+      '@typescript-eslint/no-unused-expressions': 'error',
+      'no-unused-expressions': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          args: 'all',
+          ignoreRestSiblings: true,
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ],
+      '@typescript-eslint/no-use-before-define': [
+        'error',
+        { classes: false, variables: false }
+      ],
+      'no-use-before-define': 'off',
+      '@typescript-eslint/prefer-readonly': 'error',
+      '@typescript-eslint/promise-function-async': 'error',
+      '@typescript-eslint/require-array-sort-compare': 'error',
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true }
+      ],
+      '@typescript-eslint/return-await': ['error', 'always'],
+      '@typescript-eslint/strict-boolean-expressions': [
+        'error',
+        { allowString: false, allowNumber: false, allowNullableObject: false }
+      ],
+      '@typescript-eslint/triple-slash-reference': [
+        'error',
+        { lib: 'never', types: 'never' }
+      ]
+    }
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { globals: globals.commonjs }
+  },
+  {
+    files: ['template/**/src/browser.js{x,}'],
+    languageOptions: { globals: globals.browser }
+  },
+  {
+    ...eslintReactRecommended,
+    files: ['**/*.jsx'],
+    ignores: ['**/template/solid/**/*.jsx'],
+    languageOptions: eslintReactRecommended.languageOptions,
+    settings: { react: { version: '16.0' } }
   },
   {
     files: ['**/*.jsx'],
+    ignores: ['**/template/solid/**/*.jsx'],
     rules: {
       'react/jsx-uses-react': 'off',
       'react/prop-types': 'off',
@@ -125,17 +196,24 @@ export default [
     }
   },
   {
-    files: ['**/template/{mdx,preact,solid}/**/*.jsx'],
+    files: ['**/template/{mdx,preact}/**/*.jsx'],
     rules: {
       'react/no-unknown-property': ['error', { ignore: ['class'] }]
     }
   },
-  ...expand({
-    extends: 'plugin:svelte/recommended',
+  {
+    ...eslintSolidRecommended,
+    files: ['**/template/solid/**/*.jsx']
+  },
+  ...eslintSvelte.configs['flat/recommended'].map(config => ({
+    ...config,
     files: ['**/*.svelte']
-  }),
-  ...expand({
-    extends: 'plugin:vue/vue3-recommended',
+  })),
+  ...eslintVue.configs['flat/recommended'].map(config => ({
+    ...config,
+    files: ['**/*.vue']
+  })),
+  {
     files: ['**/*.vue'],
     rules: {
       // Turn off rules conflicting with Prettier
@@ -143,5 +221,5 @@ export default [
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off'
     }
-  })
+  }
 ]

@@ -4,7 +4,7 @@ import './browser?client'
 export default function BrowserHtml() {
   return (
     <Root>
-      <div id="app"></div>
+      <div id="app" />
     </Root>
   )
 }
