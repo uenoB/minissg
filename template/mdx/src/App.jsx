@@ -3,7 +3,7 @@ import ViteLogo from './vite.svg'
 import MinissgLogo from './minissg.svg'
 import MDXLogo from './mdx.svg'
 import PreactLogo from './preact.svg'
-import { app, logo, counter } from './App.module.css'
+import './App.css'
 
 export default function App() {
   const [count, setCount] = useState(0)
@@ -11,24 +11,24 @@ export default function App() {
     setCount(count => count + 1)
   }
   return (
-    <div class={app}>
+    <div class="app">
       <div>
         <a href="https://vitejs.dev">
-          <img src={ViteLogo} class={logo} alt="Vite" />
+          <img src={ViteLogo} class="logo" alt="Vite" />
         </a>
         <a href="https://github.com/uenoB/vite-plugin-minissg">
-          <img src={MinissgLogo} class={logo} alt="Minissg" />
+          <img src={MinissgLogo} class="logo" alt="Minissg" />
         </a>
         <a href="https://mdxjs.com">
-          <img src={MDXLogo} class={logo} alt="MDX" />
+          <img src={MDXLogo} class="logo" alt="MDX" />
         </a>
         <a href="https://preactjs.com">
-          <img src={PreactLogo} class={logo} alt="Preact" />
+          <img src={PreactLogo} class="logo" alt="Preact" />
         </a>
       </div>
       <h1>Vite + Minissg + MDX + Preact</h1>
       <div>
-        <button class={counter} onClick={increment}>
+        <button class="counter" onClick={increment}>
           count is {count}
         </button>
       </div>

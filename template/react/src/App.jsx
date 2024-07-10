@@ -2,7 +2,7 @@ import { useState } from 'react'
 import ViteLogo from './vite.svg'
 import MinissgLogo from './minissg.svg'
 import ReactLogo from './react.svg'
-import { app, logo, counter } from './App.module.css'
+import './App.css'
 
 export default function App() {
   const [count, setCount] = useState(0)
@@ -10,21 +10,21 @@ export default function App() {
     setCount(count => count + 1)
   }
   return (
-    <div className={app}>
+    <div className="app">
       <div>
         <a href="https://vitejs.dev">
-          <img src={ViteLogo} className={logo} alt="Vite" />
+          <img src={ViteLogo} className="logo" alt="Vite" />
         </a>
         <a href="https://github.com/uenoB/vite-plugin-minissg">
-          <img src={MinissgLogo} className={logo} alt="Minissg" />
+          <img src={MinissgLogo} className="logo" alt="Minissg" />
         </a>
         <a href="https://react.dev">
-          <img src={ReactLogo} className={logo} alt="React" />
+          <img src={ReactLogo} className="logo" alt="React" />
         </a>
       </div>
       <h1>Vite + Minissg + React</h1>
       <div>
-        <button className={counter} onClick={increment}>
+        <button className="counter" onClick={increment}>
           count is {count}
         </button>
       </div>

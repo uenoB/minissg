@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js'
 import ViteLogo from './vite.svg'
 import MinissgLogo from './minissg.svg'
 import SolidLogo from './solid.svg'
-import { app, logo, counter } from './App.module.css'
+import './App.css'
 
 export default function App() {
   const [count, setCount] = createSignal(0)
@@ -11,21 +11,21 @@ export default function App() {
     setCount(count() + 1)
   }
   return (
-    <div class={app}>
+    <div class="app">
       <div>
         <a href="https://vitejs.dev">
-          <img src={ViteLogo} class={logo} alt="Vite" />
+          <img src={ViteLogo} class="logo" alt="Vite" />
         </a>
         <a href="https://github.com/uenoB/vite-plugin-minissg">
-          <img src={MinissgLogo} class={logo} alt="Minissg" />
+          <img src={MinissgLogo} class="logo" alt="Minissg" />
         </a>
         <a href="https://www.solidjs.com">
-          <img src={SolidLogo} class={logo} alt="Solid" />
+          <img src={SolidLogo} class="logo" alt="Solid" />
         </a>
       </div>
       <h1>Vite + Minissg + Solid</h1>
       <div>
-        <button class={counter} onClick={increment}>
+        <button class="counter" onClick={increment}>
           count is {count()}
         </button>
       </div>

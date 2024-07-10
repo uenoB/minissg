@@ -1,5 +1,5 @@
 .app {
-  margin-top: 3em;
+  margin: 3em 0;
   text-align: center;
 }
 
@@ -9,13 +9,13 @@
   line-height: 1.1;
 }
 
-.logo {
+.app .logo {
   height: 6em;
   padding: 1em;
   margin: 0 0.3em;
 }
 
-.counter {
+.app .counter {
   padding: 0.5em 1em;
   margin: 1em 0;
   font-family: inherit;
@@ -25,15 +25,15 @@
   background-color: #ccc4;
 }
 
-.logo,
-.counter {
+.app .logo,
+.app .counter {
   cursor: pointer;
   border: none;
   border-radius: 0.5em;
   transition: border-color 0.3s;
 }
 
-.logo:hover,
-.counter:hover {
+.app .logo:hover,
+.app .counter:hover {
   box-shadow: 0 0 0.5em 0 #1bec;
 }
