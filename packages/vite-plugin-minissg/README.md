@@ -1445,27 +1445,23 @@ The association must be specified in one of the following forms:
   `import`, it is transformed by Vite (and its plugins) and included
   in the destination site as expected.
 
-* Using CSS modules with Minissg may introduce empty JS chunks in the
-  result of `vite build`.
-  This is maybe caused because Vite deals with `*.module.css` files
-  as both non-treeshakable and non-pure CSS modules.
-  CSS module files are transformed into JS codes exporting CSS class
-  names represented in JS string literals.
-  Since they are literals, these codes are inherently pure and
-  therefore must be removed in an optimal output if they are not used.
-  To bundle CSS files consistently in client-side run, Missing
-  generates HTML files with `<link>` elements referring to CSS module
-  files for the input of client-side run.
-  This setup yields dead string literals exported by JS codes
-  generated from CSS module files, which are marked as
-  non-treeshakable and non-pure.
-  Although minifier removes all the such dead codes for each chunk,
-  it cannot remove unneeded chunks.
-  Consequently, some empty chunks are left in the destination.
+* CSS modules in server-side code usually does not work as expected.
+  Since Vite 5.2.0, CSS modules are tree-shaken: if a CSS module is imported
+  but not referred from any client-side code, the CSS module is eliminated
+  completely by tree-shaking at client side run.
 
-  To avoid this, use another techniques for modular styling instead of
-  CSS modules.
-  For example, [linaria] would be a nice alternative.
+  Even if we could turn off the tree-shaking, an empty JS chunk would be
+  generated unexpectedly.
+  Such an empty chunk appears because of the following reason.
+  The JS code generated from a CSS module is so simple that minifier can
+  remove it at all when it is not used.
+  While the content of the chunk corresponding to the CSS module becomes
+  empty by minifier, the chunk itself cannot be removed because tree-shaking
+  is turned off.
+
+  To avoid confusion, it is recommended not to use CSS module with Minissg.
+  Instead of CSS modules, use another technologies for modular styling
+  such as [linaria].
 
 ## License
 
