@@ -1,0 +1,38 @@
+{
+  "name": "@minissg/async",
+  "version": "1.0.0",
+  "description": "Asynchronous data management utilities for Minissg",
+  "homepage": "https://github.com/uenoB/vite-plugin-minissg/#readme",
+  "repository": "github:uenoB/vite-plugin-minissg",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "module": "dist/index.js",
+  "main": "dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.cjs",
+    "dist/index.cjs.map",
+    "dist/index.d.cts",
+    "dist/index.d.ts",
+    "dist/index.js",
+    "dist/index.js.map"
+  ],
+  "keywords": [
+    "vite-plugin-minissg"
+  ]
+}

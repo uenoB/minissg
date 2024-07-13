@@ -20,7 +20,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
-    "noErrorTruncation": true
+    "noErrorTruncation": true,
+    "paths": {
+      "@minissg/*": ["./packages/*/src"]
+    }
   },
   "include": ["packages/*/src/**/*", "packages/*/test/**/*"]
 }
