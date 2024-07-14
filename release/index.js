@@ -11,6 +11,7 @@ import * as github from '@semantic-release/github'
 import * as updateDependencies from './update-dependencies.js'
 import { gitLsFiles } from './git.js'
 import { hookPlugin } from './monorepo.js'
+import { packages } from './package-list.js'
 
 const rootDir = url.fileURLToPath(new URL('..', import.meta.url))
 process.chdir(rootDir)
@@ -23,36 +24,30 @@ const packageJsonList = gitLsFiles(packageJsonGlobList).map(i =>
   path.join(rootDir, i)
 )
 
-const floatUp = (x, a) => a.filter(i => i === x).concat(a.filter(i => i !== x))
-
-const packages = fs.readdirSync('packages')
-
 // iterate for each directory under packages.
-// vite-plugin-minissg must be first because other packages depend on it.
-for (const name of floatUp('vite-plugin-minissg', packages)) {
-  const options = { dir: path.join('packages', name, '/'), name }
+for (const pkg of packages) {
   await semanticRelease(
     {
       branches: [
         { name: 'latest' },
         { name: 'next', channel: 'next', prerelease: true }
       ],
-      tagFormat: name + '-v<%= version %>',
+      tagFormat: pkg.name + '-v<%= version %>',
       plugins: [
-        hookPlugin(commitAnalyzer, options),
-        hookPlugin(notesGenerator, options),
-        hookPlugin(npm, options),
-        [hookPlugin(updateDependencies, options), { packageJsonList }],
+        hookPlugin(commitAnalyzer, pkg),
+        hookPlugin(notesGenerator, pkg),
+        hookPlugin(npm, pkg),
+        [hookPlugin(updateDependencies, pkg), { packageJsonList }],
         [
-          hookPlugin(git, { ...options, chdir: false }),
+          hookPlugin(git, { ...pkg, chdir: false }),
           {
             assets: packageJsonList,
-            message: `chore(release): ${name} <%=
+            message: `chore(release): ${pkg.name} <%=
                       nextRelease.version %> [skip ci]\n\n<%=
                       nextRelease.notes %>`
           }
         ],
-        hookPlugin(github, options)
+        hookPlugin(github, pkg)
       ]
     },
     { cwd: rootDir }

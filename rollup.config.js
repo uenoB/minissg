@@ -1,17 +1,9 @@
-import { readdirSync, readFileSync, rmSync } from 'node:fs'
-import { relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import esbuild from 'rollup-plugin-esbuild'
 import terserPlugin from '@rollup/plugin-terser'
 import dts from 'rollup-plugin-dts'
-
-const readDir = url => readdirSync(url).map(i => new URL(`${i}/`, url))
-const readJson = url => JSON.parse(readFileSync(new URL('package.json', url)))
-const readPackage = url => ({ url, json: readJson(url) })
-
-const baseURL = new URL('.', import.meta.url)
-const packages = readDir(new URL('packages/', baseURL)).map(readPackage)
-const toRelPath = url => relative(fileURLToPath(baseURL), fileURLToPath(url))
+import { packages } from './release/package-list.js'
 
 const terser = () =>
   terserPlugin({
@@ -35,7 +27,7 @@ const terser = () =>
 
 const cleanup = outDir => ({
   name: 'cleanup',
-  buildStart: () => rmSync(outDir, { recursive: true, force: true })
+  buildStart: () => fs.rmSync(outDir, { recursive: true, force: true })
 })
 
 const externalNames = ({ json }) => [
@@ -60,8 +52,8 @@ const cjsOutput = {
 
 const build = pkg => {
   const external = new Set(externalNames(pkg))
-  const input = toRelPath(new URL('src/index.ts', pkg.url))
-  const outDir = toRelPath(new URL('dist/', pkg.url))
+  const input = path.join(pkg.dir, 'src/index.ts')
+  const outDir = path.join(pkg.dir, 'dist/')
   return [
     {
       external: [...external, /^node:/],
