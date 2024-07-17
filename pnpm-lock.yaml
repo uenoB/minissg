@@ -242,12 +242,12 @@ importers:
 
   packages/page:
     dependencies:
+      '@minissg/async':
+        specifier: workspace:^
+        version: link:../async
       debug:
         specifier: ^4.3.5
         version: 4.3.5
-      vite-plugin-minissg:
-        specifier: workspace:^
-        version: link:../vite-plugin-minissg
     devDependencies:
       '@types/debug':
         specifier: ^4.1.12

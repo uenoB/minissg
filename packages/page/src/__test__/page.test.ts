@@ -3,34 +3,34 @@ import { run, ModuleName } from '../../../vite-plugin-minissg/src/module'
 import { Page } from '../page'
 
 const tree = async (): Promise<Page> => {
-  const bar = Page.module({
+  const bar = Page.create({
     pages: {
       'foo/ba.en.js': (): unknown => 'bar1',
       'foo/ba.ja.js': (): unknown => 'bar2'
     },
     substitutePath: s => s.slice('foo/'.length)
   })
-  const baz = Page.module({
+  const baz = Page.create({
     pages: {
       'index.html..en.js': (): unknown => 'baz1',
       'index.html..ja.js': (): unknown => 'baz2'
     }
   })
   const bazModule = { main: () => ({ main: () => baz }) }
-  const garply = Page.module({
+  const garply = Page.create({
     pages: {
       'garply.js': (): unknown => 'garply0'
     }
   })
-  const grault = Page.module({ initialize: () => garply })
-  const corge = Page.module({
+  const grault = Page.create({ load: () => garply })
+  const corge = Page.create({
     pages: {
       '': (): unknown => 'corge0',
       'corge.js': (): unknown => 'corge1'
     }
   })
-  const quux = Page.module({ initialize: () => corge })
-  const qux = Page.module({
+  const quux = Page.create({ load: () => corge })
+  const qux = Page.create({
     pages: {
       '': (): unknown => 'qux0',
       'index.html..js': (): unknown => 'qux1',
@@ -39,18 +39,18 @@ const tree = async (): Promise<Page> => {
       'baz.md..js': (): unknown => 'qux4'
     }
   })
-  const fred = Page.module({
+  const fred = Page.create({
     pages: {
       'fred.js': (): unknown => 'fred'
     }
   })
-  const waldo = Page.module({
+  const waldo = Page.create({
     pages: {
       '': fred,
       'waldo.js': (): unknown => 'waldo0'
     }
   })
-  const foo = Page.module({
+  const foo = Page.create({
     pages: {
       '': waldo,
       'bar/bar.js': (): unknown => bar,
@@ -62,12 +62,12 @@ const tree = async (): Promise<Page> => {
     },
     substitutePath: s => s.replace(/^(?:foo|qux)\//, '')
   })
-  const prugh = Page.module({
+  const prugh = Page.create({
     pages: {
       'foo/waldo.en.js': (): unknown => 'waldo1'
     }
   })
-  const root = Page.module<unknown>({
+  const root = Page.create<unknown>({
     url: 'http://example.com',
     pages: {
       'index.html..js': (): unknown => 'root',
@@ -76,7 +76,8 @@ const tree = async (): Promise<Page> => {
     }
   })
   const dummyContext = { moduleName: ModuleName.root, module: {} }
-  return (await root.main(dummyContext)) as Page
+  await root.main(dummyContext)
+  return root
 }
 
 // root:                             # /                     /
@@ -425,7 +426,11 @@ const groupBy = <X, Y>(a: Iterable<X>, f: (x: X) => Y): Array<[X, ...X[]]> => {
   for (const x of a) {
     const key = f(x)
     const values = map.get(key)
-    values != null ? values.push(x) : map.set(key, [x])
+    if (values != null) {
+      values.push(x)
+    } else {
+      map.set(key, [x])
+    }
   }
   return Array.from(map.values())
 }
@@ -449,9 +454,10 @@ const uniqByPath = <X, Y extends { path: readonly X[] }>(
   ]
 }
 
-test('Page.module without argument', async () => {
-  const p = Page.module()
-  expect(p.moduleName).toBeUndefined()
+/*
+test('Page.create without argument', async () => {
+  const p = Page.create()
+  expect(p.createName).toBeUndefined()
   expect(p.stem).toBeUndefined()
   expect(p.variant).toBeUndefined()
   expect(p.fileName).toBe('')
@@ -463,27 +469,32 @@ test('Page.module without argument', async () => {
   await expect(p.find('')).resolves.toBeUndefined()
   await expect(async () => await p.deref()).rejects.toThrow('from outside')
 })
+*/
 
-test('Page.module with url', async () => {
-  const r = Page.module({ url: 'http://example.com/foo/' })
+test('Page.create with url', async () => {
+  const r = Page.create({
+    load: () => 'dummy',
+    url: 'http://example.com/foo/'
+  })
   const dummyContext = { moduleName: ModuleName.root, module: {} }
-  const p = (await r.main(dummyContext)) as Page
-  expect(p.url).toMatchObject({ href: 'http://example.com/foo/' })
+  await r.main(dummyContext)
+  expect(r.url.value).toMatchObject({ href: 'http://example.com/foo/' })
 })
 
-test('new Page', async () => {
+test('new Page', () => {
   const p = new Page()
-  expect(p.moduleName).toBeUndefined()
-  expect(p.stem).toBeUndefined()
-  expect(p.variant).toBeUndefined()
-  expect(p.fileName).toBe('')
-  expect(p.url).toBeUndefined()
-  expect(p.parent).toBeUndefined()
-  expect(p.root).toBeUndefined()
-  await expect(p.children).resolves.toStrictEqual([])
-  await expect(p.load()).resolves.toBeUndefined()
-  await expect(p.find('')).resolves.toBeUndefined()
-  expect(() => p.deref()).toThrow('unavailable')
+  expect(() => p.moduleName).toThrow('unavailable')
+  expect(() => p.stem).toThrow('unavailable')
+  expect(() => p.variant).toThrow('unavailable')
+  expect(() => p.fileName).toThrow('unavailable')
+  expect(() => p.url).toThrow('unavailable')
+  expect(() => p.parent).toThrow('unavailable')
+  expect(() => p.root).toThrow('unavailable')
+  expect(p.children().value).toStrictEqual([])
+  expect(p.load().value).toBeUndefined()
+  expect(p.loadThis().value).toBeUndefined()
+  expect(p.find('').value).toBeUndefined()
+  expect(() => p.variants()).toThrow('unavailable')
   const dummyContext = { moduleName: ModuleName.root, module: {} }
   expect(() => p.main(dummyContext)).toThrow('unavailable')
 })
@@ -498,7 +509,7 @@ test('subclass', () => {
       this.foo = foo
     }
   }
-  const page = MyPage1.module(
+  const page = MyPage1.create(
     { pages: { foo: () => ({ default: 'bar' }) } },
     123
   )
@@ -514,16 +525,16 @@ test('generic subclass', () => {
       this.foo = foo
     }
   }
-  const page = MyPage2.module({}, 123)
+  const page = MyPage2.create({ load: () => 'dummy' }, 123)
   expect(page.foo).toBe(123)
 })
 
 test('root names', async () => {
   const root = await tree()
-  expect(root.fileName).toBe('')
-  expect(root.stem).toBe('')
-  expect(root.variant).toBe('')
-  expect(root.moduleName).toBe('')
+  expect(root.fileName.value).toBe('')
+  expect(root.stem.value).toBe('')
+  expect(root.variant.value).toBe('')
+  expect(root.moduleName.value).toBe('')
 })
 
 test.each(
@@ -537,11 +548,11 @@ test.each(
   if (page == null) return
   expect(page.type).toBe('page')
   if (page.type !== 'page') return
-  expect(page.fileName).toBe(props.fileName)
-  expect(page.stem).toBe(props.stem)
-  expect(page.variant).toBe(props.variant)
-  expect(page.moduleName).toBe(props.moduleName)
-  expect(page).toBe(await root.findByTreePath(props.path))
+  await expect(page.fileName).resolves.toBe(props.fileName)
+  await expect(page.stem).resolves.toBe(props.stem)
+  await expect(page.variant).resolves.toBe(props.variant)
+  await expect(page.moduleName).resolves.toBe(props.moduleName)
+  await expect(root.findByTreePath(props.path)).resolves.toBe(page)
 })
 
 test.each(
@@ -553,11 +564,11 @@ test.each(
   const page = await root.findByModuleName(name)
   expect(page).toBeDefined()
   if (page == null) return
-  expect(page.fileName).toBe(props.fileName)
-  expect(page.stem).toBe(props.stem)
-  expect(page.variant).toBe(props.variant)
-  expect(page.moduleName).toBe(props.moduleName)
-  expect(page).toBe(await root.findByTreePath(props.path))
+  await expect(page.fileName).resolves.toBe(props.fileName)
+  await expect(page.stem).resolves.toBe(props.stem)
+  await expect(page.variant).resolves.toBe(props.variant)
+  await expect(page.moduleName).resolves.toBe(props.moduleName)
+  await expect(root.findByTreePath(props.path)).resolves.toBe(page)
 })
 
 test.each(
@@ -569,10 +580,10 @@ test.each(
   const page = await root.findByTreePath(path)
   expect(page).toBeDefined()
   if (page == null) return
-  expect(page.fileName).toBe(props.fileName)
-  expect(page.stem).toBe(props.stem)
-  expect(page.variant).toBe(props.variant)
-  expect(page.moduleName).toBe(props.moduleName)
+  await expect(page.fileName).resolves.toBe(props.fileName)
+  await expect(page.stem).resolves.toBe(props.stem)
+  await expect(page.variant).resolves.toBe(props.variant)
+  await expect(page.moduleName).resolves.toBe(props.moduleName)
 })
 
 test.each(

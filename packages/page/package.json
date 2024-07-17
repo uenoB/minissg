@@ -7,12 +7,15 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
-  "module": "dist/index.js",
-  "main": "dist/index.cjs",
+  "engines": {
+    "node": ">=16.11"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
+  "module": "dist/index.js",
+  "main": "dist/index.cjs",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -33,10 +36,8 @@
     "vite-plugin-minissg"
   ],
   "dependencies": {
+    "@minissg/async": "^1.0.0",
     "debug": "^4.3.5"
-  },
-  "peerDependencies": {
-    "vite-plugin-minissg": "^3.0.0"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12"

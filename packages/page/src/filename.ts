@@ -33,7 +33,9 @@ export class PathSteps {
     if (path == null || path === '') return new PathSteps([])
     try {
       path = ModuleName.root.join('./' + path).path
-    } catch {}
+    } catch {
+      // ignore exceptions thrown in ModuleName.join
+    }
     // from('.') = [''] because 'foo'.join('.') = 'foo/'.
     return new PathSteps(path === '' ? [''] : path.split('/'))
   }
@@ -80,6 +82,21 @@ export interface RelPath {
   variant: string
   fileName: string
 }
+
+export const emptyRelPath: Readonly<RelPath> = Object.freeze({
+  moduleName: '',
+  stem: '',
+  variant: '',
+  fileName: ''
+})
+
+export const copyRelPath = (relPath: Readonly<RelPath>): Readonly<RelPath> =>
+  Object.freeze({
+    moduleName: relPath.moduleName,
+    stem: relPath.stem,
+    variant: relPath.variant,
+    fileName: relPath.fileName
+  })
 
 export const concatName = (
   base: ModuleName | Null,

@@ -125,18 +125,18 @@ class FileNameTransition<Next> extends Transition<Next> {
   }
 }
 
-interface Next<Abst> {
-  readonly relPath: Readonly<RelPath> | null // null means empty RelPath
-  readonly abst: Abst
+interface Next<Tree> {
+  readonly relPath: Readonly<RelPath>
+  readonly tree: Tree
 }
 
-export class Indices<Abst, Asset> {
-  readonly moduleNameMap = new ModuleNameTransition<Next<Abst>>()
-  readonly stemMap = new ModuleNameTransition<Next<Abst>>()
-  readonly fileNameMap = new FileNameTransition<Next<Abst | Asset>>()
+export class Indices<Tree, Asset> {
+  readonly moduleNameMap = new ModuleNameTransition<Next<Tree>>()
+  readonly stemMap = new ModuleNameTransition<Next<Tree>>()
+  readonly fileNameMap = new FileNameTransition<Next<Tree | Asset>>()
 
-  addRoute(relPath: Readonly<RelPath>, abst: Abst): void {
-    const next = { abst, relPath }
+  addRoute(relPath: Readonly<RelPath>, tree: Tree): void {
+    const next = { tree, relPath }
     const moduleSteps = PathSteps.fromRelativeModuleName(relPath.moduleName)
     const stemSteps = PathSteps.fromRelativeModuleName(relPath.stem)
     const fileSteps = PathSteps.fromRelativeFileName(relPath.fileName)
@@ -146,52 +146,47 @@ export class Indices<Abst, Asset> {
   }
 }
 
-interface TreeAbst<Tree, Inst = Tree> {
-  readonly instantiate: (
-    parent: Tree,
-    path: Readonly<RelPath> | null
-  ) => PromiseLike<Inst>
-}
-
-interface TreeNode<Tree, Content, Base extends object = object> {
+interface TreeNode<Tree, Content> {
   readonly content: Content
-  readonly module: Base
-  readonly findChild: () => PromiseLike<
-    { tree: true; node: Tree } | { tree: false }
-  >
+  readonly page: object
+  readonly findChild: () => PromiseLike<Tree | undefined>
 }
 
-type Content<Tree, Inst, Key extends string> =
+interface NamedTreeNode<Tree, Content> extends TreeNode<Tree, Content> {
+  readonly instance: {
+    get: () => PromiseLike<{ moduleName: { path: string } }>
+  }
+}
+
+type Content<Tree, Key extends string> =
   | ((...a: never) => unknown)
-  | PromiseLike<{ [P in Key]: Transition<Next<TreeAbst<Tree, Inst>>> }>
+  | PromiseLike<{ [P in Key]: Transition<Next<Tree>> }>
   | undefined
 
-type Found<Tree extends { module: unknown }> = Tree['module'] | undefined
+type Found<Tree extends { page: unknown }> = Tree['page'] | undefined
 
 export const find = <
   Key extends string,
-  Tree extends TreeNode<Tree, Content<Tree, Asset | Tree, Key>>,
+  Tree extends TreeNode<Tree, Content<Asset | Tree, Key>>,
   Asset extends TreeNode<Tree, undefined>
 >(
   indexKey: Key,
-  node: Tree | Asset,
+  tree: Tree | Asset,
   input: readonly string[],
-  found: (node: Tree | Asset) => Awaitable<Found<Tree | Asset>> = r => r.module
+  found: (tree: Tree | Asset) => Awaitable<Found<Tree | Asset>> = r => r.page
 ): PromiseLike<Found<Tree | Asset>> => {
   type Cont = (r: Found<Tree | Asset>) => Awaitable<Found<Tree | Asset>>
-  const undef = Promise.resolve(undefined)
-
   const search = (
-    node: Tree | Asset,
+    tree: Tree | Asset,
     input: readonly string[]
   ): PromiseLike<Found<Tree | Asset>> => {
-    if (input.length === 0) return undef
-    if (typeof node.content !== 'object') {
-      return node.findChild().then(next => {
-        return next.tree ? search(next.node, input) : undefined
+    if (input.length === 0) return Promise.resolve(undefined)
+    if (typeof tree.content !== 'object') {
+      return tree.findChild().then(next => {
+        return next != null ? search(next, input) : undefined
       })
     }
-    return node.content.then((index): PromiseLike<Found<Tree | Asset>> => {
+    return tree.content.then((index): PromiseLike<Found<Tree | Asset>> => {
       // longer match has precedence
       const cont = Array.from(index[indexKey].walk(input)).reduce<Cont>(
         (cont, { key, trie }) =>
@@ -199,17 +194,48 @@ export const find = <
             if (final && key.length !== 0) return cont
             return r =>
               r ??
-              next.abst.instantiate(node, next.relPath).then(inst => {
-                return final
-                  ? Promise.resolve(found(inst)).then(cont)
-                  : search(inst, key).then(cont)
-              })
+              (final
+                ? Promise.resolve(found(next.tree)).then(cont)
+                : search(next.tree, key).then(cont))
           }, cont) ?? cont,
         r => r
       )
-      return undef.then(cont)
+      return Promise.resolve(undefined).then(cont)
     })
   }
+  return input.length > 0 ? search(tree, input) : Promise.resolve(found(tree))
+}
 
-  return input.length > 0 ? search(node, input) : Promise.resolve(found(node))
+export const findLeaf = <
+  Tree extends NamedTreeNode<Tree, Content<Tree, 'moduleNameMap'>>,
+  Ret extends object
+>(
+  tree: Tree,
+  found: (tree: Tree) => Awaitable<Ret | undefined>
+): PromiseLike<Ret | undefined> => {
+  type Cont = (r: Ret | undefined) => Awaitable<Ret | undefined>
+  const search = (tree: Tree): PromiseLike<Ret | undefined> => {
+    if (typeof tree.content !== 'object') {
+      return tree.findChild().then(next => {
+        return next != null ? search(next) : found(tree)
+      })
+    }
+    return tree.content.then(index => {
+      return tree.instance.get().then((inst): PromiseLike<Ret | undefined> => {
+        const slash = inst.moduleName.path.endsWith('/')
+        // NOTE: index.moduleNameMap.value includes both '' and './'
+        const cont = (index.moduleNameMap.value ?? []).reduce<Cont>(
+          (cont, { next }) => {
+            // next.relPath?.moduleName must be either undefined, '', or './'.
+            // './' must be followed only if moduleName ends with '/'.
+            if (!slash && next.relPath.moduleName !== '') return cont
+            return r => r ?? search(next.tree).then(cont)
+          },
+          r => r
+        )
+        return Promise.resolve(undefined).then(cont)
+      })
+    })
+  }
+  return search(tree)
 }

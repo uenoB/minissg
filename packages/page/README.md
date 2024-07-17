@@ -23,180 +23,304 @@ or
 import Page from "@minissg/page"
 ```
 
+## Getting Started
+
+Download a template project.
+
+```bash
+tiged uenob/minissg/template/page my_project
+```
+
+Change directory to the new directory and install all dependencies
+by the `npm` command:
+
+```bash
+cd my_project
+npm install
+```
+
+The following scripts are initially available:
+* `npm run build` for static site generation for production.
+* `npm run serve` for preview of the build result.
+* `npm run dev` for starting Vite's dev server.
+
 ## Basic Usage
 
-Each instance of the `Page` class represents a webpage to be generated
-by a JS module.
+Each instance of the `Page` class represents a set of webpages.
 The typical usage of the `Page` class is as follows:
 
-1. Create the root `Page` with `import.meta.url` and website's URL.
+1. Combined with `import.meta.glob` provided by Vite, create a `Page` object
+   of a set of webpage component modules by `Page.create`.
+   For example:
 
-   ```javascript
-   const root = new Page({ fileName: import.meta.url, url: "https://example.com" });
+   ```js
+   const page = Page.create({
+     url: 'https://example.com/',
+     pages: import.meta.glob('./pages/**/*.{md,mdx}'),
+     substitutePath: s => s.slice('./pages/'.length)
+   });
    ```
 
-2. Bind modules to the root page with `import.meta.glob`.
+   The `url` parameter indicates the root URL of this website.
+   `pages` has the map from file names to dynamic import functions
+   provided by `import.meta.glob`.
 
-  ```javascript
-  page.bind(import.meta.glob("./page/**/*.js"), "./page/");
+   `substitutePath` removes `./pages/` prefix from each file name when
+   making URL of each webpage.
+   The URL of each webpage is obtained by transforming its file name
+   after applying `substitutePath`.
+   As a result, for example, a given module `pages/foo/bar.mdx` is
+   associated with a webpage of URL `foo/bar/`.
+
+2. Set `page.render` to a function indicating how to render a webpage
+   component in a HTML file.
+   The following example adds `DOCTYPE`, `html`, and `body` tags to
+   `module.default` component and renders all of them by
+   `virtual:minissg/self?renderer`.
+
+   ```jsx
+   import render from 'virtual:minissg/self?renderer'
+
+   page.render = async function (module) {
+     const Webpage = () => (
+       <html>
+         <body>
+           <module.default page={this} />
+         </body>
+       </html>
+     );
+     return new Blob(['<!DOCTYPE html>\n', await render(Webpage)]);
+   };
+   ```
+
+   In each MDX file, you can access to the `Page` object dedicated to
+   that MDX file through `props.page` property.
+
+3. Export the root page through the `main` function:
+
+  ```js
+  export main = () => page;
   ```
 
-  This adds all JS files matched with `./page/**/*.js` to the website
-  as webpages of URL `**/*/`.
-  For example, when `url` of `root` is `https://example.com/foo/`,
-  `./page/bar/baz.js` is added to `root` as `https://example.com/foo/bar/baz`
-  with the content of its `default` export.
-  The second argument `"./page"` means the common prefix of file names
-  that should be eliminated before computing their corresponding URLs.
+The above three fragments of code is placed in the same JSX file, say
+`index.html.jsx`.
+Set this file to the input of Vite in `vite.config.js` and do `vite build`.
+Then you will find your website in `dist` directory.
+An example of `vite.config.js` is given below:
 
-  If a file name has additional extensions, the sequence of them is
-  interpreted as an identifier of variation of a webpage.
-  For example, `./page/bar/baz.en.js` and `./page/bar/baz.ja.js` are
-  recognized as `en` and `ja` variants of `bar/baz`, respectively.
-  Actually, `./page/bar/baz.js` is also a variant of `bar/baz` identified
-  with an empty string.
+```js
+import { defineConfig } from 'vite'
+import mdx from '@mdx-js/rollup'
+import preact from '@preact/preset-vite'
+import minissg from 'vite-plugin-minissg'
+import minissgPreact from '@minissg/render-preact'
 
-  If a file name contains `..`, the part before `..` is used as its URL.
-  This avoids extensions to be recognized as variant identifier.
-  For example, the URL of `./page/index.html..js` is `index.html`,
-  which is interpreted as `/` by Minissg.
-
-3. Export the root page through `main`:
-
-  ```javascript
-  export main = () => root;
-  ```
-
-  Then, Minissg recognizes all the pages added to `root`.
-
-### Render Objects as Webpages
-
-A page module must be a Module of Minissg but may have `default` of
-arbitrary type.
-To have `default` of some type that Minissg cannot accept, override
-`render` method by making a subclass of `Page`.
-For example, to use Preact to write the contents, define the following
-class in some `.jsx` file and use it instead of using `Page` directly:
-
-```javascript
-import render from "virtual:minissg/self?renderer";
-import Page from "@minissg/page";
-
-class PreactPage extends Page {
-  render({ default }) {
-    return render(default)
-  }
-}
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: './index.html.jsx'
+    }
+  },
+  plugins: [
+    minissg({
+      render: {
+        '**/*.jsx': minissgPreact()
+      },
+      plugins: () => [
+        preact(),
+        mdx({
+          mdxExtensions: ['.mdx', '.mdx?MINISSG-MARK'],
+          jsxImportSource: 'preact'
+        })
+      ]
+    })
+  ]
+})
 ```
 
-In TypeScript:
+## References
 
-```javascript
-import render from "virtual:minissg/self?renderer";
-import Page from "@minissg/page";
+This package provides the `Page` class having the following methods.
 
-class PreactPage extends Page<{ default: preact.ComponentType }> {
-  render({ default }: { default: preact.ComponentType }) {
-    return render(default)
-  }
-}
-```
+### Types
 
-### Link to Other Pages
+#### `Pairs`
 
-The `find` method allows you to search for a page by relative path of
-either URL or file name.
-Pass the page object to a component as follows:
+`Pairs<Key, Value>` represents a sequence of key-value pairs.
+It is either an `array`, `object`, promise of one of them,
+or function returning `Pairs<Key, Value>`.
+If `array` is given, each element must be either a pair
+`[Key, Value]`, `object`, or function returning `Pairs<Key, Value>`.
+If `object` is given as a `Pairs<Key, Value>`, each property must be
+of type `Value`.
 
-```javascript
-render(module) {
-  return render(() => <module.default page={this} />)
-}
-```
+### `List`
 
-and use it like this:
+`List<Value>` represents a sequence of values.
+It is either an `Iterable<Value>`, `AsyncIterable<Value>`, or promise
+of one of them, or function returning `List<Value>`.
 
-```javascript
-const Anchor = ({ page, href, children }) => (
-  <a href={page.find(href) ?? href}>{children}</a>
-)
+### `RelPath`
 
-export default ({ page }) => (
-  <Anchor page={page} href="./baz.js">link to ../baz/</a>
-)
-```
+`RelPath` is the type of objects of the form
+`{ moduleName: string; stem: string; variant: string; fileName: string }`,
+each of which represent relative paths between two `Page`s.
 
-## Customization
+`Page` manages the following four kinds of paths:
+* `moduleName` is the path of webpages.
+  This is used to determine the URL of each webpage.
+* `stem` identifies a content of a webpage regardless of its variants, such
+as languages and formats.
+* `variant` identifies a variants of the content.
+* `fileName` is the path of source file.
 
-You are allowed to define a subclass of `Page` and override the
-constructor, `parsePath`, and `render` to change the behavior.
+### `Paginate`
 
 ```typescript
-import { type Source, type PathInfo, Page } from '@minissg/page'
-
-class YourPage extends Page<YourModule> {
-  // put your own properties here
-
-  constructor(src: Source) {
-    super(src)
-    // put your initialization code here
-  }
-
-  override parsePath(path: string): PathInfo {
-    // put your file path interpretation here
-  }
-
-  override render(module: YourModule): Content | PromiseLike<Content> {
-    // put how to render your module here
-  }
+interface Paginate<Item, This> {
+  pages: ReadonlyArray<Paginate<Item, This>>;
+  page: This;
+  pageIndex: number;
+  itemIndex: number;
+  items: readonly Item[];
+  numAllItems: number;
 }
 ```
 
-## Reference
-
-### `PathInfo` Type
+### `AssetModule`
 
 ```typescript
-interface PathInfo {
-  stem: string
-  variant: string
-  relURL: string
+interface AssetModule {
+  default: string;
 }
 ```
 
-### `Source` Type
+### `MainModule`
 
 ```typescript
-interface Source {
-  fileName: URL | string
-  url: URL | string
-  stem?: string | undefined
-  variant?: string | undefined
+interface MainModule {
+  main: (context: Readonly<Context>) => Awaitable<Module>
 }
 ```
 
-### `Page` Class
+### `Content` and `Module`
 
-```typescript
-class Page<ModuleType = unknown> {
-  constructor(src: Source);
-  bind(pages: Iterable<readonly [string, () => (ModuleType | PromiseLike<ModuleType>)]>, prefix: string = ''): this;
-  bind(pages: Record<string, () => (ModuleType | PromiseLike<ModuleType>)>, prefix: string = ''): this;
-  mkdir(path: string): this;
-  mount(page: this): this;
-  findByFileName(path: string): this | undefined;
-  findByURL(path: string): this | undefined;
-  find(path: string): this | undefined;
-  variants(): ReadonlyMap<string, this>;
-  load(): PromiseLike<ModuleType> | undefined;
-  parsePath(path: string): PathInfo; // can be overriden
-  render(module: YourModule): Content | PromiseLike<Content>; // can be overriden
-  main: Main
-}
-```
+They are identical to [Minissg]'s `Content` and `Module` type.
+See [Minissg's document] for details.
+
+### `Delay`
+
+`Delay` is a promise that can be used with React Suspense.
+See [@minissg/async] for details.
+
+### Class Methods
+
+#### `Page.create(options, args...) => Page`
+
+`Page.create` creates a new `Page` object with its contents.
+The `options` argument specifies the contents and customizations.
+The `args` arguments are passed to constructor of `Page` class, which does
+not do anything by default and can be defined by creating a subclass.
+
+The `options` object must have one of the following properties:
+
+* `pages` of type `Pairs`.
+  Its key must be either `string` or `RelPath`.
+  Its value must be either a function returning `object`, `Page`, or
+  `MainModule`.
+* `load` of function returning `object`, `Page`, `MainModule`, or promise
+  of one of them.
+
+They are exclusive: `pages` is ignored if `load` is specified, and vice versa.
+
+The `options` may have one of the following optional properties:
+
+* `substitutePath` of function taking a `string` and returning either
+  a `string` or `Promise<string>`.
+* `assets` of type `Pairs`.
+  Its key must be `string`.
+  Its value must be either a `string` or function returning `AssetModule`
+  or `Promise<AssetModule>`.
+  This can be used only with `pages` property.
+* `url` of type either `URL` or `string`.
+* `parsePath` method taking a `string` and returning a `ParsePath` or
+  `Promise<ParsePath>`.
+* `render` method taking a `string` and returning a `Content` or
+  `Promise<Content>`.
+
+#### `Page.paginate(options, args...) => Page`
+
+`Page.create` creates a new `Page` object with its contents by paginating
+the given items.
+Similarly to `Page.create`, `options` specifies the contents and `args`
+are passed to constructor.
+
+The `options` object must have the following properties:
+
+* `items` of type `List`.
+  Its value may be arbitrary type.
+* `load` method that takes `Paginate` and returns either an `object`,
+  `Page`, `MainModule`, or promise of one of them.
+
+The following are options:
+
+* `pageSize` of integer.
+  Its default is 10.
+* `paginatePath` method taking a `number` and returning a `RelPath` or
+  `Promise<RelPath>`.
+* `url`, `parsePath`, and `render` can be specified similarly to `Page.create`.
+
+### Customization
+
+The following methods can be overriden by either
+specifying the corresponding options in `Page.create`,
+overwriting `Page` object properties, or
+creating a subclass of `Page`.
+
+#### `Page.prototype.parsePath(fileName) => ParsePath`
+
+#### `Page.prototype.paginatePath(index) => RelPath`
+
+#### `Page.prototype.render(object) => Content`
+
+#### `Page.Base`
+
+### Instance Methods
+
+#### `Page.prototype.moduleName => Delay<string>`
+
+#### `Page.prototype.stem => Delay<string>`
+
+#### `Page.prototype.variant => Delay<string>`
+
+#### `Page.prototype.fileName => Delay<string>`
+
+#### `Page.prototype.url => Delay<URL>`
+
+#### `Page.prototype.parent => Delay<Page | undefined>`
+
+#### `Page.prototype.root => Delay<Page>`
+
+#### `Page.prototype.loadThis() => Delay<object | undefined>`
+
+#### `Page.prototype.load() => Delay<object>`
+
+#### `Page.prototype.children() => Delay<Array<[RelPath, Page]>>`
+
+#### `Page.prototype.findByModuleName(path) => Delay<Page | undefined>`
+
+#### `Page.prototype.findByFileName(path) => Delay<Page | undefined>`
+
+#### `Page.prototype.find(path) => Delay<Page | undefined>`
+
+#### `Page.prototype.findByStem(path) => Delay<Set<Page>>`
+
+#### `Page.prototype.variants() => Delay<Set<Base>>`
 
 ## License
 
 MIT
 
 [Minissg]: https://github.com/uenoB/vite-plugin-minissg
+[Minissg's document]: https://github.com/uenoB/vite-plugin-minissg/tree/main/packages/vite-plugin-minissg#readme
+[@minissg/async]: https://github.com/uenoB/vite-plugin-minissg/tree/main/packages/async#readme
