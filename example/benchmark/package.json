@@ -9,16 +9,16 @@
   "dependencies": {
     "@mdx-js/rollup": "^3.0.1",
     "@minissg/render-preact": "^3.0.0",
-    "@preact/preset-vite": "^2.8.3",
+    "@preact/preset-vite": "^2.9.0",
     "preact": "^10.22.1",
-    "preact-render-to-string": "^6.5.5",
-    "preact-ssr-prepass": "^1.2.1",
+    "preact-render-to-string": "^6.5.6",
+    "preact-ssr-prepass": "^1.2.2",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.0",
     "remark-mdx-frontmatter": "^5.0.0",
     "remark-smartypants": "^3.0.2",
     "tiged": "^2.12.7",
-    "vite": "^5.3.3",
+    "vite": "^5.3.4",
     "vite-plugin-minissg": "^3.0.0"
   }
 }

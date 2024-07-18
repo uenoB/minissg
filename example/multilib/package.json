@@ -12,20 +12,20 @@
     "@minissg/render-solid": "^3.0.0",
     "@minissg/render-svelte": "^3.0.0",
     "@minissg/render-vue": "^3.0.0",
-    "@preact/preset-vite": "^2.8.3",
+    "@preact/preset-vite": "^2.9.0",
     "@sveltejs/vite-plugin-svelte": "^3.1.1",
     "@vitejs/plugin-react": "^4.3.1",
     "@vitejs/plugin-vue": "^5.0.5",
     "preact": "^10.22.1",
-    "preact-render-to-string": "^6.5.5",
-    "preact-ssr-prepass": "^1.2.1",
+    "preact-render-to-string": "^6.5.6",
+    "preact-ssr-prepass": "^1.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "solid-js": "^1.8.18",
     "svelte": "^4.2.18",
-    "vite": "^5.3.3",
+    "vite": "^5.3.4",
     "vite-plugin-minissg": "^3.0.0",
     "vite-plugin-solid": "^2.10.2",
-    "vue": "^3.4.31"
+    "vue": "^3.4.32"
   }
 }
