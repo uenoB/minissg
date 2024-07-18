@@ -1,0 +1,21 @@
+body {
+  margin: 0;
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  color: #222;
+  background-color: #fff;
+}
+
+a:link {
+  color: #04e;
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  body {
+    color: #eee;
+    background-color: #111;
+  }
+
+  a:link {
+    color: #6bf;
+  }
+}
