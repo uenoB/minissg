@@ -256,13 +256,13 @@ importers:
   packages/render-preact:
     dependencies:
       preact:
-        specifier: ^10.0.0
+        specifier: ^10
         version: 10.22.1
       preact-render-to-string:
-        specifier: ^6.0.0
+        specifier: ^6
         version: 6.5.6(preact@10.22.1)
       preact-ssr-prepass:
-        specifier: ^1.0.0
+        specifier: ^1
         version: 1.2.2(preact@10.22.1)
       vite-plugin-minissg:
         specifier: workspace:^
@@ -271,10 +271,10 @@ importers:
   packages/render-react:
     dependencies:
       react:
-        specifier: ^18.0.0
+        specifier: ^18
         version: 18.3.1
       react-dom:
-        specifier: ^18.0.0
+        specifier: ^18
         version: 18.3.1(react@18.3.1)
       vite-plugin-minissg:
         specifier: workspace:^
@@ -283,7 +283,7 @@ importers:
   packages/render-solid:
     dependencies:
       solid-js:
-        specifier: ^1.0.0
+        specifier: ^1
         version: 1.8.18
       vite-plugin-minissg:
         specifier: workspace:^
@@ -292,7 +292,7 @@ importers:
   packages/render-svelte:
     dependencies:
       svelte:
-        specifier: ^4.0.0
+        specifier: ^4
         version: 4.2.18
       vite-plugin-minissg:
         specifier: workspace:^
@@ -304,7 +304,7 @@ importers:
         specifier: workspace:^
         version: link:../vite-plugin-minissg
       vue:
-        specifier: ^3.0.0
+        specifier: ^3
         version: 3.4.32(typescript@5.5.3)
 
   packages/vite-plugin-minissg:

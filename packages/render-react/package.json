@@ -34,8 +34,8 @@
     "react"
   ],
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "vite-plugin-minissg": "^1.0.0 || ^3.0.0"
+    "react": "^18",
+    "react-dom": "^18",
+    "vite-plugin-minissg": "^1 || ^3"
   }
 }
