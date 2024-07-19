@@ -5,7 +5,7 @@ const packagesDirURL = new URL('packages/', baseURL)
 
 const packages = fs.readdirSync(packagesDirURL).map(name => {
   const url = new URL(`${name}/`, packagesDirURL)
-  const dir = url.href.slice(baseURL.href.length)
+  const dir = url.href.slice(baseURL.href.length).replace(/\/+$/, '')
   const json = JSON.parse(fs.readFileSync(new URL('package.json', url)))
   return { name, dir, json }
 })

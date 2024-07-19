@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import { gitDiffTree } from './git.js'
 
-const manipulateContext = (context, { dir, name, chdir }) => {
+const manipulateContext = (context, { dir, name, cwd }) => {
   // context.commits holds the list of commits taken into account.
   if (context.commits != null) {
     // filter out commits unrelated to this package
@@ -12,16 +12,14 @@ const manipulateContext = (context, { dir, name, chdir }) => {
   }
 
   // context.nextRelease.version is a part of commit message.
-  if (context.nextRelease?.version != null) {
+  if (name != null && context.nextRelease?.version != null) {
     // insert package name into version number
     const version = `${name} ${context.nextRelease.version}`
     context = { ...context, nextRelease: { ...context.nextRelease, version } }
   }
 
   // override cwd if needed.
-  if (chdir !== false) {
-    context = { ...context, cwd: path.join(context.cwd, dir) }
-  }
+  context = { ...context, cwd: cwd ?? path.join(context.cwd, dir) }
 
   return context
 }

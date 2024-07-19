@@ -20,36 +20,32 @@ const packageJsonGlobList = YAML.parse(
   fs.readFileSync('pnpm-workspace.yaml').toString('utf8')
 ).packages.map(i => path.join(i, 'package.json'))
 
-const packageJsonList = gitLsFiles(packageJsonGlobList).map(i =>
-  path.join(rootDir, i)
-)
+const packageJsonList = gitLsFiles(packageJsonGlobList)
 
 // iterate for each directory under packages.
 for (const pkg of packages) {
-  await semanticRelease(
-    {
-      branches: [
-        { name: 'latest' },
-        { name: 'next', channel: 'next', prerelease: true }
+  const options = {
+    branches: [
+      { name: 'latest' },
+      { name: 'next', channel: 'next', prerelease: true }
+    ],
+    tagFormat: pkg.name + '-v<%= version %>',
+    plugins: [
+      hookPlugin(commitAnalyzer, pkg),
+      hookPlugin(notesGenerator, pkg),
+      hookPlugin(npm, { ...pkg, name: null }),
+      [hookPlugin(updateDependencies, pkg), { ...pkg, packageJsonList }],
+      [
+        hookPlugin(git, { ...pkg, cwd: rootDir }),
+        {
+          assets: packageJsonList,
+          message: `chore(release): ${pkg.name} <%=
+                    nextRelease.version %> [skip ci]\n\n<%=
+                    nextRelease.notes %>`
+        }
       ],
-      tagFormat: pkg.name + '-v<%= version %>',
-      plugins: [
-        hookPlugin(commitAnalyzer, pkg),
-        hookPlugin(notesGenerator, pkg),
-        hookPlugin(npm, pkg),
-        [hookPlugin(updateDependencies, pkg), { packageJsonList }],
-        [
-          hookPlugin(git, { ...pkg, chdir: false }),
-          {
-            assets: packageJsonList,
-            message: `chore(release): ${pkg.name} <%=
-                      nextRelease.version %> [skip ci]\n\n<%=
-                      nextRelease.notes %>`
-          }
-        ],
-        hookPlugin(github, pkg)
-      ]
-    },
-    { cwd: rootDir }
-  )
+      hookPlugin(github, pkg)
+    ]
+  }
+  await semanticRelease(options, { cwd: rootDir })
 }
