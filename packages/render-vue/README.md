@@ -8,6 +8,6 @@ See [Minissg's README] for details.
 
 MIT
 
-[Minissg]: https://github.com/uenoB/vite-plugin-minissg
+[Minissg]: https://github.com/uenoB/minissg
 [Vue]: https://vuejs.org
-[Minissg's README]: https://github.com/uenoB/vite-plugin-minissg/blob/main/packages/vite-plugin-minissg/README.md
+[Minissg's README]: https://github.com/uenoB/minissg/tree/main/packages/vite-plugin-minissg#readme

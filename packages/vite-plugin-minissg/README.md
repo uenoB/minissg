@@ -64,7 +64,7 @@ it.
 For example,  by using [tiged]:
 
 ```bash
-tiged uenob/vite-plugin-minissg/template/preact my_project
+tiged uenob/minissg/template/preact my_project
 ```
 
 After that, change directory to the new directory and install all
@@ -1467,7 +1467,7 @@ The association must be specified in one of the following forms:
 
 MIT
 
-[Minissg]: https://github.com/uenoB/vite-plugin-minissg
+[Minissg]: https://github.com/uenoB/minissg
 [tiged]: https://github.com/tiged/tiged
 [React]: https://react.dev
 [@mdx-js/rollup]: https://mdxjs.com/packages/rollup/

@@ -11,7 +11,7 @@ const count = ref(0)
       <a href="https://vitejs.dev">
         <img src="./vite.svg" class="logo" alt="Vite" />
       </a>
-      <a href="https://github.com/uenoB/vite-plugin-minissg">
+      <a href="https://github.com/uenoB/minissg">
         <img src="./minissg.svg" class="logo" alt="Minissg" />
       </a>
       <a href="https://vuejs.org">
@@ -26,7 +26,7 @@ const count = ref(0)
     <p>
       <a href="https://vitejs.dev">Learn Vite</a>
       |
-      <a href="https://github.com/uenoB/vite-plugin-minissg">Learn Minissg</a>
+      <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
       |
       <a href="https://vuejs.org">Learn Vue</a>
     </p>

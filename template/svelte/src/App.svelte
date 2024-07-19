@@ -14,7 +14,7 @@
     <a href="https://vitejs.dev">
       <img src={ViteLogo} class="logo" alt="Vite" />
     </a>
-    <a href="https://github.com/uenoB/vite-plugin-minissg">
+    <a href="https://github.com/uenoB/minissg">
       <img src={MinissgLogo} class="logo" alt="Minissg" />
     </a>
     <a href="https://svelte.dev">
@@ -31,7 +31,7 @@
   <p>
     <a href="https://vitejs.dev">Learn Vite</a>
     {' | '}
-    <a href="https://github.com/uenoB/vite-plugin-minissg">Learn Minissg</a>
+    <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
     {' | '}
     <a href="https://svelte.dev">Learn Svelte</a>
   </p>

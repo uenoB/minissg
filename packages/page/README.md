@@ -321,6 +321,6 @@ creating a subclass of `Page`.
 
 MIT
 
-[Minissg]: https://github.com/uenoB/vite-plugin-minissg
-[Minissg's document]: https://github.com/uenoB/vite-plugin-minissg/tree/main/packages/vite-plugin-minissg#readme
-[@minissg/async]: https://github.com/uenoB/vite-plugin-minissg/tree/main/packages/async#readme
+[Minissg]: https://github.com/uenoB/minissg
+[Minissg's document]: https://github.com/uenoB/minissg/tree/main/packages/vite-plugin-minissg#readme
+[@minissg/async]: https://github.com/uenoB/minissg/tree/main/packages/async#readme

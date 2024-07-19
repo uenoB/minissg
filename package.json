@@ -1,9 +1,9 @@
 {
   "private": true,
-  "name": "vite-plugin-minissg-root",
+  "name": "minissg-root",
   "version": "1.0.0",
   "license": "MIT",
-  "repository": "github:uenoB/vite-plugin-minissg",
+  "repository": "github:uenoB/minissg",
   "type": "module",
   "scripts": {
     "prepare": "git config --local core.hooksPath .githooks || exit 0",

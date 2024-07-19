@@ -10,7 +10,7 @@ This package is designed primarily for Minissg but does not depend on it:
 it can be used in any other environment.
 
 This is a part of
-[monorepo of Minissg](https://github.com/uenoB/vite-plugin-minissg).
+[monorepo of Minissg](https://github.com/uenoB/minissg).
 
 ## `Delay` class
 

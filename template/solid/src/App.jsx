@@ -16,7 +16,7 @@ export default function App() {
         <a href="https://vitejs.dev">
           <img src={ViteLogo} class="logo" alt="Vite" />
         </a>
-        <a href="https://github.com/uenoB/vite-plugin-minissg">
+        <a href="https://github.com/uenoB/minissg">
           <img src={MinissgLogo} class="logo" alt="Minissg" />
         </a>
         <a href="https://www.solidjs.com">
@@ -35,7 +35,7 @@ export default function App() {
       <p>
         <a href="https://vitejs.dev">Learn Vite</a>
         {' | '}
-        <a href="https://github.com/uenoB/vite-plugin-minissg">Learn Minissg</a>
+        <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
         {' | '}
         <a href="https://www.solidjs.com">Learn Solid</a>
       </p>

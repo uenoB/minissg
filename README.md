@@ -1,4 +1,4 @@
-# vite-plugin-minissg
+# Minissg
 
 Minissg (pronounce it as "missing" 😄) is a minimum-sized,
 configurable, and zero-JS static site generator, provided as a Vite

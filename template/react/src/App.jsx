@@ -15,7 +15,7 @@ export default function App() {
         <a href="https://vitejs.dev">
           <img src={ViteLogo} className="logo" alt="Vite" />
         </a>
-        <a href="https://github.com/uenoB/vite-plugin-minissg">
+        <a href="https://github.com/uenoB/minissg">
           <img src={MinissgLogo} className="logo" alt="Minissg" />
         </a>
         <a href="https://react.dev">
@@ -34,7 +34,7 @@ export default function App() {
       <p>
         <a href="https://vitejs.dev">Learn Vite</a>
         {' | '}
-        <a href="https://github.com/uenoB/vite-plugin-minissg">Learn Minissg</a>
+        <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
         {' | '}
         <a href="https://react.dev">Learn React</a>
       </p>
