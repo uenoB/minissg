@@ -36,7 +36,7 @@ for (const pkg of packages) {
       hookPlugin(npm, { ...pkg, name: null }),
       [hookPlugin(updateDependencies, pkg), { ...pkg, packageJsonList }],
       [
-        hookPlugin(git, { ...pkg, cwd: rootDir }),
+        hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
         {
           assets: packageJsonList,
           message: `chore(release): ${pkg.name} <%=
