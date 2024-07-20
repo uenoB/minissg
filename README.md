@@ -22,21 +22,17 @@ See [packages/vite-plugin-minissg/README.md] for details.
 
 This is a monorepo containing Minissg and its related packages.
 
-* [vite-plugin-minissg]
-* [@minissg/render-preact]
-* [@minissg/render-react]
-* [@minissg/render-solid]
-* [@minissg/render-svelte]
-* [@minissg/render-vue]
+* [vite-plugin-minissg](packages/vite-plugin-minissg)
+* [@minissg/async](packages/async)
+* [@minissg/page](packages/page)
+* [@minissg/render-preact](packages/render-preact)
+* [@minissg/render-react](packages/render-react)
+* [@minissg/render-solid](packages/render-solid)
+* [@minissg/render-svelte](packages/render-svelte)
+* [@minissg/render-vue](packages/render-vue)
 
 ## License
 
 MIT
 
 [packages/vite-plugin-minissg/README.md]: packages/vite-plugin-minissg/README.md
-[vite-plugin-minissg]: packages/vite-plugin-minissg
-[@minissg/render-preact]: packages/render-preact
-[@minissg/render-react]: packages/render-react
-[@minissg/render-solid]: packages/render-solid
-[@minissg/render-svelte]: packages/render-svelte
-[@minissg/render-vue]: packages/render-vue
