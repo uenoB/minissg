@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import ssg from 'vite-plugin-minissg'
-import ssgReact from '@minissg/render-react'
+import minissg from 'vite-plugin-minissg'
+import minissgReact from '@minissg/render-react'
 
 export default defineConfig({
   build: {
@@ -10,9 +10,9 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/*.jsx': ssgReact()
+        '**/*.jsx': minissgReact()
       },
       plugins: () => [react()]
     })

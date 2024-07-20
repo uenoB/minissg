@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import ssg from 'vite-plugin-minissg'
+import minissg from 'vite-plugin-minissg'
 
 export default defineConfig({
   base: '/hoge/',
@@ -9,7 +9,7 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       config: {
         build: {
           minify: true,

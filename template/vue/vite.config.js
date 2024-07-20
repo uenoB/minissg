@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import ssg from 'vite-plugin-minissg'
-import ssgVue from '@minissg/render-vue'
+import minissg from 'vite-plugin-minissg'
+import minissgVue from '@minissg/render-vue'
 
 export default defineConfig({
   build: {
@@ -17,9 +17,9 @@ export default defineConfig({
     include: ['vue']
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/*.vue': ssgVue()
+        '**/*.vue': minissgVue()
       },
       plugins: () => [vue()]
     })

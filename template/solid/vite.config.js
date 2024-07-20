@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
-import ssg from 'vite-plugin-minissg'
-import ssgSolid from '@minissg/render-solid'
+import minissg from 'vite-plugin-minissg'
+import minissgSolid from '@minissg/render-solid'
 
 export default defineConfig({
   build: {
@@ -13,9 +13,9 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/*.jsx': ssgSolid()
+        '**/*.jsx': minissgSolid()
       },
       plugins: () => [solid({ ssr: true, extensions: ['.jsx'] })]
     })

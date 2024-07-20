@@ -4,12 +4,12 @@ import react from '@vitejs/plugin-react'
 import solid from 'vite-plugin-solid'
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 import vue from '@vitejs/plugin-vue'
-import ssg from 'vite-plugin-minissg'
-import ssgPreact from '@minissg/render-preact'
-import ssgReact from '@minissg/render-react'
-import ssgSolid from '@minissg/render-solid'
-import ssgSvelte from '@minissg/render-svelte'
-import ssgVue from '@minissg/render-vue'
+import minissg from 'vite-plugin-minissg'
+import minissgPreact from '@minissg/render-preact'
+import minissgReact from '@minissg/render-react'
+import minissgSolid from '@minissg/render-solid'
+import minissgSvelte from '@minissg/render-svelte'
+import minissgVue from '@minissg/render-vue'
 
 const preactPlugin = () => {
   const include = /\/preact\/.*\.jsx(?:\?|$)/
@@ -70,13 +70,13 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/react/**/*.jsx': ssgReact(),
-        '**/solid/**/*.jsx': ssgSolid(),
-        '**/*.jsx': ssgPreact(),
-        '**/*.svelte': ssgSvelte(),
-        '**/*.vue': ssgVue()
+        '**/react/**/*.jsx': minissgReact(),
+        '**/solid/**/*.jsx': minissgSolid(),
+        '**/*.jsx': minissgPreact(),
+        '**/*.svelte': minissgSvelte(),
+        '**/*.vue': minissgVue()
       },
       plugins: () => [
         preactPlugin(),

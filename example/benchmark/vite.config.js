@@ -5,8 +5,8 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkGfm from 'remark-gfm'
 import remarkSmartypants from 'remark-smartypants'
 import preact from '@preact/preset-vite'
-import ssg from 'vite-plugin-minissg'
-import ssgPreact from '@minissg/render-preact'
+import minissg from 'vite-plugin-minissg'
+import minissgPreact from '@minissg/render-preact'
 
 export default defineConfig({
   base: '/hoge/',
@@ -16,9 +16,9 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/*.{jsx,md}': ssgPreact()
+        '**/*.{jsx,md}': minissgPreact()
       },
       config: {
         build: {

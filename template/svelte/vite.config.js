@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte'
-import ssg from 'vite-plugin-minissg'
-import ssgSvelte from '@minissg/render-svelte'
+import minissg from 'vite-plugin-minissg'
+import minissgSvelte from '@minissg/render-svelte'
 
 export default defineConfig({
   build: {
@@ -13,9 +13,9 @@ export default defineConfig({
     }
   },
   plugins: [
-    ssg({
+    minissg({
       render: {
-        '**/*.svelte': ssgSvelte()
+        '**/*.svelte': minissgSvelte()
       },
       plugins: () => [
         svelte({
