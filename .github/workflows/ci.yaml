@@ -15,11 +15,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
-          version: 8
-      - uses: actions/setup-node@v3
+          version: 9
+      - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: pnpm
@@ -29,8 +29,8 @@ jobs:
       - run: pnpm tsc
       - run: pnpm eslint .
       - run: pnpm stylelint .
-      - run: pnpm vitest run
       - run: pnpm build
+      - run: pnpm vitest run
       - run: pnpm --recursive --sequential run build
   release:
     needs: check
@@ -42,14 +42,14 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
-          version: 8
-      - uses: actions/setup-node@v3
+          version: 9
+      - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: pnpm
