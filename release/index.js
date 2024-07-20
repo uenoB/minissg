@@ -34,7 +34,10 @@ for (const pkg of packages) {
       hookPlugin(commitAnalyzer, pkg),
       hookPlugin(notesGenerator, pkg),
       hookPlugin(npm, { ...pkg, name: null }),
-      [hookPlugin(updateDependencies, pkg), { ...pkg, packageJsonList }],
+      [
+        hookPlugin(updateDependencies, pkg),
+        { ...pkg, packageJsonList, major: false }
+      ],
       [
         hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
         {
@@ -42,6 +45,18 @@ for (const pkg of packages) {
           message: `chore(release): ${pkg.name} <%=
                     nextRelease.version %> [skip ci]\n\n<%=
                     nextRelease.notes %>`
+        }
+      ],
+      [
+        hookPlugin(updateDependencies, pkg),
+        { ...pkg, packageJsonList, major: true }
+      ],
+      [
+        hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
+        {
+          assets: packageJsonList,
+          message: `fix: update ${pkg.name} to version <%=
+                    nextRelease.version %>\n\n[skip ci]`
         }
       ],
       hookPlugin(github, pkg)

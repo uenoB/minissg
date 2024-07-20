@@ -6,6 +6,7 @@ export const prepare = (pluginConfig, { nextRelease }) => {
   // nothing to do if this is a prerelease.
   if (nextRelease.channel != null) return
   if (nextRelease.type.startsWith('pre')) return
+  if ((nextRelease.type === 'major') !== (pluginConfig.major === true)) return
 
   const packageJsonList = pluginConfig.packageJsonList
   const packageName = pluginConfig.json.name
