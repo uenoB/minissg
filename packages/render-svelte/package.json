@@ -17,6 +17,7 @@
     "access": "public",
     "provenance": true
   },
+  "scripts": {},
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
