@@ -12,11 +12,22 @@ import ssgSvelte from '@minissg/render-svelte'
 import ssgVue from '@minissg/render-vue'
 
 const preactPlugin = () => {
+  const include = /\/preact\/.*\.jsx(?:\?|$)/
   return [
-    preact({ include: [/\/preact\/.*\.jsx(?:\?|$)/] }),
     {
-      name: 'cancel-preact-alias',
+      enforce: 'pre',
+      name: 'preact-import-source',
+      transform(code, id) {
+        if (include.test(id)) return '// @jsxImportSource preact\n' + code
+      }
+    },
+    preact({ include: [include] }),
+    {
+      name: 'manipulate-preact-config',
       config(c) {
+        if (c.esbuild.jsxImportSource === 'preact') {
+          delete c.esbuild.jsxImportSource
+        }
         c.resolve.alias = c.resolve.alias.filter(
           i =>
             typeof i.replacement !== 'string' ||
@@ -28,22 +39,16 @@ const preactPlugin = () => {
 }
 
 const reactPlugin = () => {
-  return react({ include: [/\/react\/.*\.jsx(?:\?|$)/] })
+  return [react({ include: [/\/react\/.*\.jsx(?:\?|$)/] })]
 }
 
 const solidPlugin = () => {
   return [
     solid({
       include: [/\/solid\/[^?]*\.jsx(?:\?|$)/],
+      extensions: ['.jsx'],
       ssr: true
-    }),
-    {
-      name: 'cancel-solid-include',
-      config(c) {
-        delete c.esbuild.include
-        c.esbuild.exclude = [/\/solid\/.*\.jsx(?:\?|$)/]
-      }
-    }
+    })
   ]
 }
 
