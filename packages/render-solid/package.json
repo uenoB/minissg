@@ -3,7 +3,11 @@
   "version": "3.0.0",
   "description": "Preact plugin for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/render-solid#readme",
-  "repository": "github:uenoB/minissg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uenoB/minissg.git",
+    "directory": "packages/render-solid"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

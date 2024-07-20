@@ -3,7 +3,11 @@
   "version": "3.0.0",
   "description": "Preact plugin for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/render-react#readme",
-  "repository": "github:uenoB/minissg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uenoB/minissg.git",
+    "directory": "packages/render-react"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

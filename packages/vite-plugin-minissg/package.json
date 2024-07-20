@@ -3,7 +3,11 @@
   "version": "4.0.0-next.1",
   "description": "Minimum-sized static site generator as a Vite plugin",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/vite-plugin-minissg/#readme",
-  "repository": "github:uenoB/minissg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uenoB/minissg.git",
+    "directory": "packages/vite-plugin-minissg"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
