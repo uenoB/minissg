@@ -29,8 +29,8 @@ jobs:
       - run: pnpm tsc
       - run: pnpm eslint .
       - run: pnpm stylelint .
-      - run: pnpm build
       - run: pnpm vitest run
+      - run: pnpm build
       - run: pnpm --recursive --sequential run build
   release:
     needs: check
