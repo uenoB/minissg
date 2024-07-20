@@ -17,7 +17,7 @@ export default defineConfig({
       render: {
         '**/*.jsx': ssgSolid()
       },
-      plugins: () => [solid({ ssr: true })]
+      plugins: () => [solid({ ssr: true, extensions: ['.jsx'] })]
     })
   ]
 })
