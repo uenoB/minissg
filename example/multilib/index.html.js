@@ -12,7 +12,7 @@ export const main = () => ({
     main: () => import('../../template/react/src/browser.html.jsx?render')
   },
   'solid/index.html': {
-    main: () => import('../../template/solid/src/index.html.jsx?hydrate&render')
+    main: () => import('../../template/solid/src/index.html.jsx?render')
   },
   'solid/browser.html': {
     main: () => import('../../template/solid/src/browser.html.jsx?render')

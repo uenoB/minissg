@@ -1,10 +1,9 @@
-import { HydrationScript } from 'solid-js/web'
 import Root from './Root'
-import App from './App'
+import App from './App?hydrate'
 
 export default function IndexHtml() {
   return (
-    <Root head={<HydrationScript />}>
+    <Root>
       <App />
     </Root>
   )

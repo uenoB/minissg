@@ -283,7 +283,7 @@ importers:
   packages/render-solid:
     dependencies:
       solid-js:
-        specifier: ^1
+        specifier: ^1.6
         version: 1.8.18
       vite-plugin-minissg:
         specifier: workspace:^
