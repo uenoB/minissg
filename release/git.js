@@ -1,6 +1,6 @@
 import * as childProcess from 'node:child_process'
 
-export const gitLsFiles = files => {
+export const gitLsFiles = (...files) => {
   const r = childProcess.spawnSync('git', ['ls-files', '-z', ...files])
   if (r.error != null) throw r.error
   const lines = r.stdout.toString('utf8')

@@ -1,7 +1,4 @@
-import * as fs from 'node:fs'
-import * as path from 'node:path'
 import * as url from 'node:url'
-import * as YAML from 'yaml'
 import semanticRelease from 'semantic-release'
 import * as commitAnalyzer from '@semantic-release/commit-analyzer'
 import * as notesGenerator from '@semantic-release/release-notes-generator'
@@ -16,11 +13,12 @@ import { packages } from './package-list.js'
 const rootDir = url.fileURLToPath(new URL('..', import.meta.url))
 process.chdir(rootDir)
 
-const packageJsonGlobList = YAML.parse(
-  fs.readFileSync('pnpm-workspace.yaml').toString('utf8')
-).packages.map(i => path.join(i, 'package.json'))
-
-const packageJsonList = gitLsFiles(packageJsonGlobList)
+const packageJsonList = {
+  packages: gitLsFiles('packages/*/package.json'),
+  example: gitLsFiles('example/*/package.json'),
+  template: gitLsFiles('template/*/package.json')
+}
+packageJsonList.all = Object.values(packageJsonList).flat()
 
 // iterate for each directory under packages.
 for (const pkg of packages) {
@@ -36,25 +34,25 @@ for (const pkg of packages) {
       hookPlugin(npm, { ...pkg, name: null }),
       [
         hookPlugin(updateDependencies, pkg),
-        { ...pkg, packageJsonList, major: false }
+        { ...pkg, packageJsonList: packageJsonList.all }
       ],
       [
         hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
         {
-          assets: packageJsonList,
+          assets: [
+            ...packageJsonList.example,
+            ...packageJsonList.template,
+            `packages/${pkg.name}/package.json`
+          ],
           message: `chore(release): ${pkg.name} <%=
                     nextRelease.version %> [skip ci]\n\n<%=
                     nextRelease.notes %>`
         }
       ],
       [
-        hookPlugin(updateDependencies, pkg),
-        { ...pkg, packageJsonList, major: true }
-      ],
-      [
         hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
         {
-          assets: packageJsonList,
+          assets: packageJsonList.packages,
           message: `fix: update ${pkg.name} to version <%=
                     nextRelease.version %>\n\n[skip ci]`
         }
