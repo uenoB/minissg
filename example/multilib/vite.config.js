@@ -10,57 +10,7 @@ import minissgReact from '@minissg/render-react'
 import minissgSolid from '@minissg/render-solid'
 import minissgSvelte from '@minissg/render-svelte'
 import minissgVue from '@minissg/render-vue'
-
-const preactPlugin = () => {
-  const include = /\/preact\/.*\.jsx(?:\?|$)/
-  return [
-    {
-      enforce: 'pre',
-      name: 'preact-import-source',
-      transform(code, id) {
-        if (include.test(id)) return '// @jsxImportSource preact\n' + code
-      }
-    },
-    preact({ include: [include] }),
-    {
-      name: 'manipulate-preact-config',
-      config(c) {
-        if (c.esbuild.jsxImportSource === 'preact') {
-          delete c.esbuild.jsxImportSource
-        }
-        c.resolve.alias = c.resolve.alias.filter(
-          i =>
-            typeof i.replacement !== 'string' ||
-            !i.replacement.startsWith('preact')
-        )
-      }
-    }
-  ]
-}
-
-const reactPlugin = () => {
-  return [react({ include: [/\/react\/.*\.jsx(?:\?|$)/] })]
-}
-
-const solidPlugin = () => {
-  return [
-    solid({
-      include: [/\/solid\/[^?]*\.jsx(?:\?|$)/],
-      extensions: ['.jsx'],
-      ssr: true
-    })
-  ]
-}
-
-const sveltePlugin = () => {
-  return [
-    svelte({
-      configFile: false,
-      preprocess: vitePreprocess(),
-      compilerOptions: { hydratable: true }
-    })
-  ]
-}
+import MagicString from 'magic-string'
 
 export default defineConfig({
   build: {
@@ -74,15 +24,40 @@ export default defineConfig({
       render: {
         '**/react/**/*.jsx': minissgReact(),
         '**/solid/**/*.jsx': minissgSolid(),
-        '**/*.jsx': minissgPreact(),
+        '**/preact/**/*.jsx': minissgPreact(),
         '**/*.svelte': minissgSvelte(),
         '**/*.vue': minissgVue()
       },
       plugins: () => [
-        preactPlugin(),
-        reactPlugin(),
-        solidPlugin(),
-        sveltePlugin(),
+        {
+          enforce: 'pre',
+          name: 'jsx-import-source',
+          transform(code, id) {
+            const m = id.match(/\/(p?react|solid)\/[^?]*\.jsx(?:\?|$)/)
+            if (m == null) return null
+            const s = new MagicString(code)
+            s.appendLeft(0, `// @jsxImportSource ${m[1]}\n`)
+            return { code: s.toString(), map: s.generateMap({ hires: true }) }
+          }
+        },
+        react({
+          include: [/\/react\/[^?]*\.jsx(?:\?|$)/]
+        }),
+        preact({
+          include: [/\/preact\/[^?]*\.jsx(?:\?|$)/],
+          jsxImportSource: '',
+          reactAliasesEnabled: false
+        }),
+        solid({
+          include: [/\/solid\/[^?]*\.jsx(?:\?|$)/],
+          extensions: ['.jsx'],
+          ssr: true
+        }),
+        svelte({
+          configFile: false,
+          preprocess: vitePreprocess(),
+          compilerOptions: { hydratable: true }
+        }),
         vue()
       ]
     })

@@ -201,6 +201,9 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^5.0.5
         version: 5.0.5(vite@5.3.4(@types/node@20.14.11)(terser@5.31.3))(vue@3.4.32(typescript@5.5.3))
+      magic-string:
+        specifier: ^0.30.10
+        version: 0.30.10
       preact:
         specifier: ^10.22.1
         version: 10.22.1
