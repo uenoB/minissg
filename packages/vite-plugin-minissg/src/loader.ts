@@ -168,8 +168,8 @@ export const loaderPlugin = (
           }
         } else if (isVirtual(v, 'Renderer', 3)) {
           const k = coerceSide(v[1])
-          let r = site.options.render.get(Number(v[2]))?.render?.[k]
-          r ??= () => js`throw Error(${`${k} renderer not found for ${v[3]}`})`
+          const r = site.options.render.get(Number(v[2]))?.render?.[k]
+          if (r == null) throw Error(`${k} renderer not found for ${v[3]}`)
           return await r({ parameter: v[3] })
         } else if (isVirtual(v, 'Render', 2)) {
           return js`
@@ -183,8 +183,8 @@ export const loaderPlugin = (
             export default Object.defineProperty(obj, 'then', desc)`
         } else if (isVirtual(v, 'Hydrate', 3)) {
           const k = coerceSide(v[1])
-          let h = site.options.render.match(v[2])?.value.hydrate?.[k]
-          h ??= () => js`throw Error(${`hydration not available for ${v[2]}`})`
+          const h = site.options.render.match(v[2])?.value.hydrate?.[k]
+          if (h == null) throw Error(`hydration not available for ${v[2]}`)
           const hid = site.scriptId(v[2])
           const args = { id: hid, moduleId: Exact(v[2], true), parameter: v[3] }
           return { code: await h(args), map: { mappings: '' } }
