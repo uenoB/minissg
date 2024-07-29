@@ -7,7 +7,7 @@ import { packages } from './release/package-list.js'
 
 const terser = () =>
   terserPlugin({
-    ecma: '2022',
+    ecma: 2022,
     compress: {
       join_vars: false,
       sequences: false,
