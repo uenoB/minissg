@@ -91,7 +91,8 @@ export default [
       'n/no-missing-import': 'off',
       'n/no-new-require': 'error',
       'n/no-path-concat': 'error',
-      'promise/no-nesting': 'off'
+      'promise/no-nesting': 'off',
+      'promise/always-return': ['error', { ignoreLastCallback: true }]
     }
   },
   ...eslintTs.configs.strictTypeChecked.map(config => ({
