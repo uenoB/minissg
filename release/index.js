@@ -57,7 +57,7 @@ for (const pkg of packages) {
                     nextRelease.version %>\n\n[skip ci]`
         }
       ],
-      hookPlugin(github, pkg)
+      [hookPlugin(github, pkg), { successComment: false }]
     ]
   }
   await semanticRelease(options, { cwd: rootDir })
