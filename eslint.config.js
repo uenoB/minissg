@@ -112,7 +112,6 @@ export default [
     files: ['**/*.ts'],
     rules: {
       '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
-      '@typescript-eslint/ban-types': 'error',
       '@typescript-eslint/consistent-indexed-object-style': ['error', 'record'],
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/consistent-type-exports': 'error',

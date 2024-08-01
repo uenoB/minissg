@@ -188,6 +188,7 @@ class PageFactory<
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface PageRec extends Page<unknown, PageRec, PageRec> {}
 
 export class Page<

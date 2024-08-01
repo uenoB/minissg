@@ -22,11 +22,8 @@ interface NFA {
   vertexes: NFAVertex[]
 }
 
-export const toNFA = async <
-  Key extends 'moduleNameMap' | 'stemMap' | 'fileNameMap',
-  Base
->(
-  indexKey: Key,
+export const toNFA = async <Base>(
+  indexKey: 'moduleNameMap' | 'stemMap' | 'fileNameMap',
   node: PublicTree<Base> | AssetTree
 ): Promise<NFA> => {
   const vertexes = new Map<PublicTree<Base> | AssetTree, string>()
