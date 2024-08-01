@@ -22,6 +22,8 @@ const renderer: Renderer = {
       const withoutScript = params.findIndex(i => i === 'without-script')
       if (withoutScript >= 0) params.splice(withoutScript, 1)
       return js`
+        // I'm not sure whether this is correct, but it works anyway
+        import { sharedConfig } from 'solid-js'
         import { Dynamic, Hydration, HydrationScript } from 'solid-js/web'
         import Component from ${moduleId}
         export * from ${moduleId}
@@ -30,6 +32,7 @@ const renderer: Renderer = {
             component={${params[0] ?? 'div'}}
             data-hydrate={${id}}
             data-hydrate-args={JSON.stringify(props)}
+            data-hydrate-key={sharedConfig.getContextId()}
           >
             <Hydration>
               <Component {...props} />
@@ -47,10 +50,7 @@ const renderer: Renderer = {
         import Component from ${moduleId}
         Array.from(document.querySelectorAll(${selector}), elem => {
           const props = JSON.parse(elem.dataset.hydrateArgs)
-          // I'm not sure whether this is correct, but it works anyway
-          const hk = elem.querySelector('[data-hk]')?.dataset.hk
-          const renderId = hk?.replace(/0-0$/, '')
-          const options = renderId ? { renderId } : {}
+          const options = { renderId: elem.dataset.hydrateKey }
           hydrate(() => createComponent(Component, props), elem, options)
         })`
     }

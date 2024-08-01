@@ -39,7 +39,7 @@
     "solid"
   ],
   "peerDependencies": {
-    "solid-js": "^1.6",
+    "solid-js": "^1.8.19",
     "vite-plugin-minissg": "^1 || ^3 || ^4"
   }
 }
