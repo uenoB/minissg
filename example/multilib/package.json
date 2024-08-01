@@ -15,18 +15,18 @@
     "@preact/preset-vite": "^2.9.0",
     "@sveltejs/vite-plugin-svelte": "^3.1.1",
     "@vitejs/plugin-react": "^4.3.1",
-    "@vitejs/plugin-vue": "^5.0.5",
-    "magic-string": "^0.30.10",
-    "preact": "^10.22.1",
-    "preact-render-to-string": "^6.5.6",
+    "@vitejs/plugin-vue": "^5.1.2",
+    "magic-string": "^0.30.11",
+    "preact": "^10.23.1",
+    "preact-render-to-string": "^6.5.7",
     "preact-ssr-prepass": "^1.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "solid-js": "^1.8.19",
     "svelte": "^4.2.18",
-    "vite": "^5.3.4",
+    "vite": "^5.3.5",
     "vite-plugin-minissg": "^4.0.0",
     "vite-plugin-solid": "^2.10.2",
-    "vue": "^3.4.32"
+    "vue": "^3.4.35"
   }
 }

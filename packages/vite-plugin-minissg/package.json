@@ -47,9 +47,9 @@
     "ssr"
   ],
   "dependencies": {
-    "debug": "^4.3.5",
+    "debug": "^4.3.6",
     "es-module-lexer": "^1.5.4",
-    "magic-string": "^0.30.10",
+    "magic-string": "^0.30.11",
     "mrmime": "^2.0.0"
   },
   "peerDependencies": {

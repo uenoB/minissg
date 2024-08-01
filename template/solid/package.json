@@ -7,9 +7,9 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "@minissg/render-solid": "^4.0.0",
+    "@minissg/render-solid": "^3.0.1",
     "solid-js": "^1.8.19",
-    "vite": "^5.3.4",
+    "vite": "^5.3.5",
     "vite-plugin-minissg": "^4.0.0",
     "vite-plugin-solid": "^2.10.2"
   }
