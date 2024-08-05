@@ -30,6 +30,13 @@ const cleanup = outDir => ({
   buildStart: () => fs.rmSync(outDir, { recursive: true, force: true })
 })
 
+const copyLicense = dir => ({
+  name: 'copyFiles',
+  closeBundle() {
+    fs.copyFileSync('LICENSE', path.join(dir, 'LICENSE'))
+  }
+})
+
 const externalNames = ({ json }) => [
   ...Object.keys(json.dependencies ?? {}),
   ...Object.keys(json.peerDependencies ?? {})
@@ -66,7 +73,7 @@ const build = pkg => {
     },
     {
       external: [...external, /^node:/],
-      plugins: [dts()],
+      plugins: [dts(), copyLicense(pkg.dir)],
       input,
       output: [
         { dir: outDir, entryFileNames: '[name].d.ts' },
