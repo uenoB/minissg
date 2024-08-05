@@ -3,8 +3,8 @@ import * as childProcess from 'node:child_process'
 export const gitLsFiles = (...files) => {
   const r = childProcess.spawnSync('git', ['ls-files', '-z', ...files])
   if (r.error != null) throw r.error
-  const lines = r.stdout.toString('utf8')
-  return lines.split('\0').filter(i => i !== '')
+  const stdout = r.stdout.toString('utf8')
+  return stdout.split('\0').filter(i => i !== '')
 }
 
 const diffTreeCache = new Map()
@@ -21,8 +21,8 @@ export const gitDiffTree = hash => {
     hash
   ])
   if (r.error != null) throw r.error
-  const lines = r.stdout.toString('utf8')
-  const paths = lines.split('\n').filter(i => i !== '')
+  const stdout = r.stdout.toString('utf8')
+  const paths = stdout.split('\n').filter(i => i !== '')
   diffTreeCache.set(hash, paths)
   return paths
 }

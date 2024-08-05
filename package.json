@@ -3,7 +3,10 @@
   "name": "minissg-root",
   "version": "1.0.0",
   "license": "MIT",
-  "repository": "github:uenoB/minissg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uenoB/minissg.git"
+  },
   "type": "module",
   "scripts": {
     "prepare": "git config --local core.hooksPath .githooks || exit 0",
@@ -25,11 +28,6 @@
   "devDependencies": {
     "@eslint/compat": "^1.1.1",
     "@rollup/plugin-terser": "^0.4.4",
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^10.1.3",
-    "@semantic-release/npm": "^12.0.1",
-    "@semantic-release/release-notes-generator": "^14.0.1",
     "@types/node": "^22.0.2",
     "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
@@ -47,7 +45,6 @@
     "rollup": "^4.19.2",
     "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-esbuild": "^6.1.1",
-    "semantic-release": "^24.0.0",
     "stylelint": "^16.8.1",
     "stylelint-config-recess-order": "^5.0.1",
     "stylelint-config-standard": "^36.0.1",

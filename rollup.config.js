@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import esbuild from 'rollup-plugin-esbuild'
 import terserPlugin from '@rollup/plugin-terser'
 import dts from 'rollup-plugin-dts'
-import { packages } from './release/package-list.js'
+import { packageList } from './release/package-list.js'
 
 const terser = () =>
   terserPlugin({
@@ -76,4 +76,4 @@ const build = pkg => {
   ]
 }
 
-export default packages.map(build).flat()
+export default packageList.map(build).flat()

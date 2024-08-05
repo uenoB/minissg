@@ -1,1 +1,1 @@
-packages: ['example/*', 'packages/*', 'template/*']
+packages: ['example/*', 'packages/*', 'template/*', release]

@@ -7,8 +7,8 @@ import * as git from '@semantic-release/git'
 import * as github from '@semantic-release/github'
 import * as updateDependencies from './update-dependencies.js'
 import { gitLsFiles } from './git.js'
-import { hookPlugin } from './monorepo.js'
-import { packages } from './package-list.js'
+import { monorepo } from './monorepo.js'
+import { packageList } from './package-list.js'
 
 const rootDir = url.fileURLToPath(new URL('..', import.meta.url))
 process.chdir(rootDir)
@@ -21,43 +21,47 @@ const packageJsonList = {
 packageJsonList.all = Object.values(packageJsonList).flat()
 
 // iterate for each directory under packages.
-for (const pkg of packages) {
+for (const { dirname, dir, json } of packageList) {
   const options = {
     branches: [
       { name: 'latest' },
       { name: 'next', channel: 'next', prerelease: true }
     ],
-    tagFormat: pkg.name + '-v<%= version %>',
+    tagFormat: dirname + '-v<%= version %>',
     plugins: [
-      hookPlugin(commitAnalyzer, pkg),
-      hookPlugin(notesGenerator, pkg),
-      hookPlugin(npm, { ...pkg, name: null }),
+      monorepo(commitAnalyzer, { dir }, 'commit-analyzer'),
+      monorepo(
+        notesGenerator,
+        { dir, versionName: json.name },
+        'release-notes-generator'
+      ),
+      monorepo(npm, { dir }, 'npm'),
       [
-        hookPlugin(updateDependencies, pkg),
-        { ...pkg, packageJsonList: packageJsonList.all }
+        monorepo(updateDependencies, { dir }, 'update-dependencies'),
+        { packageName: json.name, packageJsonList: packageJsonList.all }
       ],
       [
-        hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
+        monorepo(git, { dir, cwd: rootDir }, 'git'),
         {
           assets: [
             ...packageJsonList.example,
             ...packageJsonList.template,
-            `packages/${pkg.name}/package.json`
+            `${dir}/package.json`
           ],
-          message: `chore(release): ${pkg.name} <%=
+          message: `chore(release): ${json.name} <%=
                     nextRelease.version %> [skip ci]\n\n<%=
                     nextRelease.notes %>`
         }
       ],
       [
-        hookPlugin(git, { ...pkg, cwd: rootDir, name: null }),
+        monorepo(git, { dir, cwd: rootDir }, 'git'),
         {
           assets: packageJsonList.packages,
-          message: `fix: update ${pkg.name} to version <%=
+          message: `fix: update ${json.name} to version <%=
                     nextRelease.version %>\n\n[skip ci]`
         }
       ],
-      [hookPlugin(github, pkg), { successComment: false }]
+      [monorepo(github, dir, 'github'), { successComment: false }]
     ]
   }
   await semanticRelease(options, { cwd: rootDir })

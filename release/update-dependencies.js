@@ -1,32 +1,33 @@
 import * as fs from 'node:fs'
 
-const readJson = fileName => JSON.parse(fs.readFileSync(fileName))
-
 export const prepare = (pluginConfig, { nextRelease }) => {
   // nothing to do if this is a prerelease.
   if (nextRelease.channel != null) return
   if (nextRelease.type.startsWith('pre')) return
 
+  // packageJsonList and packageName must be given.
   const packageJsonList = pluginConfig.packageJsonList
-  const packageName = pluginConfig.json.name
+  const packageName = pluginConfig.packageName
   if (packageJsonList == null || packageName == null) return
 
-  const version = nextRelease.version.replace(/^.* /, '')
-
   packageJsonList.forEach(fileName => {
-    const json = readJson(fileName)
+    const json = JSON.parse(fs.readFileSync(fileName, { encoding: 'utf8' }))
     let modified = false
     for (const [key, value] of Object.entries(json)) {
-      if (!/^(?:d|devD|peerD)?ependencies$/.test(key)) continue
-      for (const [dep, orig] of Object.entries(value)) {
-        if (dep !== packageName || !orig.startsWith('^')) continue
-        if (key === 'peerDependencies') {
-          if (nextRelease.type !== 'major') continue
-          value[dep] = `${orig} || ^${version.replace(/[^0-9].*$/, '')}`
-        } else {
-          value[dep] = `^${version}`
+      if (/^(?:d|devD|peerD)?ependencies$/.test(key)) {
+        for (const [dep, versions] of Object.entries(value)) {
+          if (dep === packageName && versions.startsWith('^')) {
+            if (key === 'peerDependencies') {
+              if (nextRelease.type === 'major') {
+                const major = nextRelease.version.replace(/[^0-9].*$/, '')
+                value[dep] = `${versions} || ^${major}`
+              }
+            } else {
+              value[dep] = `^${nextRelease.version}`
+            }
+            modified = true
+          }
         }
-        modified = true
       }
     }
     if (modified) {
