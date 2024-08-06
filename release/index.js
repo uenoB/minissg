@@ -61,7 +61,10 @@ for (const { dirname, dir, json } of packageList) {
                     nextRelease.version %>\n\n[skip ci]`
         }
       ],
-      [monorepo(github, dir, 'github'), { successComment: false }]
+      [
+        monorepo(github, dir, 'github'),
+        { successComment: false, failComment: false }
+      ]
     ]
   }
   await semanticRelease(options, { cwd: rootDir })
