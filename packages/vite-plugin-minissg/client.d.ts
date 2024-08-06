@@ -23,3 +23,18 @@ declare module '*?hydrate' {
   const component: any
   export default component
 }
+
+declare module '*?hydrate&render' {
+  const data: Record<string, import('./dist/index').Content>
+  export default data
+}
+
+declare module '*?render&doctype' {
+  const content: PromiseLike<import('./dist/index').Content>
+  export default content
+}
+
+declare module '*?hydrate&render&doctype' {
+  const data: Record<string, import('./dist/index').Content>
+  export default data
+}
