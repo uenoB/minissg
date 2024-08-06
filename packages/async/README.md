@@ -1,6 +1,6 @@
-# @minissg/memo
+# @minissg/async
 
-This package provides the following memoization facilities:
+This package provides the following utilities facilitating asynchronicity:
 
 * [`Delay` class](#delay-class)
 * [`Memo` class](#memoization)
