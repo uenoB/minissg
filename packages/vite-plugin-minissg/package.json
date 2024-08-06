@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-minissg",
-  "version": "4.0.2",
+  "version": "4.1.0",
   "description": "Minimum-sized static site generator as a Vite plugin",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/vite-plugin-minissg/#readme",
   "repository": {
