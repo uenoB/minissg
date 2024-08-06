@@ -62,7 +62,7 @@ for (const { dirname, dir, json } of packageList) {
         }
       ],
       [
-        monorepo(github, dir, 'github'),
+        monorepo(github, { dir }, 'github'),
         { successComment: false, failComment: false }
       ]
     ]
