@@ -361,9 +361,8 @@ declare class Page {
     },
     arg: {
       items: List<Item, This>;
-      load:
-        | ((this: This, paginate: Paginate<Item, This>) => Load | MainModule)
-        | MainModule;
+      load: (this: This, paginate: Paginate<Item, This>)
+              => Awaitable<Load | MainModule>;
       pageSize?: number | Null;
       url?: URL | string | Null;
       parsePath?: ((this: This, path: string) => Awaitable<ParsePath>) | Null;

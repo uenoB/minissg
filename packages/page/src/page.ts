@@ -55,9 +55,7 @@ interface LoadArg<Load, This> extends CommonArg<Load, This> {
 interface PaginateArg<Item, Load, This> extends CommonArg<Load, This> {
   items: List<Item, This>
   pageSize?: number | Null
-  load:
-    | ((this: This, paginate: Page.Paginate<Item, This>) => Loaded<Load>)
-    | MainModule
+  load: (this: This, paginate: Page.Paginate<Item, This>) => Loaded<Load>
 }
 
 export interface PageConstructor<
@@ -177,10 +175,7 @@ class PageFactory<
       const relPath = copyRelPath(await this.tree.page.paginatePath(pageIndex))
       const page = undefined as unknown as This // dummy
       const pagi = { pages, page, pageIndex, items, itemIndex, numAllItems }
-      const content =
-        typeof load === 'function'
-          ? (): Loaded<Load> => Reflect.apply(load, pagi.page, [pagi])
-          : (): Loaded<Load> => load
+      const content = (): Loaded<Load> => Reflect.apply(load, pagi.page, [pagi])
       pagi.page = this.createSubpage(dir, relPath, content).page
       pages.push(pagi)
     }
