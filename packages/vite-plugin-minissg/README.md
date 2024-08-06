@@ -37,6 +37,7 @@ but maximum freedom of static site programming.
   * [Module Tree](#module-tree)
   * [Static Routing](#static-routing)
   * [Renderers](#renderers)
+  * [DOCTYPE Insertion](#doctype-insertion)
   * [Style Sheets](#style-sheets)
   * [Client-side Code](#client-side-code)
   * [Partial Hydration](#partial-hydration)
@@ -611,6 +612,41 @@ You can even write custom renderers and give it to Minissg through
 Minissg's `render` option.
 See [User-defined Renderer and Hydration](#user-defined-renderer-and-hydration)
 section for details.
+
+### DOCTYPE Insertion
+
+HTML files should start with `<!DOCTYPE html>` but `?render` does not emit it.
+To add `<!DOCTYPE html>` at the beginning of the result of `?render`,
+use `?render&doctype` query instead of `?render`.
+
+For example, suppose that we have `index.html.jsx` of the following code:
+
+```jsx
+export default () => (
+  <html>
+    <head><title>hello</title></head>
+    <body>world</body>
+  </html>
+);
+```
+
+and import this file as follows:
+
+```javascript
+import content from "./index.html.jsx?render&doctype";
+```
+
+The value of `content` is shown below:
+
+``` html
+<!DOCTYPE html><html><head><title>hello</title></head><body>world</doby></html>
+```
+
+If we don't have `doctype` query in the `import`, `<!DOCTYPE html>` at the
+beginning of the above is lost.
+
+`render` always precedes `doctype` in the query; therefore,
+`?render&doctype` and `?doctype&render` has the same meaning.
 
 ### Style Sheets
 

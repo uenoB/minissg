@@ -11,6 +11,7 @@ const encode64 = (s: string): string => Buffer.from(s).toString('base64url')
 const decode64 = (s: string): string => Buffer.from(s, 'base64url').toString()
 
 const CLIENT = Query.Class('client')
+const DOCTYPE = Query.Class('doctype')
 const HYDRATE = Query.Class('hydrate')
 const RENDER = Query.Class('render')
 const RENDERER = Query.Class('renderer')
@@ -47,6 +48,8 @@ export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
 const Client = (side: string, id: string): string =>
   virtual(['Client', side, id], virtualName(id))
+const Doctype = (id: string, arg: string): string =>
+  virtual(['Doctype', id, arg], virtualName(id))
 const Hydrate = (side: string, id: string, arg: string): string =>
   virtual(['Hydrate', side, id, arg], side === 'server' ? id : virtualName(id))
 const Renderer = (side: string, key: number, arg: string): string =>
@@ -104,6 +107,8 @@ export const loaderPlugin = (
             return { ...r, id: Renderer(k, key, found ? q.value : r.id) }
           } else if ((q = CLIENT.match(r.id)) != null) {
             return { ...r, id: Client(coerceSide(inSSR), q.remove()) }
+          } else if ((q = DOCTYPE.match(r.id)) != null) {
+            return { ...r, id: Doctype(q.remove(), q.value) }
           } else if ((q = RENDER.match(r.id)) != null) {
             return { ...r, id: Render(q.remove(), q.value) }
           } else if ((q = HYDRATE.match(r.id)) != null) {
@@ -166,6 +171,13 @@ export const loaderPlugin = (
           } else {
             return js`export default ${server?.data.get(v[2]) ?? { id: key }}`
           }
+        } else if (isVirtual(v, 'Doctype', 2)) {
+          return js`
+            import content from ${Exact(v[1], true)}
+            import { makeThen } from ${Lib}
+            export * from ${Exact(v[1], true)}
+            const doctype = x => new Blob(['<!DOCTYPE html>', x])
+            export default makeThen(async () => doctype(await content))`
         } else if (isVirtual(v, 'Renderer', 3)) {
           const k = coerceSide(v[1])
           const r = site.options.render.get(Number(v[2]))?.render?.[k]
@@ -175,12 +187,9 @@ export const loaderPlugin = (
           return js`
             import render from ${Exact(RENDERER.add(v[1], v[2]), true)}
             import * as m from ${Exact(v[1], true)}
+            import { makeThen } from ${Lib}
             export * from ${Exact(v[1], true)}
-            const get = async m => await render(m.default)
-            const desc = Object.create(null)
-            desc.value = (...a) => get(m).then(...a)
-            const obj = Object.create(null)
-            export default Object.defineProperty(obj, 'then', desc)`
+            export default makeThen(async () => await render(m.default))`
         } else if (isVirtual(v, 'Hydrate', 3)) {
           const k = coerceSide(v[1])
           const h = site.options.render.match(v[2])?.value.hydrate?.[k]
@@ -243,4 +252,11 @@ const libModule = `
   export const data = /*#__PURE__*/ new Map()
   const currentContext = /*#__PURE__*/ new AsyncLocalStorage()
   export const add = id => currentContext.getStore()?.loaded.add(id)
-  export const run = currentContext.run.bind(currentContext)`
+  export const run = currentContext.run.bind(currentContext)
+  export const makeThen = get => {
+    const desc = Object.create(null)
+    desc.value = (...a) => get().then(...a)
+    const obj = Object.create(null)
+    Reflect.defineProperty(obj, 'then', desc)
+    return obj
+  }`

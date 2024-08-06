@@ -9,6 +9,11 @@ declare module '*?render' {
   export default content
 }
 
+declare module '*?doctype' {
+  const content: PromiseLike<import('./dist/index').Content>
+  export default content
+}
+
 declare module '*?client' {
   const data: Record<string, import('./dist/index').Json>
   export default data
