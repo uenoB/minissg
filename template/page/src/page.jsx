@@ -20,6 +20,6 @@ export class Page extends PageClass {
         </Root>
       </Suspense>
     )
-    return await render(html)
+    return new Blob(['<!DOCTYPE html>', await render(html)])
   }
 }

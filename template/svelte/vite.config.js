@@ -7,8 +7,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: [
-        './src/index.html.svelte?render',
-        './src/browser.html.svelte?render'
+        './src/index.html.svelte?render&doctype',
+        './src/browser.html.svelte?render&doctype'
       ]
     }
   },

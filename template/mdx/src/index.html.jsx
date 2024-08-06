@@ -20,7 +20,7 @@ export const main = ({ moduleName }) =>
           <md.default components={{ a }} />
         </Root>
       )
-      return { default: render(root) }
+      return { default: new Blob(['<!DOCTYPE html>', await render(root)]) }
     }
     return [relPath, { main }]
   })

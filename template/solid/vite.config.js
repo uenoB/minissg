@@ -6,7 +6,10 @@ import minissgSolid from '@minissg/render-solid'
 export default defineConfig({
   build: {
     rollupOptions: {
-      input: ['./src/index.html.jsx?render', './src/browser.html.jsx?render']
+      input: [
+        './src/index.html.jsx?render&doctype',
+        './src/browser.html.jsx?render&doctype'
+      ]
     }
   },
   plugins: [

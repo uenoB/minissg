@@ -8,8 +8,8 @@ export default defineConfig({
     minify: true,
     rollupOptions: {
       input: {
-        'index.html': './src/index-html.vue?render',
-        'browser.html': './src/browser-html.vue?render'
+        'index.html': './src/index-html.vue?render&doctype',
+        'browser.html': './src/browser-html.vue?render&doctype'
       }
     }
   },
