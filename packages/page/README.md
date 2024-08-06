@@ -14,13 +14,13 @@ npm install @minissg/page
 and import it in the root file of your project as follows:
 
 ```js
-import { Page } from "@minissg/page"
+import { Page } from "@minissg/page";
 ```
 
 or
 
 ```js
-import Page from "@minissg/page"
+import Page from "@minissg/page";
 ```
 
 ## Getting Started
@@ -144,7 +144,28 @@ This package provides the `Page` class having the following methods.
 
 ### Types
 
+#### `Awaitable`
+
+```typescript
+type Awaitable<X> = X | PromiseLike<X>;
+```
+
+The type of values that can be passed to the `await` construct.
+
 #### `Pairs`
+
+```typescript
+type Pairs<X, Y, This = void> =
+  | Awaitable<Record<string, Y>>
+  | Awaitable<Iterable<Awaitable<PairsItem<X, Y, This>>>>
+  | Awaitable<AsyncIterable<Awaitable<PairsItem<X, Y, This>>>>
+  | Awaitable<(this: This) => Awaitable<Pairs<X, Y, This>>>;
+
+type PairsItem<X, Y, This> =
+  | [X, Y]
+  | Record<string, Y>
+  | ((this: This) => Pairs<X, Y, This>);
+```
 
 `Pairs<Key, Value>` represents a sequence of key-value pairs.
 It is either an `array`, `object`, promise of one of them,
@@ -156,11 +177,29 @@ of type `Value`.
 
 ### `List`
 
+```typescript
+type List<X, This = void> =
+  | Awaitable<Iterable<X>>
+  | Awaitable<AsyncIterable<X>>
+  | Awaitable<(this: This) => List<X, This>>;
+
+type Awaitable<X> = X | PromiseLike<X>;
+```
+
 `List<Value>` represents a sequence of values.
 It is either an `Iterable<Value>`, `AsyncIterable<Value>`, or promise
 of one of them, or function returning `List<Value>`.
 
 ### `RelPath`
+
+```typescript
+interface RelPath {
+  moduleName: string;
+  stem: string;
+  variant: string;
+  fileName: string;
+}
+```
 
 `RelPath` is the type of objects of the form
 `{ moduleName: string; stem: string; variant: string; fileName: string }`,
@@ -177,15 +216,26 @@ as languages and formats.
 ### `Paginate`
 
 ```typescript
-interface Paginate<Item, This> {
-  pages: ReadonlyArray<Paginate<Item, This>>;
-  page: This;
+interface Paginate<Item, Page> {
+  pages: Array<Paginate<Item, Page>>;
+  page: Page;
   pageIndex: number;
   itemIndex: number;
-  items: readonly Item[];
+  items: Item[];
   numAllItems: number;
 }
 ```
+
+`Paginate<Item>` is a paginated fragment of a list of items of type `Item`.
+
+It consists of the following properties:
+* `pages`: the array of all of the paginated fragments.
+* `page`: the `Page` object corresponding to this paginated fragment.
+* `pageIndex`: the index of this fragment (starting from 0).
+* `itemIndex`: the index of the first item of this fragment
+  in the given list of items.
+* `items`: the array of items in this fragment.
+* `numAllItems`: the number of all of the given items.
 
 ### `AssetModule`
 
@@ -195,13 +245,20 @@ interface AssetModule {
 }
 ```
 
+`AssetModule` is the type of modules representing an asset.
+Such modules must have a default export of type `string`, which is the
+path of the asset.
+
 ### `MainModule`
 
 ```typescript
 interface MainModule {
-  main: (context: Readonly<Context>) => Awaitable<Module>
+  main: (context: Context) => Awaitable<Module>
 }
 ```
+
+This is the type of modules having the `main` function of Minissg.
+See [Minissg's document] for details of `main`.
 
 ### `Content` and `Module`
 
@@ -216,6 +273,45 @@ See [@minissg/async] for details.
 ### Class Methods
 
 #### `Page.create(options, args...) => Page`
+
+``` typescript
+declare class Page {
+  static create<
+    Load,
+    Base extends Page<unknown, Base> = PageRec<unknown, PageRec>,
+    This extends Base = Base,
+    Args extends unknown[] = []
+  >(
+    this: {
+      new (...args: Args): This;
+      Base: abstract new (...args: never) => Base;
+    },
+    arg: PagesArg<Load, This> | LoadArg<Load, This>,
+    ...args: Args
+  ): This;
+}
+
+interface PagesArg<Load, This> {
+  pages: Pairs<string | RelPath, Loader<This, Load> | MainModule, This>;
+  substitutePath?: ((path: string) => Awaitable<string>) | Null;
+  assets?: Pairs<string, LoadAsset | string | Null, This> | Null;
+  url?: URL | string | Null;
+  parsePath?: ((this: This, path: string) => Awaitable<ParsePath>) | Null;
+  paginatePath?: ((this: This, index: number) => Awaitable<RelPath>) | Null;
+  render?: ((this: This, loaded: Load) => Awaitable<Content>) | Null;
+}
+
+interface LoadArg<Load, This> {
+  load: Loader<This, Load>;
+  url?: URL | string | Null;
+  parsePath?: ((this: This, path: string) => Awaitable<ParsePath>) | Null;
+  paginatePath?: ((this: This, index: number) => Awaitable<RelPath>) | Null;
+  render?: ((this: This, loaded: Load) => Awaitable<Content>) | Null;
+}
+
+type Null = null | undefined;
+type Loader<This, Load> = (page: This) => Awaitable<Load | MainModule>;
+```
 
 `Page.create` creates a new `Page` object with its contents.
 The `options` argument specifies the contents and customizations.
@@ -250,7 +346,35 @@ The `options` may have one of the following optional properties:
 
 #### `Page.paginate(options, args...) => Page`
 
-`Page.create` creates a new `Page` object with its contents by paginating
+```typescript
+declare class Page {
+  static paginate<
+    Item,
+    Load,
+    Base extends Page<unknown, Base> = PageRec<unknown, PageRec>,
+    This extends Base = Base,
+    Args extends unknown[] = []
+  >(
+    this: {
+      new (...args: Args): This;
+      Base: abstract new (...args: never) => Base;
+    },
+    arg: {
+      items: List<Item, This>;
+      load:
+        | ((this: This, paginate: Paginate<Item, This>) => Load | MainModule)
+        | MainModule;
+      pageSize?: number | Null;
+      url?: URL | string | Null;
+      parsePath?: ((this: This, path: string) => Awaitable<ParsePath>) | Null;
+      paginatePath?: ((this: This, index: number) => Awaitable<RelPath>) | Null;
+      render?: ((this: This, loaded: Load) => Awaitable<Content>) | Null;
+    },
+    ...args: Args
+  ): This;
+```
+
+`Page.paginate` creates a new `Page` object with its contents by paginating
 the given items.
 Similarly to `Page.create`, `options` specifies the contents and `args`
 are passed to constructor.
@@ -277,45 +401,99 @@ specifying the corresponding options in `Page.create`,
 overwriting `Page` object properties, or
 creating a subclass of `Page`.
 
-#### `Page.prototype.parsePath(fileName) => ParsePath`
+#### `Page.prototype.parsePath(fileName) => Awaitable<ParsePath>`
 
-#### `Page.prototype.paginatePath(index) => RelPath`
+This method translates a relative file path into `ParsePath`, which
+consists of three optional properties `moduleName`, `stem`, and `variant`
+of type `string`.
 
-#### `Page.prototype.render(object) => Content`
+```typescript
+type ParsePath = Omit<Partial<RelPath>, 'fileName'>;
+```
+
+From the combination of `fileName` and `ParsePath`, a `RelPath` is
+generated.
+
+#### `Page.prototype.paginatePath(index) => Awaitable<RelPath>`
+
+This mehtod translates the index of a paginated fragment into a `RelPath`.
+
+#### `Page.prototype.render(object) => Awaitable<Content>`
+
+This method transforms `object` into a `Content` , which is the content
+of a webpage to be generated.
+
+The argument `object` is the object returned from the function given to
+`Page.create` or `Page.paginate` through their `pages` and `load` option.
 
 #### `Page.Base`
+
+`Base` is a constructor of the base class whose instances constitutes a
+page tree.
+When a Page object searches for its child node in the page tree,
+the first object that is instance of `Base` is regarded as the child.
 
 ### Instance Methods
 
 #### `Page.prototype.moduleName => Delay<string>`
 
+Returns the URL path to this page.
+
 #### `Page.prototype.stem => Delay<string>`
+
+Returns the stem of URL path of this page.
 
 #### `Page.prototype.variant => Delay<string>`
 
+Returns the set of variants of this page.
+
 #### `Page.prototype.fileName => Delay<string>`
+
+Returns the source file name of this page.
 
 #### `Page.prototype.url => Delay<URL>`
 
+Returns the full URL of this page.
+
 #### `Page.prototype.parent => Delay<Page | undefined>`
+
+Returns the parent node of this page in the page tree.
 
 #### `Page.prototype.root => Delay<Page>`
 
+Return the root node in the page tree.
+
 #### `Page.prototype.loadThis() => Delay<object | undefined>`
+
+Loads the content object associated to this page.
 
 #### `Page.prototype.load() => Delay<object>`
 
+Searches for the content object associated to the path of this page.
+
 #### `Page.prototype.children() => Delay<Array<[RelPath, Page]>>`
+
+Returns the immediate children of this page.
 
 #### `Page.prototype.findByModuleName(path) => Delay<Page | undefined>`
 
+Searches for a page of the given relative path by its module name.
+
 #### `Page.prototype.findByFileName(path) => Delay<Page | undefined>`
+
+Searches for a page of the given relative path by its source file name.
 
 #### `Page.prototype.find(path) => Delay<Page | undefined>`
 
+Try `findByModuleName` and `findByFileName` in this order.
+
 #### `Page.prototype.findByStem(path) => Delay<Set<Page>>`
 
+Searches for all pages having the given stem path.
+
 #### `Page.prototype.variants() => Delay<Set<Base>>`
+
+Searches for all pages having the same stem path as this page.
 
 ## License
 
