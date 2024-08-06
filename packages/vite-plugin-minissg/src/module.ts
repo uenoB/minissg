@@ -98,7 +98,7 @@ export const run = async (
       } else if (typeof ctx.module.main === 'function') {
         const mod = ctx.module
         site?.debug.module?.('await %s.main()', pathOf(ctx))
-        const module = await run(ctx, () => mod.main(ctx))
+        const module = await run(ctx, async () => await mod.main(ctx))
         return [{ ...ctx, module, path: undefined, parent: ctx }]
       } else if ('default' in ctx.module) {
         return null

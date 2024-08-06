@@ -176,9 +176,9 @@ export const loaderPlugin = (
             import render from ${Exact(RENDERER.add(v[1], v[2]), true)}
             import * as m from ${Exact(v[1], true)}
             export * from ${Exact(v[1], true)}
-            const get = m => Promise.resolve(m.default)
+            const get = async m => await render(m.default)
             const desc = Object.create(null)
-            desc['value'] = (...a) => get(m).then(render).then(...a)
+            desc.value = (...a) => get(m).then(...a)
             const obj = Object.create(null)
             export default Object.defineProperty(obj, 'then', desc)`
         } else if (isVirtual(v, 'Hydrate', 3)) {
