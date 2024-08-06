@@ -25,8 +25,8 @@ declare module '*?hydrate' {
 }
 
 declare module '*?hydrate&render' {
-  const data: Record<string, import('./dist/index').Content>
-  export default data
+  const content: PromiseLike<import('./dist/index').Content>
+  export default content
 }
 
 declare module '*?render&doctype' {
@@ -35,6 +35,6 @@ declare module '*?render&doctype' {
 }
 
 declare module '*?hydrate&render&doctype' {
-  const data: Record<string, import('./dist/index').Content>
-  export default data
+  const content: PromiseLike<import('./dist/index').Content>
+  export default content
 }
