@@ -10,7 +10,7 @@
     "@minissg/render-vue": "^3.0.1",
     "@vitejs/plugin-vue": "^5.1.2",
     "vite": "^5.3.5",
-    "vite-plugin-minissg": "^4.0.1",
+    "vite-plugin-minissg": "^4.0.2",
     "vue": "^3.4.35"
   }
 }
