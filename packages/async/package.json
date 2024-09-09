@@ -1,6 +1,6 @@
 {
   "name": "@minissg/async",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Asynchronous data management utilities for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/async#readme",
   "repository": {
