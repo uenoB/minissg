@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@mdx-js/rollup": "^3.0.1",
-    "@minissg/page": "^1.0.0",
+    "@minissg/page": "^1.0.1",
     "@minissg/render-preact": "^3.0.1",
     "@preact/preset-vite": "^2.9.0",
     "preact": "^10.23.1",
