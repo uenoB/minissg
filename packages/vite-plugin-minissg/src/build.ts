@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { format } from 'node:util'
 import type { Plugin, Rollup, UserConfig, InlineConfig } from 'vite'
 import { build } from 'vite'
@@ -10,6 +11,8 @@ import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
 import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import * as util from './util'
+
+const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
 
 const setupRoot = (
   outDir: string,
@@ -26,7 +29,7 @@ const setupRoot = (
     if (r == null || r.external !== false) return [k, { default: null }]
     const chunk = chunkMap.get(r.id)
     if (chunk == null) return [k, { default: null }]
-    const fileName = resolve(outDir, chunk.fileName)
+    const fileName = fileURL(outDir, chunk.fileName)
     const module = util.lazy((): PromiseLike<Module> => import(fileName))
     const main = (): PromiseLike<Module> =>
       lib.then(m => m.add(r.id)).then(() => module)
@@ -199,7 +202,7 @@ export const buildPlugin = (
       const dir = outputOptions.dir ?? site.config.build.outDir
       const outDir = resolve(site.config.root, dir)
       if (libEmitId == null) throw Error('Lib module not found')
-      const libFileName = resolve(outDir, this.getFileName(libEmitId))
+      const libFileName = fileURL(outDir, this.getFileName(libEmitId))
       const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
       const root = setupRoot(outDir, lib, bundle, entryModules)
       const input = await generateInput(this, site, entryModules)
