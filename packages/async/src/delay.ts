@@ -42,8 +42,8 @@ export class Delay<X> implements PromiseLike<X> {
   }
 
   wrap<Y = X, Z = never>(
-    onfulfilled?: ((value: X) => Awaitable<Y>) | undefined | null,
-    onrejected?: ((reason: unknown) => Awaitable<Z>) | undefined | null
+    onfulfilled?: ((value: X) => Awaitable<Y>) | null,
+    onrejected?: ((reason: unknown) => Awaitable<Z>) | null
   ): Delay<Y | Z> {
     const state = this.#force()
     if (state.then != null) {
@@ -69,8 +69,8 @@ export class Delay<X> implements PromiseLike<X> {
   // fit signatures with lib.es2015.promise.d.ts
   // eslint-disable-next-line @typescript-eslint/promise-function-async
   then<Y = X, Z = never>(
-    onfulfilled?: ((value: X) => Awaitable<Y>) | undefined | null,
-    onrejected?: ((reason: unknown) => Awaitable<Z>) | undefined | null
+    onfulfilled?: ((value: X) => Awaitable<Y>) | null,
+    onrejected?: ((reason: unknown) => Awaitable<Z>) | null
   ): Promise<Y | Z> {
     const state = this.#force()
     const promise = state.then != null ? state : Promise.resolve(state)

@@ -421,8 +421,11 @@ const pagesPostOrder = (() => {
   })()
 */
 
-const groupBy = <X, Y>(a: Iterable<X>, f: (x: X) => Y): Array<[X, ...X[]]> => {
-  const map = new Map<Y, [X, ...X[]]>()
+const groupBy = <X>(
+  a: Iterable<X>,
+  f: (x: X) => unknown
+): Array<[X, ...X[]]> => {
+  const map = new Map<unknown, [X, ...X[]]>()
   for (const x of a) {
     const key = f(x)
     const values = map.get(key)

@@ -80,7 +80,7 @@ export const clientNodeInfo = <Node>(
 
 export const loaderPlugin = (
   options: ResolvedOptions,
-  server?: ServerSideResult | undefined
+  server?: ServerSideResult
 ): PluginOption => {
   let site: Site
   const isInSSR = new Map<string, boolean>()

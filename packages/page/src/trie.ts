@@ -7,7 +7,7 @@ export class Trie<K, V> {
   private readonly children = new Map<K | undefined, Trie<K, V>>()
   value: V | undefined
 
-  constructor(value?: V | undefined) {
+  constructor(value?: V) {
     this.value = value
   }
 

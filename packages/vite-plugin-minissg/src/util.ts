@@ -4,7 +4,6 @@ export const isNotNull = <X>(x: X): x is NonNullable<X> => x != null
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 export type Void = Null | void
 
-// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
 export type JsonObj = Readonly<{ [k: string]: Json }>
 export type Json = null | string | number | boolean | JsonObj | readonly Json[]
 
@@ -38,12 +37,12 @@ export const mapReduce = <X, Y, Z>(arg: {
   const step = (z: PromiseLike<Z>, x: X): PromiseLike<Z> =>
     Promise.resolve<Y>(arg.map(x)).then(
       y => z.then(async dest => (await reduce(y, dest)) ?? dest),
-      e => z.then(async dest => (await catch_(e, x, dest)) ?? dest)
+      (e: unknown) => z.then(async dest => (await catch_(e, x, dest)) ?? dest)
     )
   const spawn = (z: PromiseLike<Z>, x: X): PromiseLike<Z> =>
     Promise.resolve(fork(x)).then(
       a => (a == null ? step(z, x) : a.reduce(spawn, z)),
-      e => z.then(async dest => (await catch_(e, x, dest)) ?? dest)
+      (e: unknown) => z.then(async dest => (await catch_(e, x, dest)) ?? dest)
     )
   return Array.from(arg.sources).reduce(spawn, Promise.resolve(arg.destination))
 }

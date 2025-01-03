@@ -160,7 +160,7 @@ interface NamedTreeNode<Tree, Content> extends TreeNode<Tree, Content> {
 
 type Content<Tree, Key extends string> =
   | ((...a: never) => unknown)
-  | PromiseLike<{ [P in Key]: Transition<Next<Tree>> }>
+  | PromiseLike<Record<Key, Transition<Next<Tree>>>>
   | undefined
 
 type Found<Tree extends { page: unknown }> = Tree['page'] | undefined
