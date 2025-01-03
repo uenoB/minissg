@@ -79,8 +79,8 @@ test('CSS modules used in client side appears in the output', async () => {
     })
   ).resolves.toStrictEqual({
     'index.html':
-      '<script type="module" crossorigin src="/assets/index-cRb4XavX.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/index-Bu45y8TD.css">\n<p>hello</p>',
-    'assets/index-Bu45y8TD.css': '._hi_1cqqp_1{color:red}\n',
-    'assets/index-cRb4XavX.js': expect.stringContaining('"_hi_1cqqp_1"')
+      '<script type="module" crossorigin src="/assets/index-CE29hf46.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/index-CZ0K0HCE.css">\n<p>hello</p>',
+    'assets/index-CZ0K0HCE.css': '._hi_1cqqp_1{color:red}\n',
+    'assets/index-CE29hf46.js': expect.stringContaining('"_hi_1cqqp_1"')
   })
 })
