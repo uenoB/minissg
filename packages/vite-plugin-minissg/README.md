@@ -377,7 +377,7 @@ type Module =
 
 export type Content =
   | string
-  | ArrayBufferLike
+  | ArrayBuffer
   | ArrayBufferView
   | Blob
   | null

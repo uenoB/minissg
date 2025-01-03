@@ -40,7 +40,7 @@ export class ModuleName {
   }
 }
 
-export type Content = string | ArrayBufferLike | ArrayBufferView | Blob | Null
+export type Content = string | ArrayBuffer | ArrayBufferView | Blob | Null
 
 const loadContent = (
   src: NonNullable<Content>
