@@ -3,7 +3,7 @@
   import MinissgLogo from './minissg.svg'
   import SvelteLogo from './svelte.svg'
 
-  let count = 0
+  let count = $state(0)
   const increment = () => {
     count += 1
   }
@@ -23,7 +23,7 @@
   </div>
   <h1>Vite + Minissg + Svelte</h1>
   <div>
-    <button class="counter" on:click={increment}>
+    <button class="counter" onclick={increment}>
       count is {count}
     </button>
   </div>

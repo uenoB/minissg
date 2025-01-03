@@ -5,15 +5,16 @@ import { js } from '../../vite-plugin-minissg/src/util'
 const renderer: Renderer = {
   render: {
     server: () => js`
+      import { render as svelteRender } from 'svelte/server'
       export default function render(Component) {
-        const { html, head } = Component.render()
+        const { html, head } = svelteRender(Component)
         const i = /\s*<\/head\s*>/.exec(html)?.index ?? 0
         return html.slice(0, i) + head + html.slice(i)
       }`
   },
   hydrate: {
     server: ({ id, moduleId, parameter: div }) => js`
-      <script>
+      <script module>
         import Component from ${moduleId}
         export * from ${moduleId}
       </script>
@@ -24,11 +25,12 @@ const renderer: Renderer = {
         <Component {...$$props} />
       </svelte:element>`,
     client: ({ id, moduleId, parameter: div }) => js`
+      import { hydrate } from 'svelte'
       import Component from ${moduleId}
       const selector = ${`${div || 'div'}[data-hydrate=${JSON.stringify(id)}]`}
       Array.from(document.querySelectorAll(selector), elem => {
         const props = JSON.parse(elem.dataset.hydrateArgs)
-        new Component({ target: elem, hydrate: true, props })
+        hydrate(Component, { target: elem, hydrate: true, props })
       })`
   }
 }
