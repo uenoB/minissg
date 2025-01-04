@@ -1,6 +1,6 @@
 import { Delay } from '@minissg/async'
+import type { Content } from 'vite-plugin-minissg'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
-import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { type Pairs, type List, iteratePairs, listItems } from './items'
 import type { RelPath as RelPathTy } from './filename'
 import { PathSteps, emptyRelPath, copyRelPath } from './filename'
@@ -33,7 +33,7 @@ interface CommonArg<Load, This> {
   url?: Readonly<URL> | string | Null
   parsePath?: ((this: This, path: string) => Awaitable<ParsePath>) | Null
   paginatePath?: ((this: This, index: number) => Awaitable<RelPath>) | Null
-  render?: ((this: This, loaded: Load) => Awaitable<minissg.Content>) | Null
+  render?: ((this: This, loaded: Load) => Awaitable<Content>) | Null
 }
 
 type Loaded<Load> = Awaitable<Load | MainModule>

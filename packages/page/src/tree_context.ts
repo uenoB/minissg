@@ -1,8 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Memo } from '@minissg/async'
-import type * as minissg from '../../vite-plugin-minissg/src/module'
+import type { Context } from 'vite-plugin-minissg'
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
-//import { FileName } from './filename'
 import type { PageBase } from './page_base'
 import type { PublicTree } from './tree'
 
@@ -29,7 +28,7 @@ export class TreeContext<Base, This extends Base = Base, Load = unknown> {
 
   private static readonly loadedStorage = new AsyncLocalStorage<Set<string>>()
 
-  static run<X>(context: minissg.Context, func: () => X): X {
+  static run<X>(context: Context, func: () => X): X {
     return Memo.inContext(context, () => {
       return context.loaded != null
         ? this.loadedStorage.run(context.loaded, func)

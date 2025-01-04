@@ -234,6 +234,9 @@ importers:
       '@types/debug':
         specifier: ^4.1.12
         version: 4.1.12
+      vite-plugin-minissg:
+        specifier: workspace:^
+        version: link:../vite-plugin-minissg
 
   packages/render-preact:
     dependencies:

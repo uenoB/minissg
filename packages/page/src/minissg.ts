@@ -1,7 +1,7 @@
+import type { Main } from 'vite-plugin-minissg'
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
-import type * as minissg from '../../vite-plugin-minissg/src/module'
 
-export type MainModule = Readonly<{ main: minissg.Main }>
+export type MainModule = Readonly<{ main: Main }>
 export type Loaded<Impl> = Awaitable<Impl | MainModule>
 
 export const hasMinissgMain = (x: object): x is MainModule =>

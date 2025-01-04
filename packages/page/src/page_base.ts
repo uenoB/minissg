@@ -1,5 +1,5 @@
 import { Delay } from '@minissg/async'
-import type * as minissg from '../../vite-plugin-minissg/src/module'
+import type { Content, Context, Module } from 'vite-plugin-minissg'
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import type { RelPath } from './filename'
 import type { Asset } from './asset'
@@ -92,18 +92,18 @@ export abstract class PageBase<Base, This extends Base = Base, Load = unknown> {
     return this.stem.wrap(s => this.#tree?.findByStem('/' + s) ?? new Set())
   }
 
-  main(context: Readonly<minissg.Context>): Awaitable<minissg.Module> {
+  main(context: Readonly<Context>): Awaitable<Module> {
     if (this.#tree == null) throw Error('main is unavailable')
     return this.#tree.main(context)
   }
 
-  render(module: Load): Awaitable<minissg.Content> {
+  render(module: Load): Awaitable<Content> {
     const mod: unknown = module
     if (mod == null) return mod
     if (typeof mod === 'string') return mod
     if (mod instanceof Uint8Array) return mod
     if (typeof mod !== 'object') return `[${typeof mod}]`
-    if ('default' in mod) return mod.default as minissg.Content
+    if ('default' in mod) return mod.default as Content
     // eslint-disable-next-line @typescript-eslint/unbound-method
     return Reflect.apply(Object.prototype.toString, mod, [])
   }
