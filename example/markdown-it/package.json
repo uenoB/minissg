@@ -9,7 +9,7 @@
   "dependencies": {
     "markdown-it": "^14.1.0",
     "tiged": "^2.12.7",
-    "vite": "^6.1.0",
+    "vite": "^6.2.0",
     "vite-plugin-minissg": "^4.1.3"
   }
 }
