@@ -446,9 +446,9 @@ const arrayEq = <X>(a: readonly X[], b: readonly X[]): boolean =>
 const arrayStartsWith = <X>(a: readonly X[], b: readonly X[]): boolean =>
   b.every((x, i) => x === a[i])
 
-const uniqByPath = <X, Y extends { path: readonly X[] }>(
-  a: readonly Y[]
-): Y[] => {
+const uniqByPath = <X extends { path: readonly unknown[] }>(
+  a: readonly X[]
+): X[] => {
   const first = a[0]
   if (a.length === 0 || first == null) return []
   return [

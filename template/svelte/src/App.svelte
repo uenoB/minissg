@@ -30,15 +30,12 @@
   <p>Edit <code>src/*.svelte</code> and save to reload.</p>
   <p>
     <a href="https://vitejs.dev">Learn Vite</a>
-    {' | '}
-    <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
-    {' | '}
-    <a href="https://svelte.dev">Learn Svelte</a>
+    | <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
+    | <a href="https://svelte.dev">Learn Svelte</a>
   </p>
   <p>
     <a href={import.meta.env.BASE_URL}>Hydrate</a>
-    {' | '}
-    <a href={import.meta.env.BASE_URL + 'browser.html'}>Browser</a>
+    | <a href={import.meta.env.BASE_URL + 'browser.html'}>Browser</a>
   </p>
 </div>
 
