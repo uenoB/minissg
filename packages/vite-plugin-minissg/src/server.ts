@@ -111,5 +111,12 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
           .then(write, error)
       }
     })
+  },
+  hotUpdate({ modules, server }) {
+    const isInClient = (id: string): boolean =>
+      server.environments.client.moduleGraph.getModuleById(id) != null
+    if (this.environment.name !== 'ssr') return
+    if (modules.every(mod => mod.id != null && isInClient(mod.id))) return
+    server.ws.send({ type: 'full-reload' })
   }
 })
