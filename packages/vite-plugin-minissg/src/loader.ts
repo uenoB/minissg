@@ -95,7 +95,7 @@ export const loaderPlugin = (
       order: 'pre',
       async handler(id, importer, options) {
         const fromSSR = importer == null || isInSSR.get(importer)
-        const inSSR = fromSSR ?? options.ssr === true
+        const inSSR = fromSSR ?? this.environment.name === 'ssr'
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q

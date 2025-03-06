@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http'
-import type { Plugin, ViteDevServer, ModuleGraph } from 'vite'
+import type { Plugin, ViteDevServer, RunnableDevEnvironment } from 'vite'
+import { isRunnableDevEnvironment } from 'vite'
 import { lookup } from 'mrmime'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
@@ -10,6 +11,7 @@ import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
 
 interface Req {
   server: ViteDevServer
+  env: RunnableDevEnvironment
   site: Site
   root: Context
   req: IncomingMessage
@@ -20,19 +22,17 @@ interface Res {
   body: string | Uint8Array
 }
 
-const loadLib = (server: ViteDevServer): PromiseLike<LibModule> =>
-  server.ssrLoadModule(Lib) as Promise<LibModule>
+const loadLib = (env: RunnableDevEnvironment): PromiseLike<LibModule> =>
+  env.runner.import(Lib)
 
-const setupRoot = (server: ViteDevServer, site: Site): Context => {
+const setupRoot = (env: RunnableDevEnvironment, site: Site): Context => {
   const module = Array.from(site.entries(), ([key, id]) => {
     const main = async (): Promise<Module> => {
-      const plugin = server.pluginContainer
-      const r = await plugin.resolveId(id, undefined, { ssr: true })
+      const r = await env.pluginContainer.resolveId(id)
       if (r == null) return { default: null }
-      const url = Exact(r.id)
-      const module = await server.ssrLoadModule(url)
-      const node = await server.moduleGraph.getModuleByUrl(url)
-      if (node?.id != null) (await loadLib(server)).add(node.id)
+      const module: Module = await env.runner.import(Exact(r.id))
+      const node = env.moduleGraph.getModuleById(r.id)
+      if (node?.id != null) (await loadLib(env)).add(node.id)
       return module
     }
     return [key, { main }] as const
@@ -40,26 +40,29 @@ const setupRoot = (server: ViteDevServer, site: Site): Context => {
   return Object.freeze({ moduleName: ModuleName.root, module })
 }
 
+const unwrapId = (id: string): string =>
+  id.startsWith('/@id/') ? id.slice(5).replace('__x00__', '\0') : id
+const wrapId = (id: string): string => `/@id/${id.replace('\0', '__x00__')}`
+
 const getHtmlHead = async (
-  graph: ModuleGraph,
+  env: RunnableDevEnvironment,
   site: Site,
   loaded: Iterable<string>
 ): Promise<string> => {
-  const loadedUrls = Array.from(loaded, id => graph.getModuleById(id)?.url)
-  const urls = loadedUrls.filter(isNotNull)
+  const urls = Array.from(loaded, id => env.moduleGraph.getModuleById(id)?.url)
+  const loadedUrls = urls.filter(isNotNull)
   const staticImports = await traverseGraph({
-    nodes: urls,
+    nodes: loadedUrls,
     nodeInfo: async url => {
-      url = url.replace(/^\/@id\//, '').replace('__x00__', '\0') // unwrapId
-      const node = await graph.getModuleByUrl(url)
-      const tr = node?.ssrTransformResult
+      const node = await env.moduleGraph.getModuleByUrl(unwrapId(url))
+      const tr = node?.transformResult
       const info = { next: tr?.deps, entries: tr?.dynamicDeps }
       return clientNodeInfo(info, node?.id, site)
     }
   })
   const set = new Set<string>()
-  for (const url of urls) addSet(set, staticImports.get(url))
-  return Array.from(set, i => script(`/@id/${i}`)).join('\n')
+  for (const url of loadedUrls) addSet(set, staticImports.get(url))
+  return Array.from(set, i => script(wrapId(i))).join('\n')
 }
 
 const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
@@ -71,12 +74,12 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
-  const pages = await run(root, await loadLib(req.server), req.site)
+  const pages = await run(root, await loadLib(req.env), req.site)
   const page = await pages.get(requestFileName)
   if (page?.body == null) return
   let body = await page.body
   if (requestFileName.endsWith('.html')) {
-    let head = await getHtmlHead(req.server.moduleGraph, req.site, page.loaded)
+    let head = await getHtmlHead(req.env, req.site, page.loaded)
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }
@@ -88,7 +91,9 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
   config: () => ({ appType: 'mpa', optimizeDeps: { entries: [] } }),
   configureServer: server => () => {
     const site = new Site(server.config, options)
-    const root = setupRoot(server, site)
+    const env = server.environments.ssr
+    if (!isRunnableDevEnvironment(env)) throw Error('ssr is not runnable')
+    const root = setupRoot(env, site)
     server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res & { code?: number }): void => {
         res.writeHead(content.code ?? 404, { 'content-type': content.type })
@@ -100,7 +105,7 @@ export const serverPlugin = (options: ResolvedOptions): Plugin => ({
         if (e instanceof Error) server.ssrFixStacktrace(touch(e))
         next(e)
       }
-      const context = { server, site, root, req }
+      const context = { server, env, site, root, req }
       if (req.method == null || req.url == null) {
         next()
       } else {
