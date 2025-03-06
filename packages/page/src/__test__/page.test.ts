@@ -1,5 +1,6 @@
 import { test, expect } from 'vitest'
-import { run, ModuleName } from '../../../vite-plugin-minissg/src/module'
+import { ModuleName } from '../../../vite-plugin-minissg/src/module'
+import { run } from '../../../vite-plugin-minissg/src/run'
 import { Page } from '../page'
 
 const tree = async (): Promise<Page> => {
