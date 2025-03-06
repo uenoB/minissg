@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Memo } from '@minissg/async'
-import type { Context } from 'vite-plugin-minissg'
+import type { Context } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 import type { PageBase } from './page_base'
 import type { PublicTree } from './tree'

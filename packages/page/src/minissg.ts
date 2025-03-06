@@ -1,4 +1,4 @@
-import type { Main } from 'vite-plugin-minissg'
+import type { Main } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable } from '../../vite-plugin-minissg/src/util'
 
 export type MainModule = Readonly<{ main: Main }>

@@ -1,6 +1,5 @@
 import { Delay, Ivar, Memo } from '@minissg/async'
-import type { Context, Module } from 'vite-plugin-minissg'
-import type { ModuleName } from '../../vite-plugin-minissg/src/module'
+import type * as minissg from '../../vite-plugin-minissg/src/module'
 import { type Awaitable, raise } from '../../vite-plugin-minissg/src/util'
 import type { FileName, RelPath } from './filename'
 import { PathSteps, concatName, concatFileName, emptyRelPath } from './filename'
@@ -16,9 +15,9 @@ type Laziable<X> = X | (() => X)
 
 interface Instance<Base> {
   readonly self: PublicTree<Base>
-  readonly moduleName: ModuleName
-  readonly stem: ModuleName
-  readonly variant: ModuleName
+  readonly moduleName: minissg.ModuleName
+  readonly stem: minissg.ModuleName
+  readonly variant: minissg.ModuleName
   readonly fileName: FileName
   readonly parent: Instance<Base> | undefined // undefined means root
   readonly root: Instance<Base> | undefined // undefined means self
@@ -91,7 +90,7 @@ export class Tree<Base, This extends Base = Base, Load = unknown> {
     })
   }
 
-  toContext(): Delay<Context> {
+  toContext(): Delay<minissg.Context> {
     return this.instance.get().wrap(inst => {
       const parentContext = inst.parent?.self.toContext()
       return (parentContext ?? Delay.resolve(undefined)).wrap(parent => {
@@ -250,7 +249,7 @@ export class Tree<Base, This extends Base = Base, Load = unknown> {
   }
 
   private findParent(
-    context: Readonly<Context> | undefined
+    context: Readonly<minissg.Context> | undefined
   ): Delay<Instance<Base> | undefined> {
     for (let c = context; c != null; c = c.parent) {
       const tree = this.context.getTree(c.module)
@@ -259,7 +258,7 @@ export class Tree<Base, This extends Base = Base, Load = unknown> {
     return Delay.resolve(undefined)
   }
 
-  async main(context: Readonly<Context>): Promise<Module> {
+  async main(context: Readonly<minissg.Context>): Promise<minissg.Module> {
     const inst = await this.instantiate(() => this.findParent(context.parent))
     if (context.moduleName.path !== inst.moduleName.path) {
       throw Error(`module name mismatch: ${context.moduleName.path}`)

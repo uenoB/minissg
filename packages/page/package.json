@@ -45,7 +45,6 @@
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.12",
-    "vite-plugin-minissg": "^4.1.4"
+    "@types/debug": "^4.1.12"
   }
 }

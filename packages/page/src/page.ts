@@ -1,5 +1,5 @@
 import { Delay } from '@minissg/async'
-import type { Content } from 'vite-plugin-minissg'
+import type { Content } from '../../vite-plugin-minissg/src/module'
 import type { Awaitable, Null } from '../../vite-plugin-minissg/src/util'
 import { type Pairs, type List, iteratePairs, listItems } from './items'
 import type { RelPath as RelPathTy } from './filename'
