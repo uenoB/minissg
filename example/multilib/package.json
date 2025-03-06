@@ -23,7 +23,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "solid-js": "^1.9.5",
-    "svelte": "^5.22.2",
+    "svelte": "^5.22.5",
     "vite": "^6.2.0",
     "vite-plugin-minissg": "^4.1.4",
     "vite-plugin-solid": "^2.11.6",
