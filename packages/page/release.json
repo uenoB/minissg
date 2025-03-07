@@ -1,0 +1,6 @@
+{
+  "includes": [
+    "packages/vite-plugin-minissg/src/module.ts",
+    "packages/vite-plugin-minissg/src/util.ts"
+  ]
+}

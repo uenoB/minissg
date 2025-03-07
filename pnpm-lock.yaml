@@ -316,6 +316,9 @@ importers:
 
   release:
     dependencies:
+      es-module-lexer:
+        specifier: ^1.6.0
+        version: 1.6.0
       picomatch:
         specifier: ^4.0.2
         version: 4.0.2

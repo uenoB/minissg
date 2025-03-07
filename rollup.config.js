@@ -37,9 +37,9 @@ const copyLicense = dir => ({
   }
 })
 
-const externalNames = ({ json }) => [
-  ...Object.keys(json.dependencies ?? {}),
-  ...Object.keys(json.peerDependencies ?? {})
+const externalNames = ({ packageJson }) => [
+  ...Object.keys(packageJson.dependencies ?? {}),
+  ...Object.keys(packageJson.peerDependencies ?? {})
 ]
 
 const esmOutput = {

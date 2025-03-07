@@ -21,51 +21,52 @@ const packageJsonList = {
 packageJsonList.all = Object.values(packageJsonList).flat()
 
 // iterate for each directory under packages.
-for (const { dirname, dir, json } of packageList) {
-  const options = {
+for (const { dirname, dir, packageJson, releaseJson } of packageList) {
+  const options = { ...releaseJson, dir }
+  const semanticReleaseOptions = {
     branches: [
       { name: 'latest' },
       { name: 'next', channel: 'next', prerelease: true }
     ],
     tagFormat: dirname + '-v<%= version %>',
     plugins: [
-      monorepo(commitAnalyzer, { dir }, 'commit-analyzer'),
+      monorepo(commitAnalyzer, options, 'commit-analyzer'),
       monorepo(
         notesGenerator,
-        { dir, versionName: json.name },
+        { dir, versionName: packageJson.name },
         'release-notes-generator'
       ),
-      monorepo(npm, { dir }, 'npm'),
+      monorepo(npm, options, 'npm'),
       [
-        monorepo(updateDependencies, { dir }, 'update-dependencies'),
-        { packageName: json.name, packageJsonList: packageJsonList.all }
+        monorepo(updateDependencies, options, 'update-dependencies'),
+        { packageName: packageJson.name, packageJsonList: packageJsonList.all }
       ],
       [
-        monorepo(git, { dir, cwd: rootDir }, 'git'),
+        monorepo(git, { ...options, cwd: rootDir }, 'git'),
         {
           assets: [
             ...packageJsonList.example,
             ...packageJsonList.template,
             `${dir}/package.json`
           ],
-          message: `chore(release): ${json.name} <%=
+          message: `chore(release): ${packageJson.name} <%=
                     nextRelease.version %> [skip ci]\n\n<%=
                     nextRelease.notes %>`
         }
       ],
       [
-        monorepo(git, { dir, cwd: rootDir }, 'git'),
+        monorepo(git, { ...options, cwd: rootDir }, 'git'),
         {
           assets: packageJsonList.packages,
-          message: `fix: update ${json.name} to version <%=
+          message: `fix: update ${packageJson.name} to version <%=
                     nextRelease.version %>\n\n[skip ci]`
         }
       ],
       [
-        monorepo(github, { dir }, 'github'),
+        monorepo(github, options, 'github'),
         { successComment: false, failComment: false }
       ]
     ]
   }
-  await semanticRelease(options, { cwd: rootDir })
+  await semanticRelease(semanticReleaseOptions, { cwd: rootDir })
 }
