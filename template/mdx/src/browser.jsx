@@ -1,4 +1,4 @@
 import { render } from 'preact'
-import App from './App'
+import Counter from './Counter'
 
-render(<App />, document.getElementById('app'))
+render(<Counter />, document.getElementById('counter'))

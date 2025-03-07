@@ -1,14 +1,9 @@
-import { useState } from 'preact/hooks'
 import ViteLogo from './vite.svg'
 import MinissgLogo from './minissg.svg'
-import PreactLogo from './preact.svg'
-import './App.css'
+import SolidLogo from './solid.svg'
+import './Page.css'
 
-export default function App() {
-  const [count, setCount] = useState(0)
-  const increment = () => {
-    setCount(count => count + 1)
-  }
+export default function Page(props) {
   return (
     <div class="app">
       <div>
@@ -18,16 +13,12 @@ export default function App() {
         <a href="https://github.com/uenoB/minissg">
           <img src={MinissgLogo} class="logo" alt="Minissg" />
         </a>
-        <a href="https://preactjs.com">
-          <img src={PreactLogo} class="logo" alt="Preact" />
+        <a href="https://www.solidjs.com">
+          <img src={SolidLogo} class="logo" alt="Solid" />
         </a>
       </div>
-      <h1>Vite + Minissg + Preact</h1>
-      <div>
-        <button class="counter" onClick={increment}>
-          count is {count}
-        </button>
-      </div>
+      <h1>Vite + Minissg + Solid</h1>
+      {props.children}
       <p>
         Edit <code>src/*.jsx</code> and save to reload.
       </p>
@@ -36,7 +27,7 @@ export default function App() {
         {' | '}
         <a href="https://github.com/uenoB/minissg">Learn Minissg</a>
         {' | '}
-        <a href="https://preactjs.com">Learn Preact</a>
+        <a href="https://www.solidjs.com">Learn Solid</a>
       </p>
       <p>
         <a href={import.meta.env.BASE_URL}>Hydrate</a>

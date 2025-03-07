@@ -1,26 +1,34 @@
-import render from 'virtual:minissg/self?renderer'
-import Root from './Root'
+import render from './Root.mdx?renderer'
+import Root from './Root.mdx'
 
-const pages = import.meta.glob(['./*.{md,mdx}'])
+const pages = import.meta.glob(['./[a-z0-9]*.{md,mdx}'])
 
-const hrefMap = new Map()
-const a = ({ href, ...props }) => (
-  <a href={hrefMap.get(href) ?? href} {...props} />
+const paths = new Map(
+  Object.keys(pages).map(path => {
+    return [path, path.replace(/(?:\/index)?\.mdx?$/, '/')]
+  })
 )
+
+const a = moduleName => {
+  const a = ({ href, ...props }) => {
+    const linkTo = paths.has(href)
+      ? import.meta.env.BASE_URL + moduleName.join(paths.get(href)).path
+      : href
+    return <a href={linkTo} {...props} />
+  }
+  return a
+}
 
 export const main = ({ moduleName }) =>
   Object.entries(pages).map(([path, load]) => {
-    const relPath = path.replace(/(?:\/index)?\.mdx?$/, '/')
-    hrefMap.set(path, import.meta.env.BASE_URL + moduleName.join(relPath).path)
     const main = async () => {
       const md = await load()
-      const title = md.frontmatter?.title ?? path
       const root = () => (
-        <Root title={title}>
-          <md.default components={{ a }} />
+        <Root title={md.frontmatter?.title ?? path}>
+          <md.default components={{ a: a(moduleName) }} />
         </Root>
       )
       return { default: new Blob(['<!DOCTYPE html>', await render(root)]) }
     }
-    return [relPath, { main }]
+    return [paths.get(path), { main }]
   })

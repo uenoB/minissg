@@ -9,7 +9,7 @@ export default function Root(props) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1.0" />
         <link rel="icon" type="image/svg+xml" href={favicon} />
-        <title>Vite + MiniSSG + Solid</title>
+        <title>{props.title}</title>
       </head>
       <body>{props.children}</body>
     </html>

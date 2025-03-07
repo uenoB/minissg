@@ -2,9 +2,9 @@
 title: Vite + Minissg + MDX (Browser)
 ---
 
+import App from './App.mdx'
 import './browser?client'
-import './index.css'
 
-<div id="app"></div>
-
-<nav>[Hydrate](./index.mdx) | [Browser](./browser.mdx)</nav>
+<App components={props.components}>
+  <div id="counter" />
+</App>

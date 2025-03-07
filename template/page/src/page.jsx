@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import PageClass from '@minissg/page'
-import render from 'virtual:minissg/self?renderer'
+import render from './Root?renderer'
 import Root from './Root'
 import Nav from './Nav'
 

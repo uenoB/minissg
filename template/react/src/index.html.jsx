@@ -1,10 +1,13 @@
 import Root from './Root'
-import App from './App?hydrate'
+import Page from './Page'
+import Counter from './Counter?hydrate'
 
 export default function IndexHtml() {
   return (
-    <Root>
-      <App />
+    <Root title="Vite + MiniSSG + React">
+      <Page>
+        <Counter />
+      </Page>
     </Root>
   )
 }

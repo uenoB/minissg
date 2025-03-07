@@ -1,14 +1,9 @@
-import { useState } from 'react'
 import ViteLogo from './vite.svg'
 import MinissgLogo from './minissg.svg'
 import ReactLogo from './react.svg'
-import './App.css'
+import './Page.css'
 
-export default function App() {
-  const [count, setCount] = useState(0)
-  const increment = () => {
-    setCount(count => count + 1)
-  }
+export default function Page({ children }) {
   return (
     <div className="app">
       <div>
@@ -23,11 +18,7 @@ export default function App() {
         </a>
       </div>
       <h1>Vite + Minissg + React</h1>
-      <div>
-        <button className="counter" onClick={increment}>
-          count is {count}
-        </button>
-      </div>
+      {children}
       <p>
         Edit <code>src/*.jsx</code> and save to reload.
       </p>

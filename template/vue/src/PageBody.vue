@@ -1,8 +1,5 @@
 <script setup>
-import { ref } from 'vue'
-
 const BASE_URL = import.meta.env.BASE_URL
-const count = ref(0)
 </script>
 
 <template>
@@ -19,9 +16,7 @@ const count = ref(0)
       </a>
     </div>
     <h1>Vite + Minissg + Vue</h1>
-    <div>
-      <button class="counter" @click="count++">count is {{ count }}</button>
-    </div>
+    <slot />
     <p>Edit <code>src/*.vue</code> and save to reload.</p>
     <p>
       <a href="https://vitejs.dev">Learn Vite</a>
@@ -54,28 +49,13 @@ const count = ref(0)
   height: 6em;
   padding: 1em;
   margin: 0 0.3em;
-}
-
-.counter {
-  padding: 0.5em 1em;
-  margin: 1em 0;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  color: inherit;
-  background-color: #ccc4;
-}
-
-.logo,
-.counter {
   cursor: pointer;
   border: none;
   border-radius: 0.5em;
   transition: border-color 0.3s;
 }
 
-.logo:hover,
-.counter:hover {
+.logo:hover {
   box-shadow: 0 0 0.5em 0 #1bec;
 }
 </style>

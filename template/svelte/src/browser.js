@@ -1,4 +1,4 @@
 import { mount } from 'svelte'
-import App from './App.svelte'
+import Counter from './Counter.svelte'
 
-mount(App, { target: document.getElementById('app') })
+mount(Counter, { target: document.getElementById('counter') })

@@ -1,8 +1,13 @@
 <script setup>
-import DocRoot from './DocRoot.vue'
+import HtmlRoot from './HtmlRoot.vue'
+import PageBody from './PageBody.vue'
 import './browser?client'
 </script>
 
 <template>
-  <DocRoot><div id="app" /></DocRoot>
+  <HtmlRoot title="Vite + MiniSSG + Vue">
+    <PageBody>
+      <div id="counter" />
+    </PageBody>
+  </HtmlRoot>
 </template>

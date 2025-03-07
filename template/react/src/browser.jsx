@@ -1,4 +1,4 @@
 import ReactDOM from 'react-dom/client'
-import App from './App'
+import Counter from './Counter'
 
-ReactDOM.createRoot(document.getElementById('app')).render(<App />)
+ReactDOM.createRoot(document.getElementById('counter')).render(<Counter />)

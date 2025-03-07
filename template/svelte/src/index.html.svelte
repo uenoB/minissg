@@ -1,6 +1,11 @@
 <script>
   import Root from './Root.svelte'
-  import App from './App.svelte?hydrate'
+  import Page from './Page.svelte'
+  import Counter from './Counter.svelte?hydrate'
 </script>
 
-<Root><App /></Root>
+<Root title="Vite + MiniSSG + Svelte">
+  <Page>
+    <Counter />
+  </Page>
+</Root>

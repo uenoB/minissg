@@ -1,8 +1,13 @@
 <script setup>
-import DocRoot from './DocRoot.vue'
-import App from './App.vue?hydrate'
+import HtmlRoot from './HtmlRoot.vue'
+import PageBody from './PageBody.vue'
+import CounterButton from './CounterButton.vue?hydrate'
 </script>
 
 <template>
-  <DocRoot><App /></DocRoot>
+  <HtmlRoot title="Vite + MiniSSG + Vue">
+    <PageBody>
+      <CounterButton />
+    </PageBody>
+  </HtmlRoot>
 </template>

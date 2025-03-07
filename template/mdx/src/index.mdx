@@ -2,9 +2,9 @@
 title: Vite + Minissg + MDX
 ---
 
-import App from './App?hydrate'
-import './index.css'
+import App from './App.mdx'
+import Counter from './Counter?hydrate'
 
-<App />
-
-<nav>[Hydrate](./index.mdx) | [Browser](./browser.mdx)</nav>
+<App components={props.components}>
+  <Counter />
+</App>
