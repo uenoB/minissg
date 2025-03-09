@@ -6,10 +6,16 @@ import type { PageBase } from './page_base'
 import type { PublicTree } from './tree'
 
 export class TreeContext<Base, This extends Base = Base, Load = unknown> {
+  readonly createPage: () => This & PageBase<Base, This, Load>
+  readonly Base: abstract new (...args: never) => Base & PageBase<Base>
+
   constructor(
-    readonly createPage: () => This & PageBase<Base, This, Load>,
-    readonly Base: abstract new (...args: never) => Base & PageBase<Base>
-  ) {}
+    createPage: () => This & PageBase<Base, This, Load>,
+    Base: abstract new (...args: never) => Base & PageBase<Base>
+  ) {
+    this.createPage = createPage
+    this.Base = Base
+  }
 
   getTree(obj: object): PublicTree<Base> | undefined {
     return obj instanceof this.Base ? TreeContext.getTree(obj) : undefined

@@ -21,6 +21,7 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
     "noErrorTruncation": true,
+    "erasableSyntaxOnly": true,
     "paths": {
       "vite-plugin-minissg": ["./packages/vite-plugin-minissg/src"],
       "@minissg/*": ["./packages/*/src"]
