@@ -100,11 +100,11 @@ export const loaderPlugin = (
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
           if ((q = RENDERER.match(r.id)) != null) {
-            const k = coerceSide(inSSR)
+            const side = coerceSide(inSSR)
             const m = site.options.render.match(r.id)
-            const found = m?.value.render?.[k] != null
+            const found = m?.value.render?.[side] != null
             const key = found ? m.key : -1
-            return { ...r, id: Renderer(k, key, found ? q.value : r.id) }
+            return { ...r, id: Renderer(side, key, found ? q.value : r.id) }
           } else if ((q = CLIENT.match(r.id)) != null) {
             return { ...r, id: Client(coerceSide(inSSR), q.remove()) }
           } else if ((q = DOCTYPE.match(r.id)) != null) {
