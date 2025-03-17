@@ -112,7 +112,7 @@ const generateInput = async (
 
 export const buildPlugin = (
   pluginOptions: ResolvedOptions,
-  server?: ServerResult
+  server: ServerResult
 ): Plugin => {
   let baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig }
   let site: Site
@@ -132,16 +132,17 @@ export const buildPlugin = (
       handler(config) {
         baseConfig = { pluginOptions, config }
         const build = config.build
+        const { result } = server
         return {
           build: {
             // the first pass is for SSR
-            ...(server == null ? { ssr: true } : null),
+            ...(result == null ? { ssr: true } : null),
             // server-side code runs on the server side
-            ...(server == null ? { target: build?.target ?? 'esnext' } : null),
+            ...(result == null ? { target: build?.target ?? 'esnext' } : null),
             // copyPublicDir will be done in the second pass
-            ...(server == null ? { copyPublicDir: false } : null),
+            ...(result == null ? { copyPublicDir: false } : null),
             // SSR chunks are never gzipped
-            ...(server == null ? { reportCompressedSize: false } : null)
+            ...(result == null ? { reportCompressedSize: false } : null)
           }
         }
       }
@@ -178,10 +179,10 @@ export const buildPlugin = (
         }
       })
       site.debug.build?.('loaded %d server-side modules', staticImports.size)
-      if (server == null) {
+      if (server.result == null) {
         libEmitId = this.emitFile({ type: 'chunk', id: Lib })
       } else {
-        for (const outputName of server.pages.keys()) {
+        for (const outputName of server.result.pages.keys()) {
           const id = Head(outputName, 'html')
           // NOTE: this makes entryCount negative
           this.emitFile({ type: 'chunk', id, preserveSignature: false })
@@ -190,8 +191,8 @@ export const buildPlugin = (
     },
 
     async generateBundle(outputOptions, bundle) {
-      if (server != null) {
-        await emitFiles(this, site, bundle, server.pages)
+      if (server.result != null) {
+        await emitFiles(this, site, bundle, server.result.pages)
         return
       }
       const dir = outputOptions.dir ?? site.env.config.build.outDir
@@ -206,7 +207,7 @@ export const buildPlugin = (
         try {
           const files = await run(root, await lib, site)
           const pages = new Map(await emitPages(staticImports, files))
-          const server = { pages, data: (await lib).data, inputs, erasure }
+          server.result = { pages, data: (await lib).data, inputs, erasure }
           await build(configure(site, baseConfig, server))
         } catch (e) {
           if (e instanceof Error) throw util.touch(e)
@@ -220,8 +221,8 @@ export const buildPlugin = (
       order: 'post', // defer vite.build as much as possible
       sequential: true,
       async handler() {
-        const debug = site.debug.build
-        debug?.('%s-side run complete', server == null ? 'server' : 'client')
+        const side = server.result == null ? 'server' : 'client'
+        site.debug.build?.('%s-side run complete', side)
         if (onClose == null) return
         if (site.env.logger.hasWarned) {
           this.error('[minissg] found some errors or warnings')

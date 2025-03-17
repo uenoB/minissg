@@ -80,15 +80,17 @@ export interface ServerPage {
 }
 
 export interface ServerResult {
-  readonly pages: ReadonlyMap<string, ServerPage>
-  readonly data: ReadonlyMap<string, JsonObj>
-  readonly erasure: ReadonlyMap<string, readonly string[]>
-  readonly inputs: readonly string[]
+  result?: {
+    readonly pages: ReadonlyMap<string, ServerPage>
+    readonly data: ReadonlyMap<string, JsonObj>
+    readonly erasure: ReadonlyMap<string, readonly string[]>
+    readonly inputs: readonly string[]
+  }
 }
 
 export const loaderPlugin = (
   pluginOptions: ResolvedOptions,
-  server?: ServerResult
+  server: ServerResult
 ): { pre: Plugin; post: Plugin } => {
   let site: Site
   const isInSSR = new Map<string, boolean>()
@@ -157,13 +159,13 @@ export const loaderPlugin = (
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Root', 0)) {
-          const code = server?.inputs.map(i => js`import ${i}`) ?? []
+          const code = server.result?.inputs.map(i => js`import ${i}`) ?? []
           code.push('export const __MINISSG_ROOT__ = true')
           return code.join('\n')
         } else if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Head', 2)) {
-          const head = server?.pages.get(v[1])?.head
+          const head = server.result?.pages.get(v[1])?.head
           if (head == null) return null
           if (v[2] === 'html') {
             return head.every(i => i.endsWith('.css'))
@@ -180,7 +182,8 @@ export const loaderPlugin = (
               if (!data.has(${v[2]})) data.set(${v[2]}, { id: ${key} })
               export default data.get(${v[2]})`
           } else {
-            return js`export default ${server?.data.get(v[2]) ?? { id: key }}`
+            return js`
+              export default ${server.result?.data.get(v[2]) ?? { id: key }}`
           }
         } else if (isVirtual(v, 'Doctype', 2)) {
           return js`
@@ -220,8 +223,8 @@ export const loaderPlugin = (
     // transform must be done after others but before vite:import-analysis.
     async transform(code, id) {
       if (isInSSR.get(id) !== true) return null
-      if (server != null) {
-        const imports = server.erasure.get(id)
+      if (server.result != null) {
+        const imports = server.result.erasure.get(id)
         if (imports == null) return null
         site.debug.build?.('erase server-side code %o', id)
         const code = imports.map(i => js`import ${Exact(i)}`)
@@ -245,7 +248,7 @@ export const loaderPlugin = (
     generateBundle: {
       order: 'post',
       handler(_, bundle) {
-        if (server == null || !pluginOptions.clean) return
+        if (server.result == null || !pluginOptions.clean) return
         for (const [chunkName, chunk] of Object.entries(bundle)) {
           if (chunk.type !== 'chunk') continue
           if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue
