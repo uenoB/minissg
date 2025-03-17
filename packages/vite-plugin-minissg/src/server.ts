@@ -27,7 +27,7 @@ const loadLib = (env: RunnableDevEnvironment): PromiseLike<LibModule> =>
   env.runner.import(Lib)
 
 const setupRoot = (env: RunnableDevEnvironment, site: Site): Context => {
-  const module = Array.from(site.entries(), ([key, id]) => {
+  const module = Array.from(site.rollupInput(), ([key, id]) => {
     const main = async (): Promise<Module> => {
       const r = await env.pluginContainer.resolveId(id)
       if (r == null) return { default: null }

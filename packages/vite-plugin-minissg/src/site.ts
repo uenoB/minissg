@@ -50,7 +50,7 @@ export class Site {
     return hmac.digest('base64url').slice(0, 8)
   }
 
-  entries(): Map<string, string> {
+  rollupInput(): Map<string, string> {
     let input = this.config.build.rollupOptions.input
     if (input == null) return new Map<string, string>()
     if (typeof input === 'string') input = [input]

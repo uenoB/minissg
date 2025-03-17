@@ -155,7 +155,7 @@ export const buildPlugin = (
     async buildStart() {
       entryCount = 0
       entryModules = await util.mapReduce({
-        sources: site.entries(),
+        sources: site.rollupInput(),
         destination: new Map<string, Rollup.ResolvedId | null>(),
         map: async ([name, id]) => {
           this.emitFile({ type: 'chunk', id, preserveSignature: 'strict' })
