@@ -95,24 +95,23 @@ export const loaderPlugin = (
       order: 'pre',
       async handler(id, importer, options) {
         const fromSSR = importer == null || isInSSR.get(importer)
-        const inSSR = fromSSR ?? this.environment.name === 'ssr'
+        const side = coerceSide(fromSSR ?? this.environment.name === 'ssr')
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
           if ((q = RENDERER.match(r.id)) != null) {
-            const side = coerceSide(inSSR)
             const m = site.options.render.match(r.id)
             const found = m?.value.render?.[side] != null
             const key = found ? m.key : -1
             return { ...r, id: Renderer(side, key, found ? q.value : r.id) }
           } else if ((q = CLIENT.match(r.id)) != null) {
-            return { ...r, id: Client(coerceSide(inSSR), q.remove()) }
+            return { ...r, id: Client(side, q.remove()) }
           } else if ((q = DOCTYPE.match(r.id)) != null) {
             return { ...r, id: Doctype(q.remove(), q.value) }
           } else if ((q = RENDER.match(r.id)) != null) {
             return { ...r, id: Render(q.remove(), q.value) }
           } else if ((q = HYDRATE.match(r.id)) != null) {
-            return { ...r, id: Hydrate(coerceSide(inSSR), q.remove(), q.value) }
+            return { ...r, id: Hydrate(side, q.remove(), q.value) }
           }
           return r
         }
@@ -137,10 +136,10 @@ export const loaderPlugin = (
             r = { ...r, id: '\0' + r.id }
           }
         }
-        const ssr = inSSR && !site.isAsset(r.id)
+        const inSSR = side === 'server' && !site.isAsset(r.id)
         const prev = isInSSR.get(r.id)
-        if (prev != null && prev !== ssr) r = { ...r, id: COPY.add(r.id) }
-        isInSSR.set(r.id, ssr)
+        if (prev != null && prev !== inSSR) r = { ...r, id: COPY.add(r.id) }
+        isInSSR.set(r.id, inSSR)
         return r
       }
     },
