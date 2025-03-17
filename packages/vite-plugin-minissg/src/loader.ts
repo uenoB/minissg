@@ -43,6 +43,7 @@ const isVirtual = <Name extends string, N extends number>(
   args: N
 ): v is Virtual<Name, N> => v != null && v[0] === name && v.length > args
 
+export const Root = virtual(['Root'], 'index.html.js')
 export const Lib = virtual(['Lib'], 'lib.js')
 export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
@@ -62,6 +63,7 @@ export const Exact = (id: string, resolve = false, ext = '.js'): string =>
 export interface ServerSideResult {
   pages: ReadonlyMap<string, { readonly head: readonly string[] }>
   data: ReadonlyMap<string, JsonObj>
+  inputs: readonly string[]
 }
 
 export const clientNodeInfo = <Node>(
@@ -148,7 +150,11 @@ export const loaderPlugin = (
       async handler(id) {
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
-        if (isVirtual(v, 'Lib', 0)) {
+        if (isVirtual(v, 'Root', 0)) {
+          const code = server?.inputs.map(i => js`import ${i}`) ?? []
+          code.push('export const __MINISSG_ROOT__ = true')
+          return code.join('\n')
+        } else if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Head', 2)) {
           const head = server?.pages.get(v[1])?.head

@@ -9,7 +9,7 @@ import { type Module, type Context, ModuleName } from './module'
 import { type Page, type Body, run } from './run'
 import { injectHtmlHead } from './html'
 import type { LibModule } from './loader'
-import { Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
+import { Root, Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import * as util from './util'
 
 const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
@@ -83,7 +83,7 @@ const generateInput = async (
   this_: Rollup.PluginContext,
   site: Site,
   entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
-): Promise<{ entries: string[]; erasure: Map<string, string[]> }> => {
+): Promise<{ inputs: string[]; erasure: Map<string, string[]> }> => {
   const assetGenerators = await util.traverseGraph({
     nodes: Array.from(entryModules.values(), i => i?.id).filter(util.isNotNull),
     nodeInfo: id => {
@@ -97,18 +97,17 @@ const generateInput = async (
     const assets = assetGenerators.get(id)
     return assets != null && assets.size > 0 && !assets.has(id)
   }
-  const entries: string[] = []
-  const erasure = new Map<string, string[]>([['\0' + Lib, []]]) // Lib as dummy
+  const inputs: string[] = []
+  const erasure = new Map<string, string[]>()
   for (const [id, assets] of assetGenerators) {
     const info = this_.getModuleInfo(id)
-    if (info?.isEntry === true && assets.size > 0) entries.push(Exact(id))
+    if (info?.isEntry === true && assets.size > 0) inputs.push(Exact(id))
     if (info == null || assets.has(id) || assets.size === 0) continue
     const imports = [...info.importedIds, ...info.dynamicallyImportedIds]
     erasure.set(id, imports.filter(isAssetGenerator))
     site.debug.build?.('will load %o again for %d assets', id, assets.size)
   }
-  if (entries.length === 0) entries.push(Lib) // avoid empty input with dummy
-  return { entries, erasure }
+  return { inputs, erasure }
 }
 
 export const buildPlugin = (
@@ -256,7 +255,7 @@ const configure = (
   baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig },
   lib: LibModule,
   pages: ReadonlyMap<string, { head: readonly string[]; body: Body }>,
-  input: { entries: string[]; erasure: ReadonlyMap<string, readonly string[]> }
+  input: { inputs: string[]; erasure: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig.config,
   root: site.env.config.root,
@@ -269,12 +268,12 @@ const configure = (
     ...baseConfig.pluginOptions.config.build,
     rollupOptions: {
       ...baseConfig.config.build?.rollupOptions,
-      input: input.entries,
+      input: Root,
       ...baseConfig.pluginOptions.config.build?.rollupOptions
     }
   },
   plugins: [
-    loaderPlugin(baseConfig.pluginOptions, { pages, data: lib.data }),
+    loaderPlugin(baseConfig.pluginOptions, { pages, data: lib.data, ...input }),
     buildPlugin(baseConfig.pluginOptions, pages),
     baseConfig.pluginOptions.config.plugins,
     baseConfig.pluginOptions.plugins(),
