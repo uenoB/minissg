@@ -155,9 +155,9 @@ export const loaderPlugin = (
           const head = server?.pages.get(v[1])?.head
           if (head == null) return null
           if (v[2] === 'html') {
-            return head.some(i => !i.endsWith('.css'))
-              ? script(Head(v[1], 'js'))
-              : link(Head(v[1], 'css'))
+            return head.every(i => i.endsWith('.css'))
+              ? link(Head(v[1], 'css'))
+              : script(Head(v[1], 'js'))
           } else {
             return head.map(i => js`import ${i}`).join('\n')
           }
