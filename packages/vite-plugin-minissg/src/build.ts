@@ -43,7 +43,7 @@ const emitPages = async (
   files: ReadonlyMap<string, Page>
 ): Promise<Iterable<readonly [string, { head: string[]; body: Body }]>> =>
   await Promise.all(
-    Array.from(files).map(async ([outputName, page]) => {
+    Array.from(files, async ([outputName, page]) => {
       const { loaded, body } = await page
       const head = new Set<string>()
       for (const id of loaded) util.addSet(head, staticImports.get(id))
