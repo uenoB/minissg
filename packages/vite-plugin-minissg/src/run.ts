@@ -24,7 +24,7 @@ const pathOf = (c: Context): string => {
   return 'root' + selectors.reverse().join('')
 }
 
-export type Body = PromiseLike<string | Uint8Array> | Null
+type Body = PromiseLike<string | Uint8Array> | Null
 export type Page = PromiseLike<{ loaded: Iterable<string>; body: Body }>
 
 export const run = async (

@@ -6,9 +6,9 @@ import { build } from 'vite'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { type Module, type Context, ModuleName } from './module'
-import { type Page, type Body, run } from './run'
+import { type Page, run } from './run'
 import { injectHtmlHead } from './html'
-import type { LibModule } from './loader'
+import type { LibModule, ServerPage, ServerResult } from './loader'
 import { Root, Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
 import * as util from './util'
 
@@ -41,7 +41,7 @@ const setupRoot = (
 const emitPages = async (
   staticImports: ReadonlyMap<string, Iterable<string>>,
   files: ReadonlyMap<string, Page>
-): Promise<Iterable<readonly [string, { head: string[]; body: Body }]>> =>
+): Promise<Iterable<readonly [string, ServerPage]>> =>
   await Promise.all(
     Array.from(files, async ([outputName, page]) => {
       const { loaded, body } = await page
@@ -55,7 +55,7 @@ const emitFiles = async (
   this_: Rollup.PluginContext,
   site: Site,
   bundle: Rollup.OutputBundle,
-  pages: ReadonlyMap<string, { body: Body }>
+  pages: ReadonlyMap<string, Pick<ServerPage, 'body'>>
 ): Promise<null> =>
   await util.mapReduce({
     sources: pages,
@@ -112,7 +112,7 @@ const generateInput = async (
 
 export const buildPlugin = (
   pluginOptions: ResolvedOptions,
-  bodys?: ReadonlyMap<string, { readonly body: Body }>
+  server?: ServerResult
 ): Plugin => {
   let baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig }
   let site: Site
@@ -135,13 +135,13 @@ export const buildPlugin = (
         return {
           build: {
             // the first pass is for SSR
-            ...(bodys == null ? { ssr: true } : null),
+            ...(server == null ? { ssr: true } : null),
             // server-side code runs on the server side
-            ...(bodys == null ? { target: build?.target ?? 'esnext' } : null),
+            ...(server == null ? { target: build?.target ?? 'esnext' } : null),
             // copyPublicDir will be done in the second pass
-            ...(bodys == null ? { copyPublicDir: false } : null),
+            ...(server == null ? { copyPublicDir: false } : null),
             // SSR chunks are never gzipped
-            ...(bodys == null ? { reportCompressedSize: false } : null)
+            ...(server == null ? { reportCompressedSize: false } : null)
           }
         }
       }
@@ -178,10 +178,10 @@ export const buildPlugin = (
         }
       })
       site.debug.build?.('loaded %d server-side modules', staticImports.size)
-      if (bodys == null) {
+      if (server == null) {
         libEmitId = this.emitFile({ type: 'chunk', id: Lib })
       } else {
-        for (const outputName of bodys.keys()) {
+        for (const outputName of server.pages.keys()) {
           const id = Head(outputName, 'html')
           // NOTE: this makes entryCount negative
           this.emitFile({ type: 'chunk', id, preserveSignature: false })
@@ -190,8 +190,8 @@ export const buildPlugin = (
     },
 
     async generateBundle(outputOptions, bundle) {
-      if (bodys != null) {
-        await emitFiles(this, site, bundle, bodys)
+      if (server != null) {
+        await emitFiles(this, site, bundle, server.pages)
         return
       }
       const dir = outputOptions.dir ?? site.env.config.build.outDir
@@ -200,13 +200,14 @@ export const buildPlugin = (
       const libFileName = fileURL(outDir, this.getFileName(libEmitId))
       const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
       const root = setupRoot(outDir, lib, bundle, entryModules)
-      const input = await generateInput(this, site, entryModules)
+      const { inputs, erasure } = await generateInput(this, site, entryModules)
       onClose = async function (this: void) {
         onClose = undefined // for early memory release
         try {
           const files = await run(root, await lib, site)
           const pages = new Map(await emitPages(staticImports, files))
-          await build(configure(site, baseConfig, await lib, pages, input))
+          const server = { pages, data: (await lib).data, inputs, erasure }
+          await build(configure(site, baseConfig, server))
         } catch (e) {
           if (e instanceof Error) throw util.touch(e)
           const msg = format('uncaught thrown value: %o', e)
@@ -220,7 +221,7 @@ export const buildPlugin = (
       sequential: true,
       async handler() {
         const debug = site.debug.build
-        debug?.('%s-side run complete', bodys == null ? 'server' : 'client')
+        debug?.('%s-side run complete', server == null ? 'server' : 'client')
         if (onClose == null) return
         if (site.env.logger.hasWarned) {
           this.error('[minissg] found some errors or warnings')
@@ -253,9 +254,7 @@ const erasePlugin = (
 const configure = (
   site: Site,
   baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig },
-  lib: LibModule,
-  pages: ReadonlyMap<string, { head: readonly string[]; body: Body }>,
-  input: { inputs: string[]; erasure: ReadonlyMap<string, readonly string[]> }
+  server: ServerResult
 ): InlineConfig => ({
   ...baseConfig.config,
   root: site.env.config.root,
@@ -273,11 +272,11 @@ const configure = (
     }
   },
   plugins: [
-    loaderPlugin(baseConfig.pluginOptions, { pages, data: lib.data, ...input }),
-    buildPlugin(baseConfig.pluginOptions, pages),
+    loaderPlugin(baseConfig.pluginOptions, server),
+    buildPlugin(baseConfig.pluginOptions, server),
     baseConfig.pluginOptions.config.plugins,
     baseConfig.pluginOptions.plugins(),
-    erasePlugin(site.debug, input.erasure) // this must be at very last
+    erasePlugin(site.debug, server.erasure) // this must be at very last
   ],
   configFile: false
 })

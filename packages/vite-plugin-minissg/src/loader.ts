@@ -5,7 +5,7 @@ import { script, link } from './html'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { Query } from './query'
-import { type JsonObj, type NodeInfo, js, freshId } from './util'
+import { type Null, type JsonObj, type NodeInfo, js, freshId } from './util'
 
 const encode64 = (s: string): string => Buffer.from(s).toString('base64url')
 const decode64 = (s: string): string => Buffer.from(s, 'base64url').toString()
@@ -60,12 +60,6 @@ const Render = (id: string, arg: string): string =>
 export const Exact = (id: string, resolve = false, ext = '.js'): string =>
   virtual(['Exact', id, resolve ? 'resolve' : ''], virtualName(id, ext))
 
-export interface ServerSideResult {
-  pages: ReadonlyMap<string, { readonly head: readonly string[] }>
-  data: ReadonlyMap<string, JsonObj>
-  inputs: readonly string[]
-}
-
 export const clientNodeInfo = <Node>(
   info: NodeInfo<Node, string>,
   id: string | null | undefined,
@@ -80,9 +74,21 @@ export const clientNodeInfo = <Node>(
   return info
 }
 
+export interface ServerPage {
+  readonly head: readonly string[]
+  readonly body: PromiseLike<string | Uint8Array> | Null
+}
+
+export interface ServerResult {
+  readonly pages: ReadonlyMap<string, ServerPage>
+  readonly data: ReadonlyMap<string, JsonObj>
+  readonly erasure: ReadonlyMap<string, readonly string[]>
+  readonly inputs: readonly string[]
+}
+
 export const loaderPlugin = (
   pluginOptions: ResolvedOptions,
-  server?: ServerSideResult
+  server?: ServerResult
 ): PluginOption => {
   let site: Site
   const isInSSR = new Map<string, boolean>()
