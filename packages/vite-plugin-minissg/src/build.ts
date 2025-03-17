@@ -232,25 +232,6 @@ export const buildPlugin = (
   }
 }
 
-const erasePlugin = (
-  { build: debug }: Site['debug'],
-  erasure: ReadonlyMap<string, readonly string[]>
-): Plugin => ({
-  name: 'minissg:erase',
-  enforce: 'post',
-  transform: {
-    order: 'post', // this must happen at very last
-    handler(_, id) {
-      const imports = erasure.get(id)
-      if (imports == null) return null
-      debug?.('erase server-side code %o', id)
-      const code = imports.map(i => util.js`import ${Exact(i)};`)
-      code.push('export const __MINISSG_ERASED__ = true;')
-      return { code: code.join('\n'), map: { mappings: '' } }
-    }
-  }
-})
-
 const configure = (
   site: Site,
   baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig },
@@ -271,12 +252,15 @@ const configure = (
       ...baseConfig.pluginOptions.config.build?.rollupOptions
     }
   },
-  plugins: [
-    loaderPlugin(baseConfig.pluginOptions, server),
-    buildPlugin(baseConfig.pluginOptions, server),
-    baseConfig.pluginOptions.config.plugins,
-    baseConfig.pluginOptions.plugins(),
-    erasePlugin(site.debug, server.erasure) // this must be at very last
-  ],
+  plugins: (() => {
+    const loader = loaderPlugin(baseConfig.pluginOptions, server)
+    return [
+      loader.pre,
+      buildPlugin(baseConfig.pluginOptions, server),
+      baseConfig.pluginOptions.config.plugins,
+      baseConfig.pluginOptions.plugins(),
+      loader.post
+    ]
+  })(),
   configFile: false
 })

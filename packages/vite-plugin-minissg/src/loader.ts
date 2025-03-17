@@ -1,4 +1,4 @@
-import type { Plugin, PluginOption, Rollup } from 'vite'
+import type { Plugin, Rollup } from 'vite'
 import { init, parse } from 'es-module-lexer'
 import MagicString from 'magic-string'
 import { script, link } from './html'
@@ -89,7 +89,7 @@ export interface ServerResult {
 export const loaderPlugin = (
   pluginOptions: ResolvedOptions,
   server?: ServerResult
-): PluginOption => {
+): { pre: Plugin; post: Plugin } => {
   let site: Site
   const isInSSR = new Map<string, boolean>()
 
@@ -219,7 +219,15 @@ export const loaderPlugin = (
     enforce: 'post',
     // transform must be done after others but before vite:import-analysis.
     async transform(code, id) {
-      if (server != null || isInSSR.get(id) !== true) return null
+      if (isInSSR.get(id) !== true) return null
+      if (server != null) {
+        const imports = server.erasure.get(id)
+        if (imports == null) return null
+        site.debug.build?.('erase server-side code %o', id)
+        const code = imports.map(i => js`import ${Exact(i)}`)
+        code.push('export const __MINISSG_ERASED__ = true')
+        return { code: code.join('\n'), map: { mappings: '' } }
+      }
       await init
       const addId = freshId(code)
       const ms = new MagicString(code)
@@ -249,7 +257,7 @@ export const loaderPlugin = (
     }
   }
 
-  return [pre, post]
+  return { pre, post }
 }
 
 export interface LibModule {

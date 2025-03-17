@@ -9,10 +9,12 @@ export type { Awaitable, Json } from './util'
 
 export default function (userOptions?: Options): PluginOption {
   const options = resolveOptions(userOptions)
+  const loader = loaderPlugin(options)
   return [
-    loaderPlugin(options),
+    loader.pre,
     buildPlugin(options),
     serverPlugin(),
-    options.plugins()
+    options.plugins(),
+    loader.post
   ]
 }
