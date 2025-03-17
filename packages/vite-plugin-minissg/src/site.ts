@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { type ResolvedConfig, normalizePath, isCSSRequest } from 'vite'
+import { type Environment, normalizePath, isCSSRequest } from 'vite'
 import debug, { type Debugger } from 'debug'
 import { Query } from './query'
 
@@ -12,8 +12,8 @@ const createDebug = (namespace: string): Debugger | undefined => {
   return d.enabled ? d : undefined
 }
 
-export class Site {
-  readonly config: ResolvedConfig
+export class Site<Env extends Environment = Environment> {
+  readonly env: Env
   readonly projectRoot: string
   readonly debug = {
     module: createDebug('minissg:module'),
@@ -22,16 +22,16 @@ export class Site {
     server: createDebug('minissg:server')
   }
 
-  constructor(config: ResolvedConfig) {
-    this.config = config
-    this.projectRoot = normalizePath(this.config.root).replace(/\/*$/, '/')
+  constructor(env: Env) {
+    this.env = env
+    this.projectRoot = normalizePath(this.env.config.root).replace(/\/*$/, '/')
   }
 
   isAsset(moduleId: string): boolean {
     if (hasRawQuery(moduleId)) return false // Vite makes ?raw precede ?url
     if (isCSSRequest(moduleId) && !hasInlineQuery(moduleId)) return true
     if (hasUrlQuery(moduleId) || moduleId.endsWith('.html')) return true
-    return this.config.assetsInclude(moduleId.replace(/[?#].*$/s, ''))
+    return this.env.config.assetsInclude(moduleId.replace(/[?#].*$/s, ''))
   }
 
   canonical(moduleId: string): string {
@@ -48,7 +48,7 @@ export class Site {
   }
 
   rollupInput(): Map<string, string> {
-    let input = this.config.build.rollupOptions.input
+    let input = this.env.config.build.rollupOptions.input
     if (input == null) return new Map<string, string>()
     if (typeof input === 'string') input = [input]
     const fallbackName = (s: string): string =>

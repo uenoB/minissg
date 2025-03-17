@@ -11,8 +11,7 @@ import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
 
 interface Req {
   server: ViteDevServer
-  env: RunnableDevEnvironment
-  site: Site
+  site: Site<RunnableDevEnvironment>
   root: Context
   req: IncomingMessage
 }
@@ -25,14 +24,14 @@ interface Res {
 const loadLib = (env: RunnableDevEnvironment): PromiseLike<LibModule> =>
   env.runner.import(Lib)
 
-const setupRoot = (env: RunnableDevEnvironment, site: Site): Context => {
+const setupRoot = (site: Site<RunnableDevEnvironment>): Context => {
   const module = Array.from(site.rollupInput(), ([key, id]) => {
     const main = async (): Promise<Module> => {
-      const r = await env.pluginContainer.resolveId(id)
+      const r = await site.env.pluginContainer.resolveId(id)
       if (r == null) return { default: null }
-      const module: Module = await env.runner.import(Exact(r.id))
-      const node = env.moduleGraph.getModuleById(r.id)
-      if (node?.id != null) (await loadLib(env)).add(node.id)
+      const module: Module = await site.env.runner.import(Exact(r.id))
+      const node = site.env.moduleGraph.getModuleById(r.id)
+      if (node?.id != null) (await loadLib(site.env)).add(node.id)
       return module
     }
     return [key, { main }] as const
@@ -45,16 +44,16 @@ const unwrapId = (id: string): string =>
 const wrapId = (id: string): string => `/@id/${id.replace('\0', '__x00__')}`
 
 const getHtmlHead = async (
-  env: RunnableDevEnvironment,
-  site: Site,
+  site: Site<RunnableDevEnvironment>,
   loaded: Iterable<string>
 ): Promise<string> => {
-  const urls = Array.from(loaded, id => env.moduleGraph.getModuleById(id)?.url)
+  const moduleGraph = site.env.moduleGraph
+  const urls = Array.from(loaded, id => moduleGraph.getModuleById(id)?.url)
   const loadedUrls = urls.filter(isNotNull)
   const staticImports = await traverseGraph({
     nodes: loadedUrls,
     nodeInfo: async url => {
-      const node = await env.moduleGraph.getModuleByUrl(unwrapId(url))
+      const node = await moduleGraph.getModuleByUrl(unwrapId(url))
       const tr = node?.transformResult
       const info = { next: tr?.deps, entries: tr?.dynamicDeps }
       return clientNodeInfo(info, node?.id, site)
@@ -74,12 +73,12 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
-  const pages = await run(root, await loadLib(req.env), req.site)
+  const pages = await run(root, await loadLib(req.site.env), req.site)
   const page = await pages.get(requestFileName)
   if (page?.body == null) return
   let body = await page.body
   if (requestFileName.endsWith('.html')) {
-    let head = await getHtmlHead(req.env, req.site, page.loaded)
+    let head = await getHtmlHead(req.site, page.loaded)
     head = await req.server.transformIndexHtml('/' + requestFileName, head)
     body = injectHtmlHead(body, head)
   }
@@ -90,10 +89,10 @@ export const serverPlugin = (): Plugin => ({
   name: 'minissg:server',
   config: () => ({ appType: 'mpa', optimizeDeps: { entries: [] } }),
   configureServer: server => () => {
-    const site = new Site(server.config)
     const env = server.environments.ssr
     if (!isRunnableDevEnvironment(env)) throw Error('ssr is not runnable')
-    const root = setupRoot(env, site)
+    const site = new Site(env)
+    const root = setupRoot(site)
     server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res & { code?: number }): void => {
         res.writeHead(content.code ?? 404, { 'content-type': content.type })
@@ -105,7 +104,7 @@ export const serverPlugin = (): Plugin => ({
         if (e instanceof Error) server.ssrFixStacktrace(touch(e))
         next(e)
       }
-      const context = { server, env, site, root, req }
+      const context = { server, site, root, req }
       if (req.method == null || req.url == null) {
         next()
       } else {

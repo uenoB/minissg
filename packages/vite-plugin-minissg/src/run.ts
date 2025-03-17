@@ -73,19 +73,19 @@ export const run = async (
           site?.debug.module?.('imported modules for %o: %O', fileName, loaded)
           return { loaded, body: t == null ? t : lazy(() => loadContent(t)) }
         } catch (e) {
-          site?.config.logger.error(`error occurred in generating ${fileName}`)
+          site?.env.logger.error(`error occurred in generating ${fileName}`)
           if (site == null || e instanceof Error) throw e
           throw Error(format('uncaught non-error throw: %o', e), { cause: e })
         }
       })
       if (z.has(fileName)) {
-        site?.config.logger.warn(`duplicate file ${fileName} by ${pathOf(ctx)}`)
+        site?.env.logger.warn(`duplicate file ${fileName} by ${pathOf(ctx)}`)
       } else {
         z.set(fileName, page)
       }
     },
     catch: (e, ctx) => {
-      site?.config.logger.error(`error occurred in visiting ${pathOf(ctx)}`)
+      site?.env.logger.error(`error occurred in visiting ${pathOf(ctx)}`)
       if (site == null || e instanceof Error) throw e
       throw Error(format('uncaught non-error throw: %o', e), { cause: e })
     }

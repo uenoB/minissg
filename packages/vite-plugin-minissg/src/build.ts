@@ -74,7 +74,7 @@ const emitFiles = async (
       this_.emitFile({ type: 'asset', fileName: outputName, source })
     },
     catch: (error, [outputName]) => {
-      site.config.logger.error(`error occurred in emitting ${outputName}`)
+      site.env.logger.error(`error occurred in emitting ${outputName}`)
       throw error
     }
   })
@@ -148,11 +148,8 @@ export const buildPlugin = (
       }
     },
 
-    configResolved(config) {
-      site = new Site(config)
-    },
-
     async buildStart() {
+      site = new Site(this.environment)
       entryCount = 0
       entryModules = await util.mapReduce({
         sources: site.rollupInput(),
@@ -198,8 +195,8 @@ export const buildPlugin = (
         await emitFiles(this, site, bundle, bodys)
         return
       }
-      const dir = outputOptions.dir ?? site.config.build.outDir
-      const outDir = resolve(site.config.root, dir)
+      const dir = outputOptions.dir ?? site.env.config.build.outDir
+      const outDir = resolve(site.env.config.root, dir)
       if (libEmitId == null) throw Error('Lib module not found')
       const libFileName = fileURL(outDir, this.getFileName(libEmitId))
       const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
@@ -226,7 +223,7 @@ export const buildPlugin = (
         const debug = site.debug.build
         debug?.('%s-side run complete', bodys == null ? 'server' : 'client')
         if (onClose == null) return
-        if (site.config.logger.hasWarned) {
+        if (site.env.logger.hasWarned) {
           this.error('[minissg] found some errors or warnings')
         }
         await onClose()
@@ -262,9 +259,9 @@ const configure = (
   input: { entries: string[]; erasure: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
   ...baseConfig.config,
-  root: site.config.root,
-  base: site.config.base,
-  mode: site.config.mode,
+  root: site.env.config.root,
+  base: site.env.config.base,
+  mode: site.env.config.mode,
   ...baseConfig.pluginOptions.config,
   build: {
     ...baseConfig.config.build,

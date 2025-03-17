@@ -88,8 +88,8 @@ export const loaderPlugin = (
   const pre: Plugin = {
     name: 'minissg:loader',
     enforce: 'pre',
-    configResolved(config) {
-      site = new Site(config)
+    buildStart() {
+      site = new Site(this.environment)
     },
     resolveId: {
       order: 'pre',
