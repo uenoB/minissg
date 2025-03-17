@@ -112,10 +112,10 @@ const generateInput = async (
 }
 
 export const buildPlugin = (
-  options: ResolvedOptions,
+  pluginOptions: ResolvedOptions,
   bodys?: ReadonlyMap<string, { readonly body: Body }>
 ): Plugin => {
-  let baseConfig: UserConfig
+  let baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig }
   let site: Site
   let onClose: (() => Promise<void>) | undefined
   let staticImports = new Map<string, Set<string>>()
@@ -131,7 +131,7 @@ export const buildPlugin = (
     config: {
       order: 'pre',
       handler(config) {
-        baseConfig = config
+        baseConfig = { pluginOptions, config }
         const build = config.build
         return {
           build: {
@@ -149,7 +149,7 @@ export const buildPlugin = (
     },
 
     configResolved(config) {
-      site = new Site(config, options)
+      site = new Site(config)
     },
 
     async buildStart() {
@@ -256,31 +256,31 @@ const erasePlugin = (
 
 const configure = (
   site: Site,
-  baseConfig: UserConfig,
+  baseConfig: { pluginOptions: ResolvedOptions; config: UserConfig },
   lib: LibModule,
   pages: ReadonlyMap<string, { head: readonly string[]; body: Body }>,
   input: { entries: string[]; erasure: ReadonlyMap<string, readonly string[]> }
 ): InlineConfig => ({
-  ...baseConfig,
+  ...baseConfig.config,
   root: site.config.root,
   base: site.config.base,
   mode: site.config.mode,
-  ...site.options.config,
+  ...baseConfig.pluginOptions.config,
   build: {
-    ...baseConfig.build,
-    emptyOutDir: site.options.clean,
-    ...site.options.config.build,
+    ...baseConfig.config.build,
+    emptyOutDir: baseConfig.pluginOptions.clean,
+    ...baseConfig.pluginOptions.config.build,
     rollupOptions: {
-      ...baseConfig.build?.rollupOptions,
+      ...baseConfig.config.build?.rollupOptions,
       input: input.entries,
-      ...site.options.config.build?.rollupOptions
+      ...baseConfig.pluginOptions.config.build?.rollupOptions
     }
   },
   plugins: [
-    loaderPlugin(site.options, { pages, data: lib.data }),
-    buildPlugin(site.options, pages),
-    site.options.config.plugins,
-    site.options.plugins(),
+    loaderPlugin(baseConfig.pluginOptions, { pages, data: lib.data }),
+    buildPlugin(baseConfig.pluginOptions, pages),
+    baseConfig.pluginOptions.config.plugins,
+    baseConfig.pluginOptions.plugins(),
     erasePlugin(site.debug, input.erasure) // this must be at very last
   ],
   configFile: false

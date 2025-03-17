@@ -79,7 +79,7 @@ export const clientNodeInfo = <Node>(
 }
 
 export const loaderPlugin = (
-  options: ResolvedOptions,
+  pluginOptions: ResolvedOptions,
   server?: ServerSideResult
 ): PluginOption => {
   let site: Site
@@ -89,7 +89,7 @@ export const loaderPlugin = (
     name: 'minissg:loader',
     enforce: 'pre',
     configResolved(config) {
-      site = new Site(config, options)
+      site = new Site(config)
     },
     resolveId: {
       order: 'pre',
@@ -100,7 +100,7 @@ export const loaderPlugin = (
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
           if ((q = RENDERER.match(r.id)) != null) {
-            const m = site.options.render.match(r.id)
+            const m = pluginOptions.render.match(r.id)
             const found = m?.value.render?.[side] != null
             const key = found ? m.key : -1
             return { ...r, id: Renderer(side, key, found ? q.value : r.id) }
@@ -179,7 +179,7 @@ export const loaderPlugin = (
             export default makeThen(async () => doctype(await content))`
         } else if (isVirtual(v, 'Renderer', 3)) {
           const k = coerceSide(v[1])
-          const r = site.options.render.get(Number(v[2]))?.render?.[k]
+          const r = pluginOptions.render.get(Number(v[2]))?.render?.[k]
           if (r == null) throw Error(`${k} renderer not found for ${v[3]}`)
           return await r({ parameter: v[3] })
         } else if (isVirtual(v, 'Render', 2)) {
@@ -191,7 +191,7 @@ export const loaderPlugin = (
             export default makeThen(async () => await render(m.default))`
         } else if (isVirtual(v, 'Hydrate', 3)) {
           const k = coerceSide(v[1])
-          const h = site.options.render.match(v[2])?.value.hydrate?.[k]
+          const h = pluginOptions.render.match(v[2])?.value.hydrate?.[k]
           if (h == null) throw Error(`hydration not available for ${v[2]}`)
           const hid = site.scriptId(v[2])
           const args = { id: hid, moduleId: Exact(v[2], true), parameter: v[3] }
@@ -225,7 +225,7 @@ export const loaderPlugin = (
     generateBundle: {
       order: 'post',
       handler(_, bundle) {
-        if (server == null || !site.options.clean) return
+        if (server == null || !pluginOptions.clean) return
         for (const [chunkName, chunk] of Object.entries(bundle)) {
           if (chunk.type !== 'chunk') continue
           if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue

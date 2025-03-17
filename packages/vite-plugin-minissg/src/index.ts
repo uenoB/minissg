@@ -12,7 +12,7 @@ export default function (userOptions?: Options): PluginOption {
   return [
     loaderPlugin(options),
     buildPlugin(options),
-    serverPlugin(options),
+    serverPlugin(),
     options.plugins()
   ]
 }

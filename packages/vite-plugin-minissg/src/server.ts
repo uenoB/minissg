@@ -2,7 +2,6 @@ import type { IncomingMessage } from 'node:http'
 import type { Plugin, ViteDevServer, RunnableDevEnvironment } from 'vite'
 import { isRunnableDevEnvironment } from 'vite'
 import { lookup } from 'mrmime'
-import type { ResolvedOptions } from './options'
 import { Site } from './site'
 import { type Context, type Module, ModuleName } from './module'
 import { run } from './run'
@@ -87,11 +86,11 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   return { type: lookup(requestFileName) ?? 'application/octet-stream', body }
 }
 
-export const serverPlugin = (options: ResolvedOptions): Plugin => ({
+export const serverPlugin = (): Plugin => ({
   name: 'minissg:server',
   config: () => ({ appType: 'mpa', optimizeDeps: { entries: [] } }),
   configureServer: server => () => {
-    const site = new Site(server.config, options)
+    const site = new Site(server.config)
     const env = server.environments.ssr
     if (!isRunnableDevEnvironment(env)) throw Error('ssr is not runnable')
     const root = setupRoot(env, site)
