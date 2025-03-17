@@ -84,7 +84,6 @@ export interface ServerResult {
     readonly pages: ReadonlyMap<string, ServerPage>
     readonly data: ReadonlyMap<string, JsonObj>
     readonly erasure: ReadonlyMap<string, readonly string[]>
-    readonly inputs: readonly string[]
   }
 }
 
@@ -159,9 +158,7 @@ export const loaderPlugin = (
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Root', 0)) {
-          const code = server.result?.inputs.map(i => js`import ${i}`) ?? []
-          code.push('export const __MINISSG_ROOT__ = true')
-          return code.join('\n')
+          return 'void 0' // replaced by erasure
         } else if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Head', 2)) {

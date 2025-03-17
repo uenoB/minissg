@@ -9,7 +9,7 @@ import { type Module, type Context, ModuleName } from './module'
 import { type Page, run } from './run'
 import { injectHtmlHead } from './html'
 import type { LibModule, ServerPage, ServerResult } from './loader'
-import { Root, Lib, Exact, Head, loaderPlugin, clientNodeInfo } from './loader'
+import { Root, Lib, Head, loaderPlugin, clientNodeInfo } from './loader'
 import * as util from './util'
 
 const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
@@ -79,11 +79,11 @@ const emitFiles = async (
     }
   })
 
-const generateInput = async (
+const generateErasure = async (
   this_: Rollup.PluginContext,
   site: Site,
   entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
-): Promise<{ inputs: string[]; erasure: Map<string, string[]> }> => {
+): Promise<Map<string, string[]>> => {
   const assetGenerators = await util.traverseGraph({
     nodes: Array.from(entryModules.values(), i => i?.id).filter(util.isNotNull),
     nodeInfo: id => {
@@ -98,16 +98,16 @@ const generateInput = async (
     return assets != null && assets.size > 0 && !assets.has(id)
   }
   const inputs: string[] = []
-  const erasure = new Map<string, string[]>()
+  const erasure = new Map<string, string[]>([['\0' + Root, inputs]])
   for (const [id, assets] of assetGenerators) {
     const info = this_.getModuleInfo(id)
-    if (info?.isEntry === true && assets.size > 0) inputs.push(Exact(id))
+    if (info?.isEntry === true && assets.size > 0) inputs.push(id)
     if (info == null || assets.has(id) || assets.size === 0) continue
     const imports = [...info.importedIds, ...info.dynamicallyImportedIds]
     erasure.set(id, imports.filter(isAssetGenerator))
     site.debug.build?.('will load %o again for %d assets', id, assets.size)
   }
-  return { inputs, erasure }
+  return erasure
 }
 
 export const buildPlugin = (
@@ -201,13 +201,13 @@ export const buildPlugin = (
       const libFileName = fileURL(outDir, this.getFileName(libEmitId))
       const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
       const root = setupRoot(outDir, lib, bundle, entryModules)
-      const { inputs, erasure } = await generateInput(this, site, entryModules)
+      const erasure = await generateErasure(this, site, entryModules)
       onClose = async function (this: void) {
         onClose = undefined // for early memory release
         try {
           const files = await run(root, await lib, site)
           const pages = new Map(await emitPages(staticImports, files))
-          server.result = { pages, data: (await lib).data, inputs, erasure }
+          server.result = { pages, data: (await lib).data, erasure }
           await build(configure(site, baseConfig, server))
         } catch (e) {
           if (e instanceof Error) throw util.touch(e)
