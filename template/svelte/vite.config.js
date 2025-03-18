@@ -4,12 +4,16 @@ import minissg from 'vite-plugin-minissg'
 import minissgSvelte from '@minissg/render-svelte'
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      input: [
-        './src/index.html.svelte?render&doctype',
-        './src/browser.html.svelte?render&doctype'
-      ]
+  environments: {
+    ssr: {
+      build: {
+        rollupOptions: {
+          input: [
+            './src/index.html.svelte?render&doctype',
+            './src/browser.html.svelte?render&doctype'
+          ]
+        }
+      }
     }
   },
   plugins: [

@@ -28,7 +28,7 @@ export const indentFiles = (files: Files): Files => {
 
 export const build = async (
   files: Files,
-  config?: (dir: (fileName: string) => string) => vite.InlineConfig
+  configFn?: (dir: (fileName: string) => string) => vite.InlineConfig
 ): Promise<Files> => {
   const dir = fs.mkdtempSync(path.join(tmpdir(), 'minissg-'))
   try {
@@ -39,12 +39,16 @@ export const build = async (
     }
     if (firstInput == null) return {}
     const input = firstInput
-    config ??= dir => ({
-      build: { rollupOptions: { input: dir(input) } },
+    configFn ??= dir => ({
+      environments: {
+        ssr: { build: { rollupOptions: { input: dir(input) } } }
+      },
       plugins: [ssg()]
     })
     const dirFn = (fileName: string): string => path.join(dir, fileName)
-    await vite.build({ ...config(dirFn), root: dir, logLevel: 'silent' })
+    const logLevel: vite.LogLevel = 'silent'
+    const config = { ...configFn(dirFn), root: dir, logLevel }
+    await (await vite.createBuilder(config)).buildApp()
     const distDir = path.join(dir, 'dist')
     const dist: Files = {}
     for (const fileName of find(distDir).sort()) {

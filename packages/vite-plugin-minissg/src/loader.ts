@@ -1,4 +1,4 @@
-import type { Plugin, Rollup } from 'vite'
+import type { Environment, Plugin, Rollup } from 'vite'
 import { init, parse } from 'es-module-lexer'
 import MagicString from 'magic-string'
 import { script, link } from './html'
@@ -87,24 +87,37 @@ export interface ServerResult {
   }
 }
 
+interface LoaderPluginState {
+  readonly site: Site
+  readonly isInSSR: Map<string, boolean> | null
+}
+
 export const loaderPlugin = (
   pluginOptions: ResolvedOptions,
   server: ServerResult
 ): { pre: Plugin; post: Plugin } => {
-  let site: Site
-  const isInSSR = new Map<string, boolean>()
+  const stateMap = new WeakMap<Environment, LoaderPluginState>()
+  const getState = (env: Environment): LoaderPluginState => {
+    let state = stateMap.get(env)
+    if (state != null) return state
+    const isInSSR = env.name === 'client' ? new Map<string, boolean>() : null
+    state = { site: new Site(env), isInSSR }
+    stateMap.set(env, state)
+    return state
+  }
 
   const pre: Plugin = {
     name: 'minissg:loader',
     enforce: 'pre',
-    buildStart() {
-      site = new Site(this.environment)
-    },
+    applyToEnvironment: env => env.name === 'ssr' || env.name === 'client',
+    sharedDuringBuild: true,
+
     resolveId: {
       order: 'pre',
       async handler(id, importer, options) {
-        const fromSSR = importer == null || isInSSR.get(importer)
-        const side = coerceSide(fromSSR ?? this.environment.name === 'ssr')
+        const { site, isInSSR } = getState(this.environment)
+        const fromSSR = importer == null || isInSSR?.get(importer)
+        const side = coerceSide(fromSSR ?? isInSSR == null)
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
@@ -145,16 +158,20 @@ export const loaderPlugin = (
             r = { ...r, id: '\0' + r.id }
           }
         }
-        const inSSR = side === 'server' && !site.isAsset(r.id)
-        const prev = isInSSR.get(r.id)
-        if (prev != null && prev !== inSSR) r = { ...r, id: COPY.add(r.id) }
-        isInSSR.set(r.id, inSSR)
+        if (isInSSR != null) {
+          const inSSR = side === 'server' && !site.isAsset(r.id)
+          const prev = isInSSR.get(r.id)
+          if (prev != null && prev !== inSSR) r = { ...r, id: COPY.add(r.id) }
+          isInSSR.set(r.id, inSSR)
+        }
         return r
       }
     },
+
     load: {
       order: 'pre',
       async handler(id) {
+        const { site } = getState(this.environment)
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Root', 0)) {
@@ -217,35 +234,44 @@ export const loaderPlugin = (
   const post: Plugin = {
     name: 'minissg:loader:post',
     enforce: 'post',
+    applyToEnvironment: env => env.name === 'ssr' || env.name === 'client',
+    sharedDuringBuild: true,
+
     // transform must be done after others but before vite:import-analysis.
     async transform(code, id) {
-      if (isInSSR.get(id) !== true) return null
-      if (server.result != null) {
+      const { site, isInSSR } = getState(this.environment)
+      if (isInSSR != null) {
+        if (isInSSR.get(id) !== true) return
+        if (server.result == null) this.error('ssr result not available')
         const imports = server.result.erasure.get(id)
-        if (imports == null) return null
+        if (imports == null) return
         site.debug.build?.('erase server-side code %o', id)
         const code = imports.map(i => js`import ${Exact(i)}`)
         code.push('export const __MINISSG_ERASED__ = true')
         return { code: code.join('\n'), map: { mappings: '' } }
+      } else {
+        await init
+        const addId = freshId(code)
+        const ms = new MagicString(code)
+        for (const { d, n, ss, se } of parse(code)[0]) {
+          if (d < 0 || n == null) continue
+          const r = await this.resolve(n, id)
+          if (r == null || Boolean(r.external)) continue
+          const load = `(${addId}${js`(${r.id}),import(${Exact(r.id, true)})`})`
+          ms.update(ss, se, load)
+        }
+        if (!ms.hasChanged()) return null
+        ms.appendLeft(0, `import { add as ${addId} } from ${js`${Lib}`};\n`)
+        return { code: ms.toString(), map: ms.generateMap({ hires: true }) }
       }
-      await init
-      const addId = freshId(code)
-      const ms = new MagicString(code)
-      for (const { d, n, ss, se } of parse(code)[0]) {
-        if (d < 0 || n == null) continue
-        const r = await this.resolve(n, id)
-        if (r == null || Boolean(r.external)) continue
-        const load = `(${addId}${js`(${r.id}),import(${Exact(r.id, true)})`})`
-        ms.update(ss, se, load)
-      }
-      if (!ms.hasChanged()) return null
-      ms.appendLeft(0, `import { add as ${addId} } from ${js`${Lib}`};\n`)
-      return { code: ms.toString(), map: ms.generateMap({ hires: true }) }
     },
+
     generateBundle: {
       order: 'post',
       handler(_, bundle) {
-        if (server.result == null || !pluginOptions.clean) return
+        if (!pluginOptions.clean) return
+        const { site, isInSSR } = getState(this.environment)
+        if (isInSSR == null) return
         for (const [chunkName, chunk] of Object.entries(bundle)) {
           if (chunk.type !== 'chunk') continue
           if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue

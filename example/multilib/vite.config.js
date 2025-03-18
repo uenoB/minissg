@@ -13,10 +13,14 @@ import minissgVue from '@minissg/render-vue'
 import MagicString from 'magic-string'
 
 export default defineConfig({
-  build: {
-    minify: true,
-    rollupOptions: {
-      input: 'index.html.js'
+  environments: {
+    ssr: {
+      build: {
+        minify: true,
+        rollupOptions: {
+          input: 'index.html.js'
+        }
+      }
     }
   },
   plugins: [

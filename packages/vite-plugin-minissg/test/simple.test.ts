@@ -32,9 +32,13 @@ test('README: Multiple Page Generation 1', async () => {
         export default "Hello\\n";`
       },
       dir => ({
-        build: {
-          rollupOptions: {
-            input: [dir('index.html.js'), dir('hello.txt.js')]
+        environments: {
+          ssr: {
+            build: {
+              rollupOptions: {
+                input: [dir('index.html.js'), dir('hello.txt.js')]
+              }
+            }
           }
         },
         plugins: [ssg()]
