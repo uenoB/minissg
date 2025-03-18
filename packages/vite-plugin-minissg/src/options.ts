@@ -1,5 +1,4 @@
-import type { UserConfig, FilterPattern, PluginOption } from 'vite'
-import { createFilter } from 'vite'
+import { type FilterPattern, type PluginOption, createFilter } from 'vite'
 import { type Awaitable, type Null, isNotNull } from './util'
 
 export interface HydrateArg {
@@ -56,21 +55,18 @@ class FilterMap<K extends string, X extends object> {
 export interface Options {
   readonly render?: Mappable<'renderer', Readonly<Renderer>> | Null
   readonly clean?: boolean | Null
-  readonly config?: UserConfig | Null
   readonly plugins?: () => PluginOption
 }
 
 export interface ResolvedOptions {
   readonly render: FilterMap<'renderer', Readonly<Renderer>>
   readonly clean: boolean
-  readonly config: UserConfig
   readonly plugins: () => PluginOption
 }
 
 export const resolveOptions = (options: Options | Null): ResolvedOptions => {
   const render = new FilterMap('renderer', options?.render ?? [])
   const clean = options?.clean ?? true
-  const config = options?.config ?? {}
   const plugins = options?.plugins ?? (() => [])
-  return { render, clean, config, plugins }
+  return { render, clean, plugins }
 }
