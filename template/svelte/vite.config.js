@@ -21,7 +21,7 @@ export default defineConfig({
       render: {
         '**/*.svelte': minissgSvelte()
       },
-      plugins: () => [
+      plugins: [
         svelte({
           configFile: false,
           preprocess: vitePreprocess(),

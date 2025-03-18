@@ -21,7 +21,7 @@ export default defineConfig({
       render: {
         '**/*.jsx': minissgSolid()
       },
-      plugins: () => [solid({ ssr: true, extensions: ['.jsx'] })]
+      plugins: [solid({ ssr: true, extensions: ['.jsx'] })]
     })
   ]
 })

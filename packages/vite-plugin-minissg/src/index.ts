@@ -12,5 +12,5 @@ export default function (userOptions?: Options): PluginOption {
   const server: ServerResult = {}
   const loader = loaderPlugin(options, server)
   const build = buildPlugin(options, server)
-  return [loader.pre, serverPlugin(), options.plugins(), build, loader.post]
+  return [loader.pre, serverPlugin(), options.plugins, build, loader.post]
 }

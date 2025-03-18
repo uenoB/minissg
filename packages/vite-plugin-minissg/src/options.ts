@@ -55,18 +55,18 @@ class FilterMap<K extends string, X extends object> {
 export interface Options {
   readonly render?: Mappable<'renderer', Readonly<Renderer>> | Null
   readonly clean?: boolean | Null
-  readonly plugins?: () => PluginOption
+  readonly plugins?: PluginOption
 }
 
 export interface ResolvedOptions {
   readonly render: FilterMap<'renderer', Readonly<Renderer>>
   readonly clean: boolean
-  readonly plugins: () => PluginOption
+  readonly plugins: PluginOption
 }
 
 export const resolveOptions = (options: Options | Null): ResolvedOptions => {
   const render = new FilterMap('renderer', options?.render ?? [])
   const clean = options?.clean ?? true
-  const plugins = options?.plugins ?? (() => [])
+  const plugins = options?.plugins ?? []
   return { render, clean, plugins }
 }

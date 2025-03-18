@@ -30,7 +30,7 @@ export default defineConfig({
       render: {
         '**/*.{jsx,md}': minissgPreact()
       },
-      plugins: () => [
+      plugins: [
         preact(),
         mdx({
           jsxImportSource: 'preact',

@@ -21,7 +21,7 @@ export default defineConfig({
       render: {
         '**/*.jsx': minissgReact()
       },
-      plugins: () => [react()]
+      plugins: [react()]
     })
   ]
 })

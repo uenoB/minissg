@@ -32,7 +32,7 @@ export default defineConfig({
         '**/*.svelte': minissgSvelte(),
         '**/*.vue': minissgVue()
       },
-      plugins: () => [
+      plugins: [
         {
           enforce: 'pre',
           name: 'jsx-import-source',

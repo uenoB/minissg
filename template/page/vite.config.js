@@ -21,7 +21,7 @@ export default defineConfig({
       render: {
         '**/*.jsx': minissgPreact()
       },
-      plugins: () => [
+      plugins: [
         preact(),
         mdx({
           mdxExtensions: ['.mdx', '.mdx?MINISSG-COPY'],

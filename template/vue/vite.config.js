@@ -25,7 +25,7 @@ export default defineConfig({
       render: {
         '**/*.vue': minissgVue()
       },
-      plugins: () => [vue()]
+      plugins: [vue()]
     })
   ]
 })
