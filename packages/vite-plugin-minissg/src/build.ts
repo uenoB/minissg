@@ -165,10 +165,6 @@ export const buildPlugin = (
         },
         reduce: (i, z) => z.set(...i)
       })
-      if (bodys == null) {
-        libEmitId = this.emitFile({ type: 'chunk', id: Lib })
-        entryCount++
-      }
     },
 
     async moduleParsed({ isEntry }) {
@@ -186,11 +182,14 @@ export const buildPlugin = (
         }
       })
       site.debug.build?.('loaded %d server-side modules', staticImports.size)
-      if (bodys == null) return
-      for (const outputName of bodys.keys()) {
-        const id = Head(outputName, 'html')
-        // NOTE: this makes entryCount negative
-        this.emitFile({ type: 'chunk', id, preserveSignature: false })
+      if (bodys == null) {
+        libEmitId = this.emitFile({ type: 'chunk', id: Lib })
+      } else {
+        for (const outputName of bodys.keys()) {
+          const id = Head(outputName, 'html')
+          // NOTE: this makes entryCount negative
+          this.emitFile({ type: 'chunk', id, preserveSignature: false })
+        }
       }
     },
 
