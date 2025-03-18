@@ -4,13 +4,7 @@ import minissg from 'vite-plugin-minissg'
 export default defineConfig({
   base: '/hoge/',
   environments: {
-    ssr: {
-      build: {
-        rollupOptions: {
-          input: './index.html.jsx'
-        }
-      }
-    },
+    ssr: {},
     client: {
       build: {
         minify: true,
@@ -18,5 +12,9 @@ export default defineConfig({
       }
     }
   },
-  plugins: [minissg()]
+  plugins: [
+    minissg({
+      input: './index.html.jsx'
+    })
+  ]
 })

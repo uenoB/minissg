@@ -7,17 +7,9 @@ import minissg from 'vite-plugin-minissg'
 import minissgPreact from '@minissg/render-preact'
 
 export default defineConfig({
-  environments: {
-    ssr: {
-      build: {
-        rollupOptions: {
-          input: './src/index.html.js'
-        }
-      }
-    }
-  },
   plugins: [
     minissg({
+      input: './src/index.html.js',
       render: {
         '**/*.jsx': minissgPreact()
       },

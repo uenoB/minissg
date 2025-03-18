@@ -16,15 +16,13 @@ export default defineConfig({
   environments: {
     ssr: {
       build: {
-        minify: true,
-        rollupOptions: {
-          input: 'index.html.js'
-        }
+        minify: true
       }
     }
   },
   plugins: [
     minissg({
+      input: 'index.html.js',
       render: {
         '**/react/**/*.jsx': minissgReact(),
         '**/solid/**/*.jsx': minissgSolid(),

@@ -145,8 +145,9 @@ export const buildPlugin = (
       config.environments['client'] ??= {} // client starts after ssr
       config.environments['client'].build ??= {}
       config.environments['client'].build.emptyOutDir ??= pluginOptions.clean
-      config.environments['client'].build.rollupOptions ??= {}
-      config.environments['client'].build.rollupOptions.input = Root
+      const ssr = { build: { rollupOptions: { input: pluginOptions.input } } }
+      const client = { build: { rollupOptions: { input: Root } } }
+      return { environments: { ssr, client } }
     },
 
     async buildStart() {

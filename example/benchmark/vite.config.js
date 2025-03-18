@@ -11,13 +11,7 @@ import minissgPreact from '@minissg/render-preact'
 export default defineConfig({
   base: '/hoge/',
   environments: {
-    ssr: {
-      build: {
-        rollupOptions: {
-          input: './index.html.jsx'
-        }
-      }
-    },
+    ssr: {},
     client: {
       build: {
         minify: true,
@@ -27,6 +21,7 @@ export default defineConfig({
   },
   plugins: [
     minissg({
+      input: './index.html.jsx',
       render: {
         '**/*.{jsx,md}': minissgPreact()
       },
