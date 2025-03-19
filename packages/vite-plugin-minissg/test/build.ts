@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { tmpdir } from 'node:os'
 import * as vite from 'vite'
-import ssg from '../src/index'
+import * as minissg from '../src/index'
 
 const find = (dir: string): string[] =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap(i => {
@@ -28,7 +28,7 @@ export const indentFiles = (files: Files): Files => {
 
 export const build = async (
   files: Files,
-  configFn?: (dir: (fileName: string) => string) => vite.InlineConfig
+  optionsFn?: (dir: (fileName: string) => string) => minissg.Options
 ): Promise<Files> => {
   const dir = fs.mkdtempSync(path.join(tmpdir(), 'minissg-'))
   try {
@@ -39,15 +39,10 @@ export const build = async (
     }
     if (firstInput == null) return {}
     const input = firstInput
-    configFn ??= dir => ({
-      environments: {
-        ssr: { build: { rollupOptions: { input: dir(input) } } }
-      },
-      plugins: [ssg()]
-    })
+    optionsFn ??= dir => ({ input: dir(input) })
     const dirFn = (fileName: string): string => path.join(dir, fileName)
-    const logLevel: vite.LogLevel = 'silent'
-    const config = { ...configFn(dirFn), root: dir, logLevel }
+    const plugins = [minissg.default(optionsFn(dirFn))]
+    const config: vite.InlineConfig = { root: dir, logLevel: 'silent', plugins }
     await (await vite.createBuilder(config)).buildApp()
     const distDir = path.join(dir, 'dist')
     const dist: Files = {}

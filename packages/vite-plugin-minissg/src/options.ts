@@ -1,4 +1,5 @@
-import { type FilterPattern, type PluginOption, createFilter } from 'vite'
+import type { FilterPattern, PluginOption } from 'vite'
+import { createFilter, normalizePath } from 'vite'
 import { type Awaitable, type Null, isNotNull } from './util'
 
 export interface HydrateArg {
@@ -52,24 +53,35 @@ class FilterMap<K extends string, X extends object> {
   }
 }
 
+type Input = string | string[] | Record<string, string>
+
 export interface Options {
   readonly render?: Mappable<'renderer', Readonly<Renderer>> | Null
   readonly clean?: boolean | Null
-  readonly input?: string | string[] | Record<string, string> | Null
+  readonly input?: Input | Null
   readonly plugins?: PluginOption
 }
 
 export interface ResolvedOptions {
   readonly render: FilterMap<'renderer', Readonly<Renderer>>
   readonly clean: boolean
-  readonly input: string | string[] | Record<string, string>
+  readonly input: Iterable<readonly [string, string]>
   readonly plugins: PluginOption
+}
+
+const resolveInput = (input: Input): Array<readonly [string, string]> => {
+  if (typeof input === 'string') input = [input]
+  const fallbackName = (s: string): string =>
+    s.replace(/^.*\/|(?:\.[^./?#]*)?(?:[?#].*)?$/gs, '')
+  return Array.isArray(input)
+    ? input.map(i => [fallbackName(normalizePath(i)), i] as const)
+    : Object.entries(input)
 }
 
 export const resolveOptions = (options: Options | Null): ResolvedOptions => {
   const render = new FilterMap('renderer', options?.render ?? [])
   const clean = options?.clean ?? true
-  const input = options?.input ?? []
+  const input = options?.input != null ? resolveInput(options.input) : []
   const plugins = options?.plugins ?? []
   return { render, clean, input, plugins }
 }

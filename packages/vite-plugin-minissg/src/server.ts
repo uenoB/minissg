@@ -7,7 +7,7 @@ import { type Context, type Module, ModuleName } from './module'
 import { run } from './run'
 import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './util'
-import { type LibModule, clientNodeInfo, Lib, Exact } from './loader'
+import { clientNodeInfo, Lib, Root } from './loader'
 
 interface Req {
   server: ViteDevServer
@@ -19,24 +19,6 @@ interface Req {
 interface Res {
   type: string
   body: string | Uint8Array
-}
-
-const loadLib = (env: RunnableDevEnvironment): PromiseLike<LibModule> =>
-  env.runner.import(Lib)
-
-const setupRoot = (site: Site<RunnableDevEnvironment>): Context => {
-  const module = Array.from(site.rollupInput(), ([key, id]) => {
-    const main = async (): Promise<Module> => {
-      const r = await site.env.pluginContainer.resolveId(id)
-      if (r == null) return { default: null }
-      const module: Module = await site.env.runner.import(Exact(r.id))
-      const node = site.env.moduleGraph.getModuleById(r.id)
-      if (node?.id != null) (await loadLib(site.env)).add(node.id)
-      return module
-    }
-    return [key, { main }] as const
-  })
-  return Object.freeze({ moduleName: ModuleName.root, module })
 }
 
 const unwrapId = (id: string): string =>
@@ -73,7 +55,7 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
   const root = { ...req.root, request }
-  const pages = await run(root, await loadLib(req.site.env), req.site)
+  const pages = await run(root, await req.site.env.runner.import(Lib), req.site)
   const page = await pages.get(requestFileName)
   if (page?.body == null) return
   let body = await page.body
@@ -88,11 +70,13 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
 export const serverPlugin = (): Plugin => ({
   name: 'minissg:server',
   config: () => ({ appType: 'mpa', optimizeDeps: { entries: [] } }),
+
   configureServer: server => () => {
     const env = server.environments.ssr
     if (!isRunnableDevEnvironment(env)) throw Error('ssr is not runnable')
     const site = new Site(env)
-    const root = setupRoot(site)
+    const module: Module = { main: async () => await env.runner.import(Root) }
+    const root = Object.freeze({ moduleName: ModuleName.root, module })
     server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res & { code?: number }): void => {
         res.writeHead(content.code ?? 404, { 'content-type': content.type })
@@ -116,6 +100,7 @@ export const serverPlugin = (): Plugin => ({
       }
     })
   },
+
   hotUpdate({ modules, server }) {
     const isInClient = (id: string): boolean =>
       server.environments.client.moduleGraph.getModuleById(id) != null

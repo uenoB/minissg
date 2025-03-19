@@ -43,7 +43,8 @@ const isVirtual = <Name extends string, N extends number>(
   args: N
 ): v is Virtual<Name, N> => v != null && v[0] === name && v.length > args
 
-export const Root = virtual(['Root'], 'index.html.js')
+export const Root = virtual(['Root'], 'index.js')
+export const Root0 = '\0' + Root
 export const Lib = virtual(['Lib'], 'lib.js')
 export const Head = (outputName: string, ext: 'html' | 'css' | 'js'): string =>
   virtual(['Head', outputName, ext], virtualName(outputName, `.${ext}`))
@@ -74,6 +75,18 @@ export const clientNodeInfo = <Node>(
   return info
 }
 
+const setupRoot = async (
+  this_: Rollup.PluginContext,
+  pluginOptions: ResolvedOptions
+): Promise<string> => {
+  const elems = Array.from(pluginOptions.input, async ([name, id]) => {
+    const r = await this_.resolve(id, undefined, { skipSelf: false })
+    const i = r?.id == null || Boolean(r.external) ? (r?.id ?? id) : Exact(r.id)
+    return js`[${name}, { main: () => import(${i}) }]`
+  })
+  return `export const main = () => [${(await Promise.all(elems)).join(', ')}]`
+}
+
 export interface ServerPage {
   readonly head: readonly string[]
   readonly body: PromiseLike<string | Uint8Array> | Null
@@ -100,7 +113,7 @@ export const loaderPlugin = (
   const getState = (env: Environment): LoaderPluginState => {
     let state = stateMap.get(env)
     if (state != null) return state
-    const isInSSR = env.name === 'client' ? new Map<string, boolean>() : null
+    const isInSSR = env.name === 'client' ? new Map([[Root0, true]]) : null
     state = { site: new Site(env), isInSSR }
     stateMap.set(env, state)
     return state
@@ -116,8 +129,8 @@ export const loaderPlugin = (
       order: 'pre',
       async handler(id, importer, options) {
         const { site, isInSSR } = getState(this.environment)
-        const fromSSR = importer == null || isInSSR?.get(importer)
-        const side = coerceSide(fromSSR ?? isInSSR == null)
+        const fromSSR = importer == null ? undefined : isInSSR?.get(importer)
+        const side = coerceSide(fromSSR ?? (id === Root || isInSSR == null))
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
@@ -171,11 +184,12 @@ export const loaderPlugin = (
     load: {
       order: 'pre',
       async handler(id) {
-        const { site } = getState(this.environment)
+        const { site, isInSSR } = getState(this.environment)
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Root', 0)) {
-          return 'void 0' // replaced by erasure
+          if (isInSSR != null) return 'void 0' // replaced by erasure
+          return await setupRoot(this, pluginOptions)
         } else if (isVirtual(v, 'Lib', 0)) {
           return libModule
         } else if (isVirtual(v, 'Head', 2)) {

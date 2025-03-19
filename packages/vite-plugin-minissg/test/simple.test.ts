@@ -1,6 +1,5 @@
 import { test, expect } from 'vitest'
 import { build } from './build'
-import ssg from '../src/index'
 
 test('README: Hello, World', async () => {
   await expect(
@@ -32,16 +31,7 @@ test('README: Multiple Page Generation 1', async () => {
         export default "Hello\\n";`
       },
       dir => ({
-        environments: {
-          ssr: {
-            build: {
-              rollupOptions: {
-                input: [dir('index.html.js'), dir('hello.txt.js')]
-              }
-            }
-          }
-        },
-        plugins: [ssg()]
+        input: [dir('./index.html.js'), dir('./hello.txt.js')]
       })
     )
   ).resolves.toStrictEqual({

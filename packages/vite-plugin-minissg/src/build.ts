@@ -4,38 +4,14 @@ import { format } from 'node:util'
 import type { Environment, Plugin, Rollup } from 'vite'
 import type { ResolvedOptions } from './options'
 import { Site } from './site'
-import { type Module, type Context, ModuleName } from './module'
+import { type Module, ModuleName } from './module'
 import { type Page, run } from './run'
 import { injectHtmlHead } from './html'
 import type { LibModule, ServerPage, ServerResult } from './loader'
-import { Root, Lib, Head, clientNodeInfo } from './loader'
+import { Root, Root0, Lib, Head, clientNodeInfo } from './loader'
 import * as util from './util'
 
 const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
-
-const setupRoot = (
-  outDir: string,
-  lib: PromiseLike<LibModule>,
-  bundle: Readonly<Rollup.OutputBundle>,
-  entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
-): Context => {
-  const chunkMap = new Map<string, Rollup.OutputChunk>()
-  for (const chunk of Object.values(bundle)) {
-    if (chunk.type !== 'chunk' || chunk.facadeModuleId == null) continue
-    chunkMap.set(chunk.facadeModuleId, chunk)
-  }
-  const module = Array.from(entryModules, ([k, r]): [string, Module] => {
-    if (r == null || r.external !== false) return [k, { default: null }]
-    const chunk = chunkMap.get(r.id)
-    if (chunk == null) return [k, { default: null }]
-    const fileName = fileURL(outDir, chunk.fileName)
-    const module = util.lazy((): PromiseLike<Module> => import(fileName))
-    const main = (): PromiseLike<Module> =>
-      lib.then(m => m.add(r.id)).then(() => module)
-    return [k, { main }]
-  })
-  return Object.freeze({ moduleName: ModuleName.root, module })
-}
 
 const emitPages = async (
   staticImports: ReadonlyMap<string, Iterable<string>>,
@@ -80,11 +56,10 @@ const emitFiles = async (
 
 const generateErasure = async (
   this_: Rollup.PluginContext,
-  site: Site,
-  entryModules: ReadonlyMap<string, Rollup.ResolvedId | null>
+  site: Site
 ): Promise<Map<string, string[]>> => {
   const assetGenerators = await util.traverseGraph({
-    nodes: Array.from(entryModules.values(), i => i?.id).filter(util.isNotNull),
+    nodes: [Root0],
     nodeInfo: id => {
       if (site.isAsset(id)) return { values: [id] }
       const info = this_.getModuleInfo(id)
@@ -97,7 +72,7 @@ const generateErasure = async (
     return assets != null && assets.size > 0 && !assets.has(id)
   }
   const inputs: string[] = []
-  const erasure = new Map<string, string[]>([['\0' + Root, inputs]])
+  const erasure = new Map<string, string[]>([[Root0, inputs]])
   for (const [id, assets] of assetGenerators) {
     const info = this_.getModuleInfo(id)
     if (info?.isEntry === true && assets.size > 0) inputs.push(id)
@@ -111,13 +86,10 @@ const generateErasure = async (
 
 interface BuildPluginState {
   readonly site: Site
-  readonly entry: {
-    readonly modules: ReadonlyMap<string, Rollup.ResolvedId | null>
-    count: number
-  }
-  ssr?: {
+  readonly ssr?: {
+    readonly rootEmitId: string
     readonly libEmitId: string
-    staticImports: ReadonlyMap<string, ReadonlySet<string>>
+    readonly staticImports: ReadonlyMap<string, ReadonlySet<string>>
     onClose?: (() => Promise<void>) | undefined
   }
 }
@@ -145,37 +117,16 @@ export const buildPlugin = (
       config.environments['client'] ??= {} // client starts after ssr
       config.environments['client'].build ??= {}
       config.environments['client'].build.emptyOutDir ??= pluginOptions.clean
-      const ssr = { build: { rollupOptions: { input: pluginOptions.input } } }
-      const client = { build: { rollupOptions: { input: Root } } }
-      return { environments: { ssr, client } }
+      const env = { build: { rollupOptions: { input: Root } } }
+      return { environments: { ssr: env, client: env } }
     },
 
-    async buildStart() {
+    async moduleParsed({ id }) {
+      if (id !== Root0) return
       const site = new Site(this.environment)
-      let entryCount = 0
-      const entryModules = await util.mapReduce({
-        sources: site.rollupInput(),
-        destination: new Map<string, Rollup.ResolvedId | null>(),
-        map: async ([name, id]) => {
-          this.emitFile({ type: 'chunk', id, preserveSignature: 'strict' })
-          const r = await this.resolve(id, undefined, { isEntry: true })
-          if (r?.external === false) entryCount++
-          return [name, r] as const
-        },
-        reduce: (i, z) => z.set(...i)
-      })
-      const entry = { modules: entryModules, count: entryCount }
-      stateMap.set(this.environment, { site, entry })
-    },
-
-    async moduleParsed({ isEntry }) {
-      if (!isEntry) return
-      const state = stateMap.get(this.environment)
-      if (state == null || --state.entry.count !== 0) return
-      const { site, entry } = state
       // load all server-side codes before loading any client-side code
       const staticImports = await util.traverseGraph({
-        nodes: Array.from(entry.modules, i => i[1]?.id).filter(util.isNotNull),
+        nodes: [id],
         nodeInfo: async id => {
           if (this.getModuleInfo(id)?.isExternal === true) return {}
           const info = await this.load({ id, resolveDependencies: true })
@@ -186,39 +137,43 @@ export const buildPlugin = (
         }
       })
       site.debug.build?.('loaded %d server-side modules', staticImports.size)
+      const emitChunk = (id: string): string =>
+        this.emitFile({ type: 'chunk', id, preserveSignature: 'strict' })
+      const rootEmitId = emitChunk(Root) // to avoid empty chunk warning
       if (this.environment.name === 'ssr') {
-        const libEmitId = this.emitFile({ type: 'chunk', id: Lib })
-        state.ssr = { libEmitId, staticImports }
+        const libEmitId = emitChunk(Lib)
+        const ssr = { rootEmitId, libEmitId, staticImports }
+        stateMap.set(this.environment, { site, ssr })
       } else {
         if (server.result == null) this.error('ssr result not available')
         for (const outputName of server.result.pages.keys()) {
-          const id = Head(outputName, 'html')
-          // NOTE: this makes entryCount negative
-          this.emitFile({ type: 'chunk', id, preserveSignature: false })
+          emitChunk(Head(outputName, 'html'))
         }
+        stateMap.set(this.environment, { site })
       }
     },
 
     async generateBundle(outputOptions, bundle) {
-      const state = stateMap.get(this.environment)
-      if (state == null) return
-      const { site, entry, ssr } = state
+      const { site, ssr } = stateMap.get(this.environment) ?? {}
+      if (site == null) return
       if (ssr == null) {
         if (server.result == null) this.error('ssr result not available')
         await emitFiles(this, site, bundle, server.result.pages)
       } else {
         const dir = outputOptions.dir ?? site.env.config.build.outDir
         const outDir = resolve(site.env.config.root, dir)
+        const rootFileName = fileURL(outDir, this.getFileName(ssr.rootEmitId))
         const libFileName = fileURL(outDir, this.getFileName(ssr.libEmitId))
-        const lib = util.lazy((): PromiseLike<LibModule> => import(libFileName))
-        const root = setupRoot(outDir, lib, bundle, entry.modules)
-        const erasure = await generateErasure(this, site, entry.modules)
+        const erasure = await generateErasure(this, site)
         ssr.onClose = async function (this: void) {
           ssr.onClose = undefined // for early memory release
           try {
-            const files = await run(root, await lib, site)
+            const root = (await import(rootFileName)) as Module
+            const lib = (await import(libFileName)) as LibModule
+            const context = { moduleName: ModuleName.root, module: root }
+            const files = await run(Object.freeze(context), lib, site)
             const pages = new Map(await emitPages(ssr.staticImports, files))
-            server.result = { pages, data: (await lib).data, erasure }
+            server.result = { pages, data: lib.data, erasure }
           } catch (e) {
             if (e instanceof Error) throw util.touch(e)
             const msg = format('uncaught thrown value: %o', e)

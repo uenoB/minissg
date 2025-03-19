@@ -46,16 +46,4 @@ export class Site<Env extends Environment = Environment> {
     const hmac = createHmac('sha256', '--MINISSG--').update(moduleId)
     return hmac.digest('base64url').slice(0, 8)
   }
-
-  rollupInput(): Map<string, string> {
-    let input = this.env.config.build.rollupOptions.input
-    if (input == null) return new Map<string, string>()
-    if (typeof input === 'string') input = [input]
-    const fallbackName = (s: string): string =>
-      s.replace(/^.*\/|(?:\.[^./?#]*)?(?:[?#].*)?$/gs, '')
-    const entries = Array.isArray(input)
-      ? input.map(i => [fallbackName(normalizePath(i)), i] as const)
-      : Object.entries(input)
-    return new Map(entries)
-  }
 }
