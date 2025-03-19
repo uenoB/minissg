@@ -1,6 +1,6 @@
 {
   "name": "@minissg/page",
-  "version": "1.0.3",
+  "version": "1.0.4-next.1",
   "description": "simple page organization management for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/page#readme",
   "repository": {
