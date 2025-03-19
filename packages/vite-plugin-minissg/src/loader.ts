@@ -291,6 +291,9 @@ export const loaderPlugin = (
           if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue
           // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete bundle[chunkName]
+          const { sourcemapFileName } = chunk
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+          if (sourcemapFileName != null) delete bundle[sourcemapFileName]
           site.debug.loader?.('delete server-side chunk %o', chunkName)
         }
       }
