@@ -168,7 +168,7 @@ export const buildPlugin = (
         ssr.onClose = async function (this: void) {
           ssr.onClose = undefined // for early memory release
           try {
-            const root = (await import(rootFileName)) as Module
+            const { root } = (await import(rootFileName)) as { root: Module }
             const lib = (await import(libFileName)) as LibModule
             const context = { moduleName: ModuleName.root, module: root }
             const files = await run(Object.freeze(context), lib, site)

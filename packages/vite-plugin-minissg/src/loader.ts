@@ -82,9 +82,10 @@ const setupRoot = async (
   const elems = Array.from(pluginOptions.input, async ([name, id]) => {
     const r = await this_.resolve(id, undefined, { skipSelf: false })
     const i = r?.id == null || Boolean(r.external) ? (r?.id ?? id) : Exact(r.id)
-    return js`[${name}, { main: () => import(${i}) }]`
+    return js`[${name}, makeThen(() => import(${i}))]`
   })
-  return `export const main = () => [${(await Promise.all(elems)).join(', ')}]`
+  const ary = (await Promise.all(elems)).join(', ')
+  return js`import { makeThen } from ${Lib}; ` + `export const root = [${ary}]`
 }
 
 export interface ServerPage {

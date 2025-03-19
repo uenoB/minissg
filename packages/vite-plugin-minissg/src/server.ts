@@ -3,7 +3,7 @@ import type { Plugin, ViteDevServer, RunnableDevEnvironment } from 'vite'
 import { isRunnableDevEnvironment } from 'vite'
 import { lookup } from 'mrmime'
 import { Site } from './site'
-import { type Context, type Module, ModuleName } from './module'
+import { type Module, ModuleName } from './module'
 import { run } from './run'
 import { script, injectHtmlHead } from './html'
 import { isNotNull, traverseGraph, addSet, touch } from './util'
@@ -12,7 +12,7 @@ import { clientNodeInfo, Lib, Root } from './loader'
 interface Req {
   server: ViteDevServer
   site: Site<RunnableDevEnvironment>
-  root: Context
+  root: Promise<Module>
   req: IncomingMessage
 }
 
@@ -51,10 +51,11 @@ const getPage = async (req: Req, url: string): Promise<Res | undefined> => {
   url = url.replace(/\?[^#]*$/, '')
   if (/^(?:[^/]|$)|\/\/|#|\/\.\.?(?:\/|$)/.test(url)) return
   req.site.debug.server?.('request %s', url)
-  const requestName = Object.freeze(req.root.moduleName.join('.' + url))
+  const moduleName = ModuleName.root
+  const requestName = Object.freeze(moduleName.join('.' + url))
   const requestFileName = requestName.fileName()
   const request = Object.freeze({ requestName, incoming: req.req })
-  const root = { ...req.root, request }
+  const root = Object.freeze({ moduleName, module: await req.root, request })
   const pages = await run(root, await req.site.env.runner.import(Lib), req.site)
   const page = await pages.get(requestFileName)
   if (page?.body == null) return
@@ -75,8 +76,7 @@ export const serverPlugin = (): Plugin => ({
     const env = server.environments.ssr
     if (!isRunnableDevEnvironment(env)) throw Error('ssr is not runnable')
     const site = new Site(env)
-    const module: Module = { main: async () => await env.runner.import(Root) }
-    const root = Object.freeze({ moduleName: ModuleName.root, module })
+    const root = env.runner.import<{ root: Module }>(Root).then(m => m.root)
     server.middlewares.use(function minissgMiddleware(req, res, next) {
       const write = (content: Res & { code?: number }): void => {
         res.writeHead(content.code ?? 404, { 'content-type': content.type })
