@@ -25,6 +25,7 @@ Including this point, Minissg aims to be not an opinionated framework,
 but a _transparent atmosphere_, which does not lead you to anything
 but maximum freedom of static site programming.
 
+* [Migration from Minissg 4 to 5](#migration-from-minissg-4-to-5)
 * [Getting Started](#getting-started)
 * [Getting Started from Scratch](#getting-started-from-scratch)
   * [Hello, World](#hello-world)
@@ -42,7 +43,7 @@ but maximum freedom of static site programming.
   * [Client-side Code](#client-side-code)
   * [Partial Hydration](#partial-hydration)
 * [Advanced Features](#advanced-features)
-  * [Configuring Client-side Run](#configuring-client-side-run)
+  * [Configuring Each Run Differently](#configuring-each-run-differently)
   * [Generating Data for Client-side Code](#generating-data-for-client-side-code)
   * [Renderer for a Module Itself](#renderer-for-a-module-itself)
   * [User-defined Renderers and Hydration](#user-defined-renderers-and-hydration)
@@ -51,9 +52,19 @@ but maximum freedom of static site programming.
   * [Manipulating the Effect of Dynamic Imports](#manipulate-the-effect-of-dynamic-imports)
   * [Debugging Server-side Code](#debugging-server-side-code)
 * [Plugin Options](#plugin-options)
-* [Related Works](#related-works)
 * [Tips and Notes](#tips-and-notes)
 * [License](#license)
+
+## Migration from Minissg 4 to 5
+
+Minissg 5 is reconstructed on top of Vite 6's environment API.
+Because of this, how to write `vite.config.js` has been changed without
+backward compatibility.
+Users of Minissg 4 should take the following into account:
+* Use the `input` option of Minissg plugin instead of
+  `build.rollupOptions.input` to specify the entry scripts.
+* Use `environments.client` instead of the `config` plugin option.
+* The `plugins` option now takes an array, not a function.
 
 ## Getting Started
 
@@ -93,21 +104,16 @@ npm install vite vite-plugin-minissg
 ```
 
 And then, put Minissg in the `plugins` list of `vite.config.js`
-and specify at least one entry script in `build.rollupOptions.input`.
+and specify at least one entry script in its `input` option.
 
 ```js
 import { defineConfig } from "vite"
 import minissg from "vite-plugin-minissg"
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      input: "index.html.js" // put a script file here
-    }
-  },
   plugins: [
     minissg({
-      // put your configuration here
+      input: "./index.html.js" // put a script file here.
     })
   ]
 })
@@ -134,15 +140,16 @@ Vite runs twice automatically with the following message and generates
 an `index.html` file in `dist` directory:
 
 ```
-vite v4.4.4 building SSR bundle for production...
-✓ 2 modules transformed.
-dist/index.html.mjs           0.18 kB
-dist/assets/lib-d99b01dc.mjs  0.33 kB
-✓ built in 146ms
-vite v4.4.4 building for production...
-✓ 1 modules transformed.
-dist/index.html  0.12 kB │ gzip: 0.11 kB
-✓ built in 16ms
+vite v6.2.2 building SSR bundle for production...
+✓ 3 modules transformed.
+dist/assets/index.html-DzLWOVMS.js  0.19 kB
+dist/index.js                       0.26 kB
+dist/assets/lib-CBp2c9DY.js         0.53 kB
+✓ built in 40ms
+vite v6.2.2 building for production...
+✓ 3 modules transformed.
+dist/index.html  0.13 kB │ gzip: 0.12 kB
+✓ built in 21ms
 ```
 
 The content of `dist/index.html` should be something like the
@@ -187,19 +194,18 @@ To generate multiple pages, do one of the following:
    export default "Hello\n";
    ```
 
-   and add it to `build.rollupOptions.input`.
+   and add it to the `input` option.
 
    ```js
    import { defineConfig } from "vite"
    import minissg from "vite-plugin-minissg"
 
    export default defineConfig({
-     build: {
-       rollupOptions: {
-         input: ["index.html.js", "hello.txt.js"]
-       }
-     },
-     plugins: [minissg()]
+     plugins: [
+       minissg({
+         input: ["./index.html.js", "./hello.txt.js"]
+       })
+     ]
    })
    ```
 
@@ -242,26 +248,24 @@ import react from "@vitejs/plugin-react"  // ADDED
 import minissgReact from "@minissg/render-react"  // ADDED
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      input: "./index.html.jsx?render"   // MODIFIED. NOTE: "./" is mandatory
-    }
-  },
   plugins: [
     minissg({
+      input: "./index.html.jsx?render",  // MODIFIED. NOTE: "./" is mandatory
       render: {
         "**/*.jsx": minissgReact()       // ADDED
       },
-      plugins: () => [react()]           // ADDED
+      plugins: [react()]                 // ADDED
     })
   ]
 })
 ```
 
+Plugins combined with Minissg must be put in Minissg's `plugins` option,
+not in the `plugins` array of `vite.config.js`.
+
 The above config includes three important changes from the previous
 one:
-1. Specify a `*.jsx` file in `build.rollupOptions.input` with
-   `?render` query.
+1. Specify a `*.jsx` file in `input` with `?render` query.
    The `?render` query indicates that the component exported by this
    file must be serialized by the renderer specified in Minissg's
    `render` option.
@@ -269,9 +273,8 @@ one:
    (`minissgReact`) by setting Minissg's `render` option.
 3. Add the React plugin to Minissg's `plugins` option of the above
    form, not in that of Vite's config.
-   The plugins put here are included in both the server-side and
-   client-side run of Vite, whereas plugins specified in Vite's config
-   are used only in the server-side run.
+   The plugins put here are enabled in both the server-side and
+   client-side run of Vite.
 
 Write `index.html.jsx` like this:
 
@@ -303,17 +306,13 @@ import minissg from "vite-plugin-minissg"
 import minissgReact from "@minissg/render-react"
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      input: "./index.html.md?render"     // MODIFIED
-    }
-  },
   plugins: [
     minissg({
+      input: "./index.html.md?render",    // MODIFIED
       render: {
         "**/*.{jsx,md}": minissgReact()   // MODIFIED
       },
-      plugins: () => [
+      plugins: [
         react(),
         mdx()                             // ADDED
       ]
@@ -338,15 +337,15 @@ And execute `vite build` to generate the page.
 
 Minissg actually does the following:
 
-1. Run Vite in SSR mode and bundle all the files specified in
-   `build.rollupOptions.input` into a single JavaScript program.
+1. Run Vite in SSR environment and bundle all the files specified in
+   the `input` option into a single JavaScript program.
 2. Traverse file dependencies in the generated program and determine
    the set of client-side codes and style sheets for each page to be
    generated.
 3. Execute the generated program and obtain the list of pages and
    their contents to be generated.
-4. Run Vite again to generate client-side codes, style sheets, and
-   assets.
+4. Run Vite again in client environment to generate client-side codes,
+   style sheets, and assets.
 
 In what follows, we refer to the first and second run of Vite as
 _server-side run_ and _client-side run_, respectively.
@@ -420,21 +419,19 @@ Empty modules are simply ignored.
 Through the `main` functions and mapping objects, the collection of
 modules constitute a tree structure.
 The root of this tree is the _top-level module_, which is a virtual
-module generated in accordance with Vite's `build.rollupOptions.input`
-config.
+module generated in accordance with Minissg's `input` option.
 The top-level module is constructed depending on the structure of
-`build.rollupOptions.input` by the following rules:
+`input` by the following rules:
 
-1. If `build.rollupOptions.input` is a single string, the top-level
-   module is a singleton mapping from the name of the given file
-   to the module provided by the file.
+1. If `input` is a single string, the top-level module is a singleton
+   mapping from the name of the given file to the module provided by the file.
    For example,
    ```js
-   { build: { rollupOptions: { input: "index.html.js" } } }
+   { input: "./index.html.js" }
    ```
    means that `index.html.js` is the module providing the content of
    `index.html` file.
-   This is equivalent to the following module:
+   This is semantically equivalent to the following module:
    ```js
    { "index.html": { main: () => import("./index.html.js") } }
    ```
@@ -442,7 +439,7 @@ The top-level module is constructed depending on the structure of
    from their names to their modules.
    For example,
    ```js
-   { build: { rollupOptions: { input: ["index.html.js", "hello.txt.js"] } } }
+   { input: ["./index.html.js", "./hello.txt.js"] }
    ```
    means the following module:
    ```js
@@ -455,7 +452,7 @@ The top-level module is constructed depending on the structure of
    modules.
    For example, if the following config is given,
    ```js
-   { build: { rollupOptions: { input: { "index.html": "index.js" } } } }
+   { input: { "index.html": "./index.js" } }
    ```
    Minissg uses `index.js` to generate `index.html`, i.e., the
    top-level module should look like the following:
@@ -824,94 +821,42 @@ Minissg does not force you anything.
 
 ## Advanced Features
 
-### Configuring Client-side Run
+### Configuring Each Run Differently
 
 As described above, Vite runs twice for static site generation.
 The two runs are for different purposes and therefore may have
 different settings.
-The top-level config of `vite.config.js` is used only in server-side
-run, not in client-side run.
-The config of client-side run is automatically generated by Missing
-based on the top-level config and the result of server-side run.
-To tweak the config of client-side run, Minissg provides `config`
-option that will be merged into the config of client-side run.
-For example, to turn on the minify option only in client-side run,
-write it in the `config` option as follows:
+The top-level config of `vite.config.js` is shared in both runs.
+To configure a specific run, use the `environments` config of
+`vite.config.js`.
+The server-side and client-side runs are in `ssr` and `client`
+environment, respectively.
+For example, to turn on the sourcemap generation only in server-side run,
+write `vite.config.js` as follows:
 
 ```js
 import { defineConfig } from "vite"
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      input: "./index.html.js"
+  environment: {
+    ssr: {
+      build: {
+        sourcemap: true // enable sourcemap generation only in server-side run
+      }
     }
   },
   plugins: [
     minissg({
-      config: {
-        build: {
-          minify: true  // enable minify only on client-side run
-        }
-      }
+      input: "./index.html.js"
     })
   ]
 })
 ```
 
-Minissg computes the config of client-side run from the following
-three sources: the top-level config, the results of server-side run,
-and the `config` option of the Minissg plugin.
-Almost all the settings in the top-level config are inherited to
-client-side run except for the following:
-
-* `plugins` are never shared between the two runs.
-  Plugins must be instantiated for each run.
-  To enable the same set of plugins in both runs, which is a usual
-  requirement, duplicate it in both the top-level config and Minissg's
-  `config`, as seen in the following example:
-  ```js
-  import { defineConfig } from "vite"
-  import react from "@vitejs/plugin-react"
-
-  export default defineConfig({
-    ...
-    plugins: [
-      react(),  // plugin for server-side run
-      minissg({
-        ...
-        config: {
-          plugins: [react()]  // plugin for client-side run
-        }
-      })
-    ]
-  })
-  ```
-  As a shorthand of this, Minissg provides `plugin` option for
-  convenience.
-  Set it to a function returning an array of plugins and the function
-  will call twice to instantiate plugins for each runs.
-  The following example is equivalent to the above:
-  ```js
-  import { defineConfig } from "vite"
-  import react from "@vitejs/plugin-react"
-
-  export default defineConfig({
-    ...
-    plugins: [
-      minissg({
-        ...
-        plugins: () => [react()]  // plugin for both runs
-      })
-    ]
-  })
-  ```
-* The following options of the top-level config are overwritten in
-  client-side run with the result of server-side run: `root`, `base`,
-  `mode`, `build.emptyOutDir`, and `build.rollupOptions.input`.
-  You can overwrite them again by setting them in the `config` option,
-  but it usually breaks the integrity of two runs; do it at your own
-  risk.
+The order of environemnt settings in the `environemnt` config is significant.
+Minissg requires that `ssr` environment must precede to `client` environment;
+therefore, `ssr` must appear at first and then `client` appears in
+`environment`.
 
 ### Generating Data for Client-side Code
 
@@ -1170,11 +1115,12 @@ code.
 To make source maps available in `vite build`, the following settings
 are needed:
 
-1. Turn on `build.sourcemap` in `vite.config.js` in order to provide
-   the sourcemaps of server-side code.
+1. Turn on `environment.ssr.build.sourcemap` in `vite.config.js` in
+   order to provide the sourcemaps of server-side code.
 2. Set `NODE_OPTIONS` environment variable to `--enable-source-maps`.
 
-Note that the `build.sourcemap` option changes the build result.
+Note that the `enviornment.ssr.build.sourcemap` option changes the
+build result.
 If you do not want to include source maps in your product,
 turn it on only in the development mode.
 
@@ -1186,6 +1132,16 @@ This is just for development use; `clean` should not be `false` in
 production mode.
 
 ## Plugin Options
+
+### `input`
+
+| type                                           | default |
+|------------------------------------------------|---------|
+| `string \| string[] \| Record<string, string>` | `[]`    |
+
+The `input` option specifies Minissg's entry scripts.
+Setting this option is practically mandatory;
+without this, Minissg does not produce anything.
 
 ### `clean`
 
@@ -1200,30 +1156,40 @@ This is provided for debugging.
 See [Debugging Server-side Code](#debugging-server-side-code) section
 for details.
 
-### `config`
-
-| type                         | default     |
-|------------------------------|-------------|
-| `import("vite").UserOptions` | `{}`        |
-
-The `config` option provides additional configuration for client-side
-run.
-See [Configuring Client-side Run](#configuring-client-side-run) section
-for details.
-
 ### `plugins`
 
 | type                                 | default     |
 |--------------------------------------|-------------|
-| `() => import("vite").PluginOptions` | `() => []`  |
+| `import("vite").PluginOptions`       | `() => []`  |
 
-The `plugins` option has a function that returns an array of plugins
-used in both server-side and client-side run.
-See [Configuring Client-side Run](#configuring-cilent-side-run) section
-for details.
+The `plugins` option has an array of plugins used in combination with
+Minissg.
+The `plugins` array of `vite.config.js` must be a singleton.
+For example, do not write as follows:
+
+``` js
+export default defineConfig({
+  plugins: [
+    minissg({ input: "./index.html.js" }),
+    react() // NG
+  ]
+})
+```
+
+The above must be written as follows:
+
+``` js
+export default defineConfig({
+  plugins: [
+    minissg({
+      input: "./index.html.js",
+      plugins: [react()]
+    }),
+  ]
+})
+```
 
 ### `render`
-
 
 | type                                               | default   |
 |----------------------------------------------------|-----------|
@@ -1245,183 +1211,6 @@ The association must be specified in one of the following forms:
    The `renderer` is associated to files that matches with `include`
    but does not match with `exclude`.
 
-## Related Works
-
-* Frameworks for a particular UI system including [Next.js],
-  [Nuxt.js], and [SvelteKit], to name a few.
-
-  Each of them is coupled with particular component systems.
-  This design provides a simple solution that draws the full power of
-  component-based web programming.
-
-  They often, however, bring us a bunch of conventions, such as rules
-  of naming files and variables, and thick abstraction that covers
-  all of the underlying functionalities.
-  Since they brings things into outside of programming language, we
-  need additional knowledge of a framework to read code and analyze
-  the semantics or correctness of the entire project.
-  Unfortunately, particular knowledge of a framework typically becomes
-  decayed much faster than that of a language because such knowledge
-  cannot be easily applied to other frameworks except for the concept
-  or overall idea of the framework.
-  The users of a framework must be in the same boat as the framework
-  whether or not they desired so.
-  This limits the sustainability and lifetime of a project to those of
-  the framework without much effort to follow the trend and migrate to
-  brand-new ones.
-
-  Our observation regarding this issue is that separation of concerns
-  would help us exit from this kind of hell.
-  As known from five decades, breaking software into simple and
-  independent components and organize it just as a combination of them
-  makes it easy for us to write and maintain the software.
-  We would like to apply this principle to website authoring so that
-  the users, not the authors of frameworks, can control their
-  separation of concerns.
-  Based on this observation, we provide Minissg, which only
-  facilitates applying modern features of JavaScript to website
-  authoring, instead of providing all-in-one product with many
-  out-of-the-box features.
-
-* [Astro]
-
-  Astro is also a web framework, but unlike ones mentioned above, it
-  is independent of any particular UI system.
-  To achieve their goals including this independence, it introduces
-  Astro component, which is their own description system for
-  server-side components.
-  Astro component encapsulates server-side generation, client-side
-  codes, and style sheets in a file for each server-side component.
-  Client-side component can be written in any framework; Astro
-  component can place them appropriately in a page in a manner of
-  island architecture.
-  On the other hand, Astro component is a new language that is (at
-  least currently) tightly coupled with the Astro framework.
-  Although Astro component is resemble to JSX, its detailed semantics
-  is different from JSX; for example, at least in Astro 2.5 or
-  earlier, it is not capable of defining local function component.
-  This leads us to learn a new language and develop a set of tools
-  for that language when using the framework.
-
-  Minissg takes orthogonal approach to Astro one; instead of
-  introducing a new language for a particular purpose, it aims to
-  bring the full features of existing language into such a purpose.
-  To this end, we attempt to enhance a general-purpose front-end tool,
-  namely Vite, to site generation.
-  If an issue would be found under this approach, it must be dealt
-  with an issue of a language, not a particular framework, and
-  therefore the solution of it would be beneficial to all the users
-  of the language.
-
-* [Gatsby]
-
-  Gatsby is a web framework specialized in static generation of single
-  page application.
-  One of its attractive benefit comes from its ecosystem.
-  Since over 2,000 plugins are available, most of user's intention can
-  be realized easily and quickly just by searching for a plugin and
-  installing it.
-
-  If everything goes well, this plugin-based approach gives us an
-  effective solution.
-  However, once an anomaly arises, such as a situation that an error
-  occurred in plugins or the system needs to be fine-tuned to a
-  specific purpose, the users need to dive deeply into the internal
-  of the system.
-  In addition, Gatsby plugins work only on Gatsby and therefore the
-  effort of developing such plugins are closed in the Gatsby ecosystem.
-
-  Our intention is that we can avoid this kind of issues by avoiding
-  making separate platform and ecosystem from those of the underlying
-  language and its general-purpose tools.
-  We develop Minissg as a foundation that bridges the gap between the
-  general-purpose language and tools and website authoring.
-  Minissg is designed carefully so that it can be separate from any
-  libraries and frameworks as much as possible and therefore the users
-  can combine their favorite components on top of it.
-
-* [minista]
-
-  This should be a good evidence of the fact that all-in-one but large
-  frameworks are not always needed to do web authoring.
-  This framework consists of about 6,000 lines code, which is much
-  smaller than all the frameworks mentioned above, but all the
-  features desired by its author are certainly included in it.
-  One of the reason why this is achieved with such a small code base
-  is that general-purpose libraries and tools in JavaScript has been
-  matured as well as language itself and therefore the users can
-  freely combine them without any cumbersome description to fulfill
-  their hope.
-  We would like to accelerate this direction by Minissg.
-
-* Translators from templates to websites, such as, in JS, [Eleventy]
-  and [Lume].
-
-  They facilitates making websites by writing text or Markdown files
-  and applying them to templates.
-  They carefully avoid from letting the users write any code so that
-  the users can concentrate on authoring their contents.
-  This zero-code authoring makes building websites very easy if the
-  structure of a website is not complicated, for example, if all pages
-  are made from distinct sources and/or no client-side script is
-  included.
-  To do more things than those, the users need to either write
-  programs in a template language, which is a domain-specific language
-  for templating and therefore is more restricted than full-scale
-  languages, or to write plugins in a host language, which needs
-  specific knowledge about the internals of the systems.
-  Minissg's policy is orthogonal to their ones; it forces the users to
-  write their own code as well as their content so that they can
-  construct their websites with the leverage of a modern general
-  purpose language.
-
-* [Tropical]
-
-  Tropical is a template of Vite project for static site generation,
-  which suggests a combination of Vite and other standard tools
-  that is as powerful as but more flexible than large frameworks.
-  In contrast, Minissg does not suggest any combination of tools, but
-  aims to be a basis for programming the entire site, which brings
-  website authoring under full control of a modern general purpose
-  programming language without cumbersome coding.
-  Combining tools and libraries for an application is just a usual
-  functionality of such a language.
-  We hope that Minissg would help the users make their own combination
-  of tools like Tropical for each of their own projects.
-
-* [vite-plugin-ssr]
-
-  Minissg shares the same goal as vite-plugin-ssr including doing just
-  one thing well, independence from any framework and tool,
-  simplicity, transparency, small footprint, but fully-featured.
-  A difference between the two is that Minissg pursues this goal more
-  extremely.
-
-  Minissg is being developed based on our belief that a full-scale
-  programming language is the most sophisticated source of
-  abstraction.
-  For example, tree construction is a part of the principle of
-  computing and therefore any high-level language allows us to do it
-  in a straightforward and concise way.
-  In website development, page routing is within the variations of tree
-  construction.
-  Hence, we design Minissg's routing mechanism as module tree
-  construction by JS code instead of file system routing, which
-  vite-plugin-ssr adopts.
-  From our perspective, file system routing puts the task that
-  a programming language can do very well outside of the language.
-  It also introduces some conventions of file placement and naming,
-  which not only restricts the usage of file system but also requires
-  the users to learn something in addition to the language.
-  We believe that this is not satisfactory and therefore we propose
-  an alternative to it in Minissg.
-
-  Avoiding introduction of conventions and abstractions for a
-  particular purpose is the core principle of the design of Minissg.
-  This policy also makes Minissg smaller; Missing consists of
-  about 1,000 lines of code, which is more than eight times smaller
-  than vite-plugin-ssr.
-
 ## Tips and Notes
 
 * It is possible to import the same file both in server-side and
@@ -1437,18 +1226,17 @@ The association must be specified in one of the following forms:
   cause this issue.
 
   If you encounter this issue and want to avoid it, configure plugins
-  so that they can accept files even with the `?MINISSG-DUP` suffix.
+  so that they can accept files even with the `?MINISSG-COPY` suffix.
   For example, set the following options to `@mdx-js/rollup`:
 
   ```js
-  mdx({ mdxExtensions: ['.mdx', '.mdx?MINISSG-DUP' ] })
+  mdx({ mdxExtensions: ['.mdx', '.mdx?MINISSG-COPY' ] })
   ```
 
 * Minissg often prevents Vite's optimizeDeps feature from working as
   expected for some reasons including the following:
-  * Putting `?render` in `build.rollupOptions.input` hides entry files
-    from the optimizeDeps feature because optimizeDeps interprets each
-    name in `build.rollupOptions.input`	as a wildcard.
+  * Minissg sets a virtual module to `build.rollupOptions.input` and
+    therefore optimizeDeps cannot find the actual entry scripts.
   * Even if optimizeDeps can find entries, those in Minissg is for
     server-side codes, whereas optimizeDeps is for client-side codes.
   * Minissg introduces virtual modules on the boundary between
@@ -1517,16 +1305,4 @@ MIT
 [Markdown]: https://commonmark.org
 [island architecture]: https://jasonformat.com/islands-architecture/
 [`--enable-source-maps` option]: https://nodejs.org/api/cli.html#--enable-source-maps
-[Astro]: https://astro.build
-[Eleventy]: https://www.11ty.dev
-[Gatsby]: https://www.gatsbyjs.com
-[minista]:https://minista.qranoko.jp
-[Next.js]: https://nextjs.org
-[Nuxt.js]: https://nuxtjs.ir
-[Tropical]: https://tropical.js.org
-[SvelteKit]: https://kit.svelte.dev
-[vite-plugin-ssr]: https://vite-plugin-ssr.com
-[Aleph.js]: https://alephjs.org
-[Lume]: https://lume.land
-[Fresh]: https://fresh.deno.dev
 [linaria]: https://linaria.dev
