@@ -88,10 +88,10 @@ export const serverPlugin = (): Plugin => ({
         if (e instanceof Error) server.ssrFixStacktrace(touch(e))
         next(e)
       }
-      const context = { server, site, root, req }
       if (req.method == null || req.url == null) {
         next()
       } else {
+        const context = { server, site, root, req }
         void getPage(context, req.url)
           .then(c => (c != null ? { ...c, code: 200 } : c))
           .then(async c => c ?? (await getPage(context, '/404.html')))
