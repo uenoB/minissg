@@ -81,7 +81,8 @@ const setupRoot = async (
 ): Promise<string> => {
   const elems = Array.from(pluginOptions.input, async ([name, id]) => {
     const r = await this_.resolve(id, undefined, { skipSelf: false })
-    const i = r?.id == null || Boolean(r.external) ? (r?.id ?? id) : Exact(r.id)
+    if (r == null) this_.error(`Could not resolve "${id}"`)
+    const i = r.external === false ? Exact(r.id) : r.id
     return js`[${name}, makeThen(() => import(${i}))]`
   })
   const ary = (await Promise.all(elems)).join(', ')
