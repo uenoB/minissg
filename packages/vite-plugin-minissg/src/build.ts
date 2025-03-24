@@ -140,7 +140,7 @@ export const buildPlugin = (
       const emitChunk = (id: string): string =>
         this.emitFile({ type: 'chunk', id, preserveSignature: 'strict' })
       const rootEmitId = emitChunk(Root) // to avoid empty chunk warning
-      if (this.environment.name === 'ssr') {
+      if (!site.isClient()) {
         const libEmitId = emitChunk(Lib)
         const ssr = { rootEmitId, libEmitId, staticImports }
         stateMap.set(this.environment, { site, ssr })

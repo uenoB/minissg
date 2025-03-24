@@ -18,7 +18,7 @@ const RENDERER = Query.Class('renderer')
 const COPY = Query.Class('MINISSG-COPY')
 
 type Side = 'client' | 'server'
-const coerceSide = (s: string | boolean | undefined): Side =>
+const coerceSide = (s: string | boolean): Side =>
   s === 'server' || s === true ? 'server' : 'client'
 
 type Tuple<F, X, N extends number, T extends X[]> = T extends { length: N }
@@ -104,7 +104,7 @@ export interface ServerResult {
 
 interface LoaderPluginState {
   readonly site: Site
-  readonly isInSSR: Map<string, boolean> | null
+  readonly sideMap: Map<string, Side>
 }
 
 export const loaderPlugin = (
@@ -115,8 +115,7 @@ export const loaderPlugin = (
   const getState = (env: Environment): LoaderPluginState => {
     let state = stateMap.get(env)
     if (state != null) return state
-    const isInSSR = env.name === 'client' ? new Map([[Root0, true]]) : null
-    state = { site: new Site(env), isInSSR }
+    state = { site: new Site(env), sideMap: new Map() }
     stateMap.set(env, state)
     return state
   }
@@ -130,9 +129,9 @@ export const loaderPlugin = (
     resolveId: {
       order: 'pre',
       async handler(id, importer, options) {
-        const { site, isInSSR } = getState(this.environment)
-        const fromSSR = importer == null ? undefined : isInSSR?.get(importer)
-        const side = coerceSide(fromSSR ?? (id === Root || isInSSR == null))
+        const { site, sideMap } = getState(this.environment)
+        const from = importer == null ? undefined : sideMap.get(importer)
+        const side = coerceSide(from ?? (id === Root || !site.isClient()))
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
@@ -173,12 +172,10 @@ export const loaderPlugin = (
             r = { ...r, id: '\0' + r.id }
           }
         }
-        if (isInSSR != null) {
-          const inSSR = side === 'server' && !site.isAsset(r.id)
-          const prev = isInSSR.get(r.id)
-          if (prev != null && prev !== inSSR) r = { ...r, id: COPY.add(r.id) }
-          isInSSR.set(r.id, inSSR)
-        }
+        const curr = site.isAsset(r.id) ? 'client' : side
+        const prev = sideMap.get(r.id)
+        if (prev != null && prev !== curr) r = { ...r, id: COPY.add(r.id) }
+        sideMap.set(r.id, curr)
         return r
       }
     },
@@ -186,11 +183,11 @@ export const loaderPlugin = (
     load: {
       order: 'pre',
       async handler(id) {
-        const { site, isInSSR } = getState(this.environment)
+        const { site } = getState(this.environment)
         const v = getVirtual(site.canonical(id))
         if (v != null) site.debug.loader?.('load virtual module %o', v)
         if (isVirtual(v, 'Root', 0)) {
-          if (isInSSR != null) return 'void 0' // replaced by erasure
+          if (site.isClient()) return 'void 0' // replaced by transform
           return await setupRoot(this, pluginOptions)
         } else if (isVirtual(v, 'Lib', 0)) {
           return libModule
@@ -255,9 +252,9 @@ export const loaderPlugin = (
 
     // transform must be done after others but before vite:import-analysis.
     async transform(code, id) {
-      const { site, isInSSR } = getState(this.environment)
-      if (isInSSR != null) {
-        if (isInSSR.get(id) !== true) return
+      const { site, sideMap } = getState(this.environment)
+      if (sideMap.get(id) !== 'server') return
+      if (site.isClient()) {
         if (server.result == null) this.error('ssr result not available')
         const imports = server.result.erasure.get(id)
         if (imports == null) return
@@ -285,12 +282,11 @@ export const loaderPlugin = (
     generateBundle: {
       order: 'post',
       handler(_, bundle) {
-        if (!pluginOptions.clean) return
-        const { site, isInSSR } = getState(this.environment)
-        if (isInSSR == null) return
+        const { site, sideMap } = getState(this.environment)
+        if (!pluginOptions.clean || !site.isClient()) return
         for (const [chunkName, chunk] of Object.entries(bundle)) {
           if (chunk.type !== 'chunk') continue
-          if (chunk.moduleIds.some(i => isInSSR.get(i) !== true)) continue
+          if (chunk.moduleIds.some(i => sideMap.get(i) !== 'server')) continue
           // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete bundle[chunkName]
           const { sourcemapFileName } = chunk

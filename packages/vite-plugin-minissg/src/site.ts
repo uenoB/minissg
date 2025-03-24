@@ -27,6 +27,10 @@ export class Site<Env extends Environment = Environment> {
     this.projectRoot = normalizePath(this.env.config.root).replace(/\/*$/, '/')
   }
 
+  isClient(): boolean {
+    return this.env.name === 'client'
+  }
+
   isAsset(moduleId: string): boolean {
     if (hasRawQuery(moduleId)) return false // Vite makes ?raw precede ?url
     if (isCSSRequest(moduleId) && !hasInlineQuery(moduleId)) return true
