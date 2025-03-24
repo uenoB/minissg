@@ -155,7 +155,7 @@ export const loaderPlugin = (
         if (isVirtual(v, 'self', 1) && importer != null) {
           r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
         } else if (isVirtual(v, 'Exact', 2)) {
-          r = (v[2] === '' ? <X>(x: X): X => x : resolveQuery)({ id: v[1] })
+          r = v[2] === 'resolve' ? resolveQuery({ id: v[1] }) : { id: v[1] }
         } else if (v == null) {
           r = await this.resolve(id, importer, { ...options, skipSelf: true })
           if (r == null || Boolean(r.external) || r.id.includes('\0')) return r
