@@ -665,8 +665,8 @@ For example, suppose the following three files:
    ```js
    import "./index.css";
    export const main = () => ({
-     "foo.html" => { main: () => import("./foo.html.js") },
-     "bar.html" => { main: () => import("./bar.html.js") }
+     "foo.html": { main: () => import("./foo.html.js") },
+     "bar.html": { main: () => import("./bar.html.js") }
    });
    ```
 2. `foo.html.js`
