@@ -27,5 +27,5 @@
       "@minissg/*": ["./packages/*/src"]
     }
   },
-  "include": ["packages/*/src/**/*", "packages/*/test/**/*"]
+  "include": ["*.ts", "packages/*/src/**/*", "packages/*/test/**/*"]
 }
