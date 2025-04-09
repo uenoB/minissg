@@ -1160,7 +1160,7 @@ for details.
 
 | type                                 | default     |
 |--------------------------------------|-------------|
-| `import("vite").PluginOptions`       | `() => []`  |
+| `import("vite").PluginOptions`       | `[]`        |
 
 The `plugins` option has an array of plugins used in combination with
 Minissg.
