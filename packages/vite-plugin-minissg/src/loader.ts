@@ -28,14 +28,12 @@ type Virtual<F, N extends number> = Tuple<F, string, N, []>
 
 const virtualName = (id: string, ext = '.js'): string =>
   id.replace(/^.*\/|[.?#].*$/gs, '') + ext
-const VIRTUAL_RE = /^\0?\/?virtual:minissg\/?(?:@\/([\w,-]*)\/|(\w+)(?=\?|$))/
+const VIRTUAL_RE = /^\0?\/?virtual:minissg\/@\/([\w,-]*)\//
 const virtual = (args: string[], id: string = `${args[0]}.js`): string =>
   `virtual:minissg/@/${args.map(encode64).join(',')}${id.replace(/^\/*/, '/')}`
 const getVirtual = (id: string): string[] | undefined => {
   const m = VIRTUAL_RE.exec(id)
-  if (m?.[1] != null) return m[1].split(',').map(decode64)
-  if (m?.[2] != null) return [m[2], id.slice(m[0].length)]
-  return undefined
+  return m?.[1] != null ? m[1].split(',').map(decode64) : undefined
 }
 const isVirtual = <Name extends string, N extends number>(
   v: string[] | undefined,
@@ -152,9 +150,7 @@ export const loaderPlugin = (
           return r
         }
         let r: Rollup.PartialResolvedId | null = { id }
-        if (isVirtual(v, 'self', 1) && importer != null) {
-          r = resolveQuery({ id: importer.replace(/[?#].*/s, '') + v[1] })
-        } else if (isVirtual(v, 'Exact', 2)) {
+        if (isVirtual(v, 'Exact', 2)) {
           r = v[2] === 'resolve' ? resolveQuery({ id: v[1] }) : { id: v[1] }
         } else if (v == null) {
           r = await this.resolve(id, importer, { ...options, skipSelf: true })

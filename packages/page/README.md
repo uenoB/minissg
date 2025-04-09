@@ -76,10 +76,10 @@ The typical usage of the `Page` class is as follows:
    component in a HTML file.
    The following example adds `DOCTYPE`, `html`, and `body` tags to
    `module.default` component and renders all of them by
-   `virtual:minissg/self?renderer`.
+   `pages.jsx`'s renderer.
 
    ```jsx
-   import render from 'virtual:minissg/self?renderer'
+   import render from './pages.jsx?renderer'
 
    page.render = async function (module) {
      const Webpage = () => (
