@@ -81,6 +81,7 @@ test('CSS modules used in client side appears in the output', async () => {
     'index.html':
       '<script type="module" crossorigin src="/assets/index-CE29hf46.js"></script>\n<link rel="stylesheet" crossorigin href="/assets/index-CZ0K0HCE.css">\n<p>hello</p>',
     'assets/index-CZ0K0HCE.css': '._hi_1cqqp_1{color:red}\n',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     'assets/index-CE29hf46.js': expect.stringContaining('"_hi_1cqqp_1"')
   })
 })
