@@ -133,15 +133,15 @@ export const loaderPlugin = (
         let v = getVirtual(id)
         const resolveQuery = <R extends { id: string }>(r: R): R => {
           let q
-          if ((q = RENDERER.match(r.id)) != null) {
+          if ((q = DOCTYPE.match(r.id)) != null) {
+            return { ...r, id: Doctype(q.remove(), q.value) }
+          } else if ((q = RENDERER.match(r.id)) != null) {
             const m = pluginOptions.render.match(r.id)
             const found = m?.value.render?.[side] != null
             const key = found ? m.key : -1
             return { ...r, id: Renderer(side, key, found ? q.value : r.id) }
           } else if ((q = CLIENT.match(r.id)) != null) {
             return { ...r, id: Client(side, q.remove()) }
-          } else if ((q = DOCTYPE.match(r.id)) != null) {
-            return { ...r, id: Doctype(q.remove(), q.value) }
           } else if ((q = RENDER.match(r.id)) != null) {
             return { ...r, id: Render(q.remove(), q.value) }
           } else if ((q = HYDRATE.match(r.id)) != null) {
@@ -208,6 +208,11 @@ export const loaderPlugin = (
             return js`
               export default ${server.result?.data.get(v[2]) ?? { id: key }}`
           }
+        } else if (isVirtual(v, 'Doctype', 2) && RENDERER.test(v[1])) {
+          return js`
+            import render from ${Exact(v[1], true)}
+            const doctype = x => new Blob(['<!DOCTYPE html>', x])
+            export default async x => doctype(await render(x))`
         } else if (isVirtual(v, 'Doctype', 2)) {
           return js`
             import content from ${Exact(v[1], true)}

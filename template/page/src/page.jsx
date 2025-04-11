@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import PageClass from '@minissg/page'
-import render from './Root?renderer'
+import render from './Root?renderer&doctype'
 import Root from './Root'
 import Nav from './Nav'
 
@@ -20,6 +20,6 @@ export class Page extends PageClass {
         </Root>
       </Suspense>
     )
-    return new Blob(['<!DOCTYPE html>', await render(html)])
+    return await render(html)
   }
 }

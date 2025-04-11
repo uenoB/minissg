@@ -945,6 +945,9 @@ const modules = Object.entries(pages).map(([filename, load]) => {
 export const main = () => modules;
 ```
 
+The `?renderer` query can be combined with `?doctype` to obtain a renderer
+that inserts `<!DOCTYPE html>` at the beginning of the result.
+
 ### User-defined Renderers and Hydration
 
 A renderer is actually an object representing a collection of

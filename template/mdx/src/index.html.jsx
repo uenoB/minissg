@@ -1,4 +1,4 @@
-import render from './Root.mdx?renderer'
+import render from './Root.mdx?renderer&doctype'
 import Root from './Root.mdx'
 
 const pages = import.meta.glob(['./[a-z0-9]*.{md,mdx}'])
@@ -28,7 +28,7 @@ export const main = ({ moduleName }) =>
           <md.default components={{ a: a(moduleName) }} />
         </Root>
       )
-      return { default: new Blob(['<!DOCTYPE html>', await render(root)]) }
+      return { default: await render(root) }
     }
     return [paths.get(path), { main }]
   })
