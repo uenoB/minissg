@@ -12,7 +12,7 @@
     "preact": "^10.26.5",
     "preact-render-to-string": "^6.5.13",
     "preact-ssr-prepass": "^1.2.2",
-    "vite": "^6.2.5",
+    "vite": "^6.2.6",
     "vite-plugin-minissg": "^5.0.0-next.1"
   }
 }
