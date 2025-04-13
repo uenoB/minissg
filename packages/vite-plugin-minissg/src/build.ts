@@ -117,7 +117,7 @@ export const buildPlugin = (
       config.environments['client'] ??= {} // client starts after ssr
       config.environments['client'].build ??= {}
       config.environments['client'].build.emptyOutDir ??= pluginOptions.clean
-      const env = { build: { rollupOptions: { input: Root } } }
+      const env = { build: { rollupOptions: { input: [Root] } } }
       return { environments: { ssr: env, client: env } }
     },
 
