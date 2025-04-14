@@ -1,6 +1,6 @@
 {
   "name": "@minissg/render-svelte",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Preact plugin for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/render-svelte#readme",
   "repository": {
