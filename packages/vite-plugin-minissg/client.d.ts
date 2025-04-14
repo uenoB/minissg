@@ -4,6 +4,11 @@ declare module '*?renderer' {
   export default render
 }
 
+declare module '*?renderer&doctype' {
+  const render: (component: any) => Promise<Blob>
+  export default render
+}
+
 declare module '*?render' {
   const content: PromiseLike<import('./dist/index').Content>
   export default content
