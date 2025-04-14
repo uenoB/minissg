@@ -9,7 +9,7 @@
   "dependencies": {
     "@minissg/render-preact": "^3.0.2",
     "@minissg/render-react": "^3.0.2",
-    "@minissg/render-solid": "^4.0.1",
+    "@minissg/render-solid": "^4.0.2",
     "@minissg/render-svelte": "^4.0.0",
     "@minissg/render-vue": "^3.0.1",
     "@preact/preset-vite": "^2.10.1",
