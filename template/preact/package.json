@@ -7,7 +7,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "@minissg/render-preact": "^3.0.1",
+    "@minissg/render-preact": "^3.0.2",
     "@preact/preset-vite": "^2.10.1",
     "preact": "^10.26.5",
     "preact-render-to-string": "^6.5.13",
