@@ -20,6 +20,6 @@
     "remark-frontmatter": "^5.0.0",
     "remark-mdx-frontmatter": "^5.1.0",
     "vite": "^6.2.6",
-    "vite-plugin-minissg": "^5.0.0"
+    "vite-plugin-minissg": "^5.0.1"
   }
 }

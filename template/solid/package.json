@@ -10,7 +10,7 @@
     "@minissg/render-solid": "^4.0.2",
     "solid-js": "^1.9.5",
     "vite": "^6.2.6",
-    "vite-plugin-minissg": "^5.0.0",
+    "vite-plugin-minissg": "^5.0.1",
     "vite-plugin-solid": "^2.11.6"
   }
 }
