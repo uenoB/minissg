@@ -15,7 +15,7 @@ declare module '*?render' {
 }
 
 declare module '*?doctype' {
-  const content: PromiseLike<import('./dist/index').Content>
+  const content: PromiseLike<Blob>
   export default content
 }
 
@@ -35,11 +35,11 @@ declare module '*?hydrate&render' {
 }
 
 declare module '*?render&doctype' {
-  const content: PromiseLike<import('./dist/index').Content>
+  const content: PromiseLike<Blob>
   export default content
 }
 
 declare module '*?hydrate&render&doctype' {
-  const content: PromiseLike<import('./dist/index').Content>
+  const content: PromiseLike<Blob>
   export default content
 }
