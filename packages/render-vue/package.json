@@ -39,7 +39,7 @@
     "vue"
   ],
   "peerDependencies": {
-    "vite-plugin-minissg": "^1 || ^3 || ^4",
+    "vite-plugin-minissg": "^1 || ^3 || ^4 || ^5",
     "vue": "^3"
   }
 }
