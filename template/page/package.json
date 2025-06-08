@@ -14,12 +14,12 @@
     "@minissg/page": "^2.0.0",
     "@minissg/render-preact": "^3.0.2",
     "@preact/preset-vite": "^2.10.1",
-    "preact": "^10.26.5",
+    "preact": "^10.26.8",
     "preact-render-to-string": "^6.5.13",
     "preact-ssr-prepass": "^1.2.2",
     "remark-frontmatter": "^5.0.0",
-    "remark-mdx-frontmatter": "^5.1.0",
-    "vite": "^6.2.6",
+    "remark-mdx-frontmatter": "^5.2.0",
+    "vite": "^6.3.5",
     "vite-plugin-minissg": "^5.0.1"
   }
 }
