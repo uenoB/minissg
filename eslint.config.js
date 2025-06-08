@@ -8,7 +8,6 @@ import eslintVue from 'eslint-plugin-vue'
 import eslintNode from 'eslint-plugin-n'
 import eslintPromise from 'eslint-plugin-promise'
 import eslintImport from 'eslint-plugin-import'
-import { fixupPluginRules } from '@eslint/compat'
 
 export default [
   { ignores: ['**/dist/**/*', 'packages/vite-plugin-minissg/client.d.ts'] },
@@ -16,7 +15,12 @@ export default [
   eslintJs.configs.recommended,
   eslintNode.configs['flat/recommended-module'],
   eslintPromise.configs['flat/recommended'],
-  { plugins: { import: fixupPluginRules(eslintImport) } },
+  eslintImport.flatConfigs.recommended,
+  {
+    rules: {
+      'import/no-unresolved': 'off'
+    }
+  },
   {
     // derived from StandardJS
     rules: {
@@ -99,6 +103,15 @@ export default [
     ...config,
     files: ['**/*.ts']
   })),
+  {
+    files: ['**/*.js'],
+    languageOptions: {
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module'
+      }
+    }
+  },
   {
     files: ['**/*.ts'],
     languageOptions: {
