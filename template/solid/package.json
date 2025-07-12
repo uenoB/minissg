@@ -9,8 +9,8 @@
   "dependencies": {
     "@minissg/render-solid": "^4.0.2",
     "solid-js": "^1.9.7",
-    "vite": "^6.3.5",
+    "vite": "^7.0.4",
     "vite-plugin-minissg": "^5.0.1",
-    "vite-plugin-solid": "^2.11.6"
+    "vite-plugin-solid": "^2.11.7"
   }
 }
