@@ -19,6 +19,10 @@ export default [
   {
     rules: {
       'import/no-unresolved': 'off'
+    },
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
     }
   },
   {
@@ -103,15 +107,6 @@ export default [
     ...config,
     files: ['**/*.ts']
   })),
-  {
-    files: ['**/*.js'],
-    languageOptions: {
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module'
-      }
-    }
-  },
   {
     files: ['**/*.ts'],
     languageOptions: {
