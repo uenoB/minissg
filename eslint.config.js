@@ -17,12 +17,12 @@ export default [
   eslintPromise.configs['flat/recommended'],
   eslintImport.flatConfigs.recommended,
   {
-    rules: {
-      'import/no-unresolved': 'off'
-    },
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module'
+    },
+    settings: {
+      'import/resolver': 'typescript'
     }
   },
   {
