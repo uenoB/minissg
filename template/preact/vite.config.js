@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import preact from '@preact/preset-vite'
+import { preact } from '@preact/preset-vite'
 import minissg from 'vite-plugin-minissg'
 import minissgPreact from '@minissg/render-preact'
 

@@ -1,4 +1,4 @@
-import render from './Root.mdx?renderer&doctype'
+import render from './index.html.jsx?renderer&doctype'
 import Root from './Root.mdx'
 
 const pages = import.meta.glob(['./[a-z0-9]*.{md,mdx}'])

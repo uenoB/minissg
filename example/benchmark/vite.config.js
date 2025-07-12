@@ -4,7 +4,7 @@ import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkGfm from 'remark-gfm'
 import remarkSmartypants from 'remark-smartypants'
-import preact from '@preact/preset-vite'
+import { preact } from '@preact/preset-vite'
 import minissg from 'vite-plugin-minissg'
 import minissgPreact from '@minissg/render-preact'
 

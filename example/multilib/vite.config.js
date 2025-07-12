@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import preact from '@preact/preset-vite'
+import { preact } from '@preact/preset-vite'
 import react from '@vitejs/plugin-react'
 import solid from 'vite-plugin-solid'
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte'

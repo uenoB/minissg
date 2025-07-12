@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
+import { Suspense } from 'preact/compat'
 import PageClass from '@minissg/page'
-import render from './Root?renderer&doctype'
+import render from './page.jsx?renderer&doctype'
 import Root from './Root'
 import Nav from './Nav'
 
