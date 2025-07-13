@@ -9,7 +9,7 @@ import { type Page, run } from './run'
 import { injectHtmlHead } from './html'
 import type { LibModule, ServerPage, ServerResult } from './loader'
 import { Root, Root0, Lib, Head, clientNodeInfo } from './loader'
-import { addSet, mapReduce, traverseGraph, touch } from './util'
+import { addSet, mapReduce, traverseGraph } from './util'
 
 const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
 
@@ -175,9 +175,9 @@ export const buildPlugin = (
             const pages = new Map(await emitPages(ssr.staticImports, files))
             server.result = { pages, data: lib.data, erasure }
           } catch (e) {
-            if (e instanceof Error) throw touch(e)
+            if (e instanceof Error) throw e
             const msg = format('uncaught thrown value: %o', e)
-            throw touch(Error(msg, { cause: e }))
+            throw Error(msg, { cause: e })
           }
         }
       }

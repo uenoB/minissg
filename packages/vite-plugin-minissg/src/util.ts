@@ -99,27 +99,6 @@ export const traverseGraph = async <Node, Value>(graph: {
   return new Map(Array.from(items, ([k, v]) => [k, v.result]))
 }
 
-/* eslint-disable-next-line @typescript-eslint/unbound-method */
-const defaultPrepareStackTrace = /* @__PURE__ */ Error.prepareStackTrace
-
-export const touch = <X>(error: X): X => {
-  if (!(error instanceof Error)) return error
-  // @babel/core sets Error.prepareStackTrace and therefore Node's
-  // built-in sourcemap support is disabled if babel is used in the
-  // middle of code transformation. The following code temporally
-  // disables such a custom Error.prepareStackTrace.
-  /* eslint-disable-next-line @typescript-eslint/unbound-method */
-  const prepareStackTrace = Error.prepareStackTrace
-  if (prepareStackTrace === defaultPrepareStackTrace) return error
-  Error.prepareStackTrace = defaultPrepareStackTrace
-  try {
-    Object.getOwnPropertyDescriptor(error, 'stack')
-  } finally {
-    Error.prepareStackTrace = prepareStackTrace
-  }
-  return error
-}
-
 export const freshId = (code: string): string => {
   let id
   do {

@@ -6,7 +6,7 @@ import { Site } from './site'
 import { type Module, ModuleName } from './module'
 import { run } from './run'
 import { script, injectHtmlHead } from './html'
-import { isNotNull, traverseGraph, addSet, touch } from './util'
+import { isNotNull, traverseGraph, addSet } from './util'
 import { clientNodeInfo, Lib, Root } from './loader'
 
 interface Req {
@@ -85,7 +85,7 @@ export const serverPlugin = (): Plugin => ({
         site.debug.server?.('response %d %s', content.code ?? 404, content.type)
       }
       const error = (e: unknown): void => {
-        if (e instanceof Error) server.ssrFixStacktrace(touch(e))
+        if (e instanceof Error) server.ssrFixStacktrace(e)
         next(e)
       }
       if (req.method == null || req.url == null) {
