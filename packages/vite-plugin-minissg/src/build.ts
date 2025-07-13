@@ -9,7 +9,7 @@ import { type Page, run } from './run'
 import { injectHtmlHead } from './html'
 import type { LibModule, ServerPage, ServerResult } from './loader'
 import { Root, Root0, Lib, Head, clientNodeInfo } from './loader'
-import * as util from './util'
+import { addSet, mapReduce, traverseGraph, touch } from './util'
 
 const fileURL = (...a: string[]): string => pathToFileURL(resolve(...a)).href
 
@@ -21,7 +21,7 @@ const emitPages = async (
     Array.from(files, async ([outputName, page]) => {
       const { loaded, body } = await page
       const head = new Set<string>()
-      for (const id of loaded) util.addSet(head, staticImports.get(id))
+      for (const id of loaded) addSet(head, staticImports.get(id))
       return [outputName, { head: Array.from(head), body }] as const
     })
   )
@@ -32,7 +32,7 @@ const emitFiles = async (
   bundle: Rollup.OutputBundle,
   pages: ReadonlyMap<string, Pick<ServerPage, 'body'>>
 ): Promise<null> =>
-  await util.mapReduce({
+  await mapReduce({
     sources: pages,
     destination: null,
     map: async ([outputName, { body }]) => {
@@ -58,7 +58,7 @@ const generateErasure = async (
   this_: Rollup.PluginContext,
   site: Site
 ): Promise<Map<string, string[]>> => {
-  const assetGenerators = await util.traverseGraph({
+  const assetGenerators = await traverseGraph({
     nodes: [Root0],
     nodeInfo: id => {
       if (site.isAsset(id)) return { values: [id] }
@@ -125,7 +125,7 @@ export const buildPlugin = (
       if (id !== Root0) return
       const site = new Site(this.environment)
       // load all server-side codes before loading any client-side code
-      const staticImports = await util.traverseGraph({
+      const staticImports = await traverseGraph({
         nodes: [id],
         nodeInfo: async id => {
           if (this.getModuleInfo(id)?.isExternal === true) return {}
@@ -175,9 +175,9 @@ export const buildPlugin = (
             const pages = new Map(await emitPages(ssr.staticImports, files))
             server.result = { pages, data: lib.data, erasure }
           } catch (e) {
-            if (e instanceof Error) throw util.touch(e)
+            if (e instanceof Error) throw touch(e)
             const msg = format('uncaught thrown value: %o', e)
-            throw util.touch(Error(msg, { cause: e }))
+            throw touch(Error(msg, { cause: e }))
           }
         }
       }
