@@ -7,7 +7,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "@minissg/render-svelte": "^4.0.1",
+    "@minissg/render-svelte": "^4.0.2",
     "@sveltejs/vite-plugin-svelte": "^6.0.0",
     "svelte": "^5.35.6",
     "vite": "^7.0.4",
