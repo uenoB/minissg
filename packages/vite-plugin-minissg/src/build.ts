@@ -110,13 +110,16 @@ export const buildPlugin = (
     config(config) {
       config.builder ??= {} // enable build for all environments
       config.environments ??= {}
-      config.environments['ssr'] ??= {} // build ssr at first
+      config.environments['ssr'] ??= {}
       config.environments['ssr'].build ??= {}
       config.environments['ssr'].build.target ??= 'esnext'
       config.environments['ssr'].build.copyPublicDir ??= false
-      config.environments['client'] ??= {} // client starts after ssr
+      config.environments['client'] ??= {}
       config.environments['client'].build ??= {}
       config.environments['client'].build.emptyOutDir ??= pluginOptions.clean
+      const client = config.environments['client'] // put client at last
+      delete config.environments['client']
+      config.environments['client'] = client
       const env = { build: { rollupOptions: { input: [Root] } } }
       return { environments: { ssr: env, client: env } }
     },

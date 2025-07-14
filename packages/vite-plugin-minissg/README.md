@@ -856,10 +856,11 @@ export default defineConfig({
 })
 ```
 
-The order of environemnt settings in the `environemnt` config is significant.
-Minissg requires that `ssr` environment must precede to `client` environment;
-therefore, `ssr` must appear at first and then `client` appears in
-`environment`.
+The build order of environments is significant in Minissg:
+`ssr` must precede to `client`.
+By default, Minissg adjusts the order automatically.
+If you configure how the environments are built by using something like
+the `buildApp` configuration, you must keep the order at your own risk.
 
 ### Generating Data for Client-side Code
 
