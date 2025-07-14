@@ -1,6 +1,6 @@
 {
   "name": "@minissg/render-preact",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Preact plugin for Minissg",
   "homepage": "https://github.com/uenoB/minissg/tree/main/packages/render-preact#readme",
   "repository": {

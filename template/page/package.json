@@ -12,7 +12,7 @@
   "dependencies": {
     "@mdx-js/rollup": "^3.1.0",
     "@minissg/page": "^2.0.1",
-    "@minissg/render-preact": "^3.0.2",
+    "@minissg/render-preact": "^3.0.3",
     "@preact/preset-vite": "^2.10.2",
     "preact": "^10.26.9",
     "preact-render-to-string": "^6.5.13",
