@@ -32,7 +32,7 @@ export class ModuleName {
   }
 }
 
-export type Content = string | ArrayBuffer | ArrayBufferView | Blob | Null
+export type Content = BlobPart | Null
 
 interface Request {
   requestName: ModuleName
