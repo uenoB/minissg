@@ -101,8 +101,9 @@ export abstract class PageBase<Base, This extends Base = Base, Load = unknown> {
     const mod: unknown = module
     if (mod == null) return mod
     if (typeof mod === 'string') return mod
-    if (mod instanceof Uint8Array) return mod
     if (typeof mod !== 'object') return `[${typeof mod}]`
+    if (mod instanceof ArrayBuffer) return mod
+    if ('buffer' in mod && mod.buffer instanceof ArrayBuffer) return mod.buffer
     if ('default' in mod) return mod.default as minissg.Content
     // eslint-disable-next-line @typescript-eslint/unbound-method
     return Reflect.apply(Object.prototype.toString, mod, [])
