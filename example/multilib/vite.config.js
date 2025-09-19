@@ -57,8 +57,7 @@ export default defineConfig({
         }),
         svelte({
           configFile: false,
-          preprocess: vitePreprocess(),
-          compilerOptions: { hydratable: true }
+          preprocess: vitePreprocess()
         }),
         vue()
       ]
