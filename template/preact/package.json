@@ -13,6 +13,6 @@
     "preact-render-to-string": "^6.6.1",
     "preact-ssr-prepass": "^1.2.2",
     "vite": "^7.1.6",
-    "vite-plugin-minissg": "^5.1.0"
+    "vite-plugin-minissg": "^5.1.1"
   }
 }

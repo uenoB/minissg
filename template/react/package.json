@@ -12,6 +12,6 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "vite": "^7.1.6",
-    "vite-plugin-minissg": "^5.1.0"
+    "vite-plugin-minissg": "^5.1.1"
   }
 }

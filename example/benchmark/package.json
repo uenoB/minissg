@@ -19,6 +19,6 @@
     "remark-smartypants": "^3.0.2",
     "tiged": "^2.12.7",
     "vite": "^7.1.6",
-    "vite-plugin-minissg": "^5.1.0"
+    "vite-plugin-minissg": "^5.1.1"
   }
 }
