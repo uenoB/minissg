@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@minissg/render-svelte": "^4.0.2",
-    "@sveltejs/vite-plugin-svelte": "^6.0.0",
-    "svelte": "^5.35.6",
-    "vite": "^7.0.4",
+    "@sveltejs/vite-plugin-svelte": "^6.2.0",
+    "svelte": "^5.39.2",
+    "vite": "^7.1.6",
     "vite-plugin-minissg": "^5.1.0"
   }
 }

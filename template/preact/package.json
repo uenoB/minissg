@@ -9,10 +9,10 @@
   "dependencies": {
     "@minissg/render-preact": "^3.0.3",
     "@preact/preset-vite": "^2.10.2",
-    "preact": "^10.26.9",
-    "preact-render-to-string": "^6.5.13",
+    "preact": "^10.27.2",
+    "preact-render-to-string": "^6.6.1",
     "preact-ssr-prepass": "^1.2.2",
-    "vite": "^7.0.4",
+    "vite": "^7.1.6",
     "vite-plugin-minissg": "^5.1.0"
   }
 }
